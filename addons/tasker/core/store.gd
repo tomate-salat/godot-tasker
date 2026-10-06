@@ -1,0 +1,140 @@
+@tool
+extends Node
+## Der Datenbestand: der Stand vom Server, der Index darüber und alles, was
+## ihn ändert. Dock, Suche und Tisch hängen an `changed`.
+##
+## `bootstrap` liefert alle Projekte. Der Index umfasst deshalb alles –
+## Abhängigkeiten dürfen über Projekte hinweg zeigen –, und wer fragt, nennt
+## das Projekt (`project_id`).
+
+signal changed
+## `state` hat gewechselt: "empty", "loading", "ready" oder "error".
+signal state_changed
+
+const Client := preload("client.gd")
+const Workspace := preload("../rules/workspace.gd")
+
+const LISTS := {
+	"project": "projects",
+	"category": "categories",
+	"mark": "marks",
+	"group": "groups",
+	"milestone": "milestones",
+	"task": "tasks",
+}
+
+## Tasker rechnet ohne Einstellung mit acht Aufgaben pro Woche.
+const DEFAULT_VELOCITY := 8
+
+var client: Client
+var project_id := ""
+
+var state := "empty"
+var error := ""
+var data := {}
+var ws: Workspace = Workspace.new({})
+## Aufgaben pro Woche – das Wochenziel am Tisch.
+var velocity := DEFAULT_VELOCITY
+
+var _loading := false
+
+
+## Holt den ganzen Stand neu. Falsch, wenn der Server nicht mitspielt – der
+## Grund steht dann in `error`.
+func reload() -> bool:
+	if _loading:
+		await state_changed
+		return state == "ready"
+	_loading = true
+	_set_state("loading" if state != "ready" else state)
+
+	var res := await client.get_json("/api/bootstrap")
+	_loading = false
+	if not res["ok"] or not res["data"] is Dictionary:
+		error = res["error"] if res["error"] != "" else "Der Server hat nichts Lesbares geschickt."
+		_set_state("error")
+		return false
+
+	data = res["data"]
+	error = ""
+	_rebuild()
+	_set_state("ready")
+	_load_velocity()
+	return true
+
+
+## Ändert ein Objekt. Antwort: `{ ok, conflict, error, object }`.
+##
+## Jede Änderung nennt die Version, auf der sie beruht. Hat inzwischen jemand
+## anderes geändert, kommt 409 mit dem aktuellen Stand – der wird übernommen,
+## und `conflict` sagt, dass die eigene Änderung nicht gegriffen hat.
+func patch(kind: String, id: String, changes: Dictionary) -> Dictionary:
+	var current = _find(kind, id)
+	if current == null:
+		return {"ok": false, "conflict": false, "error": "Nicht gefunden.", "object": null}
+
+	var res := await client.patch("/api/kind/%s/%s" % [kind, id.uri_encode()], {
+		"version": int(current["version"]),
+		"changes": changes,
+	})
+	if res["status"] == 409 and res["data"] is Dictionary and res["data"].get("current") is Dictionary:
+		_upsert(kind, res["data"]["current"])
+		return {"ok": false, "conflict": true, "error": "Inzwischen woanders geändert – der neue Stand ist geladen.", "object": res["data"]["current"]}
+	if not res["ok"] or not res["data"] is Dictionary:
+		return {"ok": false, "conflict": false, "error": res["error"], "object": null}
+
+	var object: Dictionary = res["data"]
+	# Der Status einer Unteraufgabe kann den der Eltern-Aufgaben mitziehen –
+	# Tasker meldet das seinen anderen Tabs auch nur als „neu laden“.
+	if kind == "task" and changes.has("status") and object.get("parentId"):
+		_upsert(kind, object)
+		await reload()
+	else:
+		_upsert(kind, object)
+	return {"ok": true, "conflict": false, "error": "", "object": object}
+
+
+func set_status(task: Dictionary, status: String) -> Dictionary:
+	return await patch("task", task["id"], {"status": status})
+
+
+func _find(kind: String, id: String) -> Variant:
+	for x in data.get(LISTS.get(kind, ""), []):
+		if x["id"] == id:
+			return x
+	return null
+
+
+func _upsert(kind: String, object: Dictionary) -> void:
+	if not LISTS.has(kind):
+		return
+	var list: Array = data.get_or_add(LISTS[kind], [])
+	var at := -1
+	for i in list.size():
+		if list[i]["id"] == object["id"]:
+			at = i
+			break
+	if at < 0:
+		list.append(object)
+	else:
+		list[at] = object
+	_rebuild()
+
+
+func _rebuild() -> void:
+	ws = Workspace.new(data)
+	changed.emit()
+
+
+func _load_velocity() -> void:
+	var res := await client.get_json("/api/settings")
+	if res["ok"] and res["data"] is Dictionary and res["data"].get("velocity") != null:
+		var v := int(res["data"]["velocity"])
+		if v != velocity:
+			velocity = v
+			changed.emit()
+
+
+func _set_state(next: String) -> void:
+	state = next
+	state_changed.emit()

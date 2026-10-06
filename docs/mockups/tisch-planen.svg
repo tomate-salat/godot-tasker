@@ -1,0 +1,106 @@
+<svg viewBox="0 0 680 470" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: Planen</title>
+<desc>Herausgezoomter Tisch: oben vier Spielmatten für Milestones in Plan-Reihenfolge, unten die Decks Ready und Backlog. Das Backlog ist aufgefächert, eine Karte wird auf die Matte des nächsten Milestones gezogen. Ein Faden zeigt eine Abhängigkeit zwischen zwei Karten. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.c-gray rect{fill:#F1EFE8;stroke:#5F5E5A}.c-gray text{fill:#444441}
+.c-blue rect{fill:#E6F1FB;stroke:#185FA5}.c-blue text{fill:#0C447C}
+.c-purple rect{fill:#EEEDFE;stroke:#534AB7}.c-purple text{fill:#3C3489}
+</style>
+<defs>
+<marker id="arr-coral" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#D85A30" stroke-width="1.5"/></marker>
+<marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#7F77DD" stroke-width="1.5"/></marker>
+</defs>
+<rect width="680" height="470" fill="#FFFFFF"/>
+
+<rect x="20" y="10" width="70" height="26" rx="6" fill="none" stroke="#B4B2A9" stroke-width="0.5"/>
+<text class="ts" x="55" y="27" text-anchor="middle">Spielen</text>
+<rect x="94" y="10" width="70" height="26" rx="6" fill="#FAF9F5" stroke="#888780" stroke-width="1"/>
+<text class="th" x="129" y="28" text-anchor="middle">Planen</text>
+<text class="ts" x="660" y="27" text-anchor="end">Tempo 6 Karten pro Woche</text>
+
+<rect x="8" y="48" width="664" height="414" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+
+<g class="c-gray">
+<rect x="22" y="62" width="150" height="176" rx="8" stroke-width="0.5"/>
+<text class="th" x="34" y="84">Prototyp</text>
+<text class="ts" x="34" y="102">abgeschlossen 12/12</text>
+</g>
+<g class="c-gray">
+<rect x="60" y="126" width="46" height="62" rx="5" stroke-width="0.5" transform="rotate(-6 83 157)"/>
+<rect x="72" y="126" width="46" height="62" rx="5" stroke-width="0.5" transform="rotate(4 95 157)"/>
+</g>
+
+<g class="c-blue">
+<rect x="182" y="62" width="150" height="176" rx="8" stroke-width="1.5"/>
+<text class="th" x="194" y="84">Vertical slice</text>
+<text class="ts" x="194" y="102">aktiv 23/41</text>
+</g>
+<rect x="194" y="110" width="126" height="6" rx="3" fill="#B4B2A9"/>
+<rect x="194" y="110" width="70" height="6" rx="3" fill="#378ADD"/>
+<g fill="#FFFFFF" stroke="#B4B2A9" stroke-width="0.5">
+<rect x="194" y="128" width="24" height="32" rx="3"/><rect x="222" y="128" width="24" height="32" rx="3"/><rect x="250" y="128" width="24" height="32" rx="3"/><rect x="278" y="128" width="24" height="32" rx="3"/>
+<rect x="194" y="164" width="24" height="32" rx="3"/><rect x="222" y="164" width="24" height="32" rx="3"/><rect x="250" y="164" width="24" height="32" rx="3"/>
+</g>
+<text class="ts" x="194" y="226">noch 6 Tage</text>
+
+<g class="c-gray">
+<rect x="342" y="62" width="150" height="176" rx="8" stroke-width="0.5"/>
+<text class="th" x="354" y="84">Alpha</text>
+<text class="ts" x="354" y="102">geplant 0/18</text>
+</g>
+<g fill="#FFFFFF" stroke="#B4B2A9" stroke-width="0.5">
+<rect x="354" y="128" width="24" height="32" rx="3"/><rect x="382" y="128" width="24" height="32" rx="3"/><rect x="410" y="128" width="24" height="32" rx="3"/>
+</g>
+<text class="ts" x="354" y="226">Prognose 14.12.</text>
+
+<rect x="502" y="62" width="150" height="176" rx="8" fill="none" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="5 4"/>
+<text class="ts" x="577" y="146" text-anchor="middle">Neuer Milestone</text>
+<text class="ts" x="577" y="164" text-anchor="middle">Karte hier ablegen</text>
+
+<path d="M262 196 C 290 222, 350 214, 366 162" fill="none" stroke="#D85A30" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arr-coral)"/>
+<text class="ts" x="270" y="252">Faden: wartet auf</text>
+
+<text class="ts" x="24" y="286">Ready 9</text>
+<g class="c-gray">
+<rect x="30" y="302" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="27" y="299" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="24" y="296" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="th" x="51" y="340" text-anchor="middle">9</text>
+</g>
+
+<text class="ts" x="104" y="286">Backlog 34</text>
+<g class="c-gray">
+<rect x="110" y="302" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="107" y="299" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="104" y="296" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="th" x="131" y="340" text-anchor="middle">34</text>
+</g>
+<text class="ts" x="24" y="400">Klick fächert auf</text>
+
+<text class="ts" x="200" y="286">Backlog aufgefächert: Gruppe Ideen</text>
+<g class="c-gray">
+<rect x="200" y="296" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="ts" x="227" y="330" text-anchor="middle">Koop</text>
+<rect x="260" y="296" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="ts" x="287" y="330" text-anchor="middle">Shop</text>
+<rect x="320" y="296" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="ts" x="347" y="330" text-anchor="middle">Wetter</text>
+<rect x="500" y="296" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="ts" x="527" y="330" text-anchor="middle">Mods</text>
+<rect x="560" y="296" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="ts" x="587" y="330" text-anchor="middle">Replay</text>
+</g>
+<rect x="380" y="296" width="54" height="76" rx="6" fill="none" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="4 4"/>
+<g class="c-purple" transform="rotate(-8 447 300)">
+<rect x="420" y="262" width="58" height="82" rx="6" stroke-width="1.5"/>
+<text class="th" x="449" y="298" text-anchor="middle">Tutorial</text>
+<text class="ts" x="449" y="316" text-anchor="middle">gezogen</text>
+</g>
+<path d="M440 258 C 436 236, 432 222, 428 204" fill="none" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arr-purple)"/>
+<text class="ts" x="200" y="400">Ziehen auf eine Matte plant die Karte in den Milestone ein</text>
+<text class="ts" x="200" y="420">Ziehen zwischen zwei Karten ändert die Reihenfolge</text>
+<text class="ts" x="200" y="440">Matten lassen sich untereinander umsortieren</text>
+</svg>

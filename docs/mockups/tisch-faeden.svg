@@ -1,0 +1,92 @@
+<svg viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: Abhängigkeiten als Fäden</title>
+<desc>Der Tisch mit eingeblendeten Fäden. Eine gespielte Karte ist durch einen Faden mit einer gesperrten Karte verbunden, die auf sie wartet. Eine zweite gesperrte Karte hängt an einer Karte im Nachziehstapel. In der Hand wird gerade ein neuer Faden zwischen zwei Karten gezogen. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.c-gray rect{fill:#F1EFE8;stroke:#5F5E5A}.c-gray text{fill:#444441}
+.c-blue rect{fill:#E6F1FB;stroke:#185FA5}.c-blue text{fill:#0C447C}
+</style>
+<defs>
+<marker id="pf-coral" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#D85A30" stroke-width="1.5"/></marker>
+<marker id="pf-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#7F77DD" stroke-width="1.5"/></marker>
+</defs>
+<rect width="680" height="420" fill="#FFFFFF"/>
+
+<rect x="20" y="8" width="84" height="26" rx="6" fill="#FAF9F5" stroke="#888780" stroke-width="1"/>
+<text class="th" x="62" y="26" text-anchor="middle">Fäden an</text>
+<text class="ts" x="660" y="26" text-anchor="end">Vertical slice 23/41</text>
+
+<rect x="8" y="44" width="664" height="220" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+
+<text class="ts" x="24" y="64">Gesperrt 2</text>
+<g class="c-gray">
+<rect x="30" y="74" width="54" height="72" rx="6" stroke-width="0.5"/>
+<text class="ts" x="57" y="104" text-anchor="middle">Wand</text>
+<text class="ts" x="57" y="120" text-anchor="middle">sprung</text>
+<rect x="30" y="160" width="54" height="72" rx="6" stroke-width="0.5"/>
+<text class="ts" x="57" y="190" text-anchor="middle">High</text>
+<text class="ts" x="57" y="206" text-anchor="middle">score</text>
+</g>
+
+<text class="ts" x="130" y="156">Nachziehstapel</text>
+<g class="c-gray">
+<rect x="142" y="172" width="50" height="66" rx="6" stroke-width="0.5"/>
+<rect x="139" y="169" width="50" height="66" rx="6" stroke-width="0.5"/>
+<rect x="136" y="166" width="50" height="66" rx="6" stroke-width="0.5"/>
+<text class="th" x="161" y="204" text-anchor="middle">12</text>
+</g>
+
+<text class="ts" x="250" y="64">Im Spiel 2</text>
+<g class="c-blue">
+<rect x="250" y="74" width="58" height="80" rx="6" stroke-width="1.5"/>
+<text class="th" x="279" y="104" text-anchor="middle">Sprung</text>
+<text class="ts" x="279" y="122" text-anchor="middle">Physik</text>
+<text class="ts" x="279" y="144" text-anchor="middle">Zeiger</text>
+<rect x="320" y="78" width="54" height="72" rx="6" stroke-width="0.5"/>
+<text class="ts" x="347" y="108" text-anchor="middle">HUD</text>
+<text class="ts" x="347" y="124" text-anchor="middle">Leben</text>
+</g>
+<g fill="none" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="4 4">
+<rect x="386" y="78" width="54" height="72" rx="6"/>
+<rect x="452" y="78" width="54" height="72" rx="6"/>
+</g>
+
+<text class="ts" x="584" y="64">Erledigt</text>
+<g class="c-gray">
+<rect x="588" y="78" width="54" height="72" rx="6" stroke-width="0.5" transform="rotate(-6 615 114)"/>
+<rect x="588" y="78" width="54" height="72" rx="6" stroke-width="0.5" transform="rotate(3 615 114)"/>
+<text class="ts" x="615" y="118" text-anchor="middle">Menü</text>
+</g>
+
+<path d="M250 114 C 200 150, 140 70, 90 108" fill="none" stroke="#D85A30" stroke-width="2" marker-end="url(#pf-coral)"/>
+<circle cx="250" cy="114" r="3.5" fill="#D85A30"/>
+<text class="ts" x="118" y="82">schaltet frei</text>
+
+<path d="M136 200 L 90 198" fill="none" stroke="#D85A30" stroke-width="1" marker-end="url(#pf-coral)"/>
+<circle cx="136" cy="200" r="3" fill="#D85A30"/>
+<text class="ts" x="24" y="252">Voraussetzung liegt noch im Stapel</text>
+
+<text class="ts" x="24" y="290">Hand</text>
+<g class="c-gray">
+<rect x="150" y="300" width="58" height="80" rx="6" stroke-width="0.5"/>
+<text class="ts" x="179" y="336" text-anchor="middle">Tutorial</text>
+<rect x="220" y="300" width="58" height="80" rx="6" stroke-width="0.5"/>
+<text class="ts" x="249" y="336" text-anchor="middle">Sound</text>
+<rect x="290" y="300" width="58" height="80" rx="6" stroke-width="0.5"/>
+<text class="ts" x="319" y="336" text-anchor="middle">Kamera</text>
+<rect x="360" y="300" width="58" height="80" rx="6" stroke-width="0.5"/>
+<text class="ts" x="389" y="336" text-anchor="middle">Partikel</text>
+</g>
+<path d="M179 300 C 200 262, 300 262, 319 296" fill="none" stroke="#7F77DD" stroke-width="2" stroke-dasharray="5 4" marker-start="url(#pf-purple)"/>
+<circle cx="319" cy="298" r="3.5" fill="#7F77DD"/>
+<text class="ts" x="150" y="402">Faden ziehen: Tutorial wartet dann auf Kamera</text>
+
+<line x1="450" y1="312" x2="480" y2="312" stroke="#D85A30" stroke-width="2"/>
+<text class="ts" x="490" y="316">wartet auf (Pfeil zeigt</text>
+<text class="ts" x="490" y="332">auf die wartende Karte)</text>
+<line x1="450" y1="352" x2="480" y2="352" stroke="#7F77DD" stroke-width="2" stroke-dasharray="5 4"/>
+<text class="ts" x="490" y="356">wird gerade gezogen</text>
+<text class="ts" x="450" y="386">Klick auf einen Faden trennt ihn</text>
+</svg>
