@@ -95,3 +95,36 @@ static func _system_font(names: Array, weight: int) -> Font:
 	emoji.font_names = PackedStringArray(["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"])
 	font.fallbacks = [emoji]
 	return font
+
+
+static var _status_icons := {}
+
+const STATUS_LABELS := {
+	"open": "Offen",
+	"progress": "In Progress",
+	"done": "Erledigt",
+	"unclear": "Unklar",
+	"blocked": "Blockiert",
+}
+const PRIO_LABELS := ["Keine", "Hoch", "Mittel", "Niedrig"]
+
+
+## Der Statuspunkt als kleines Bild, für Listen und Menüs.
+static func status_icon(status: Variant) -> Texture2D:
+	if _status_icons.has(status):
+		return _status_icons[status]
+	var size := 14
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var color := status_color(status)
+	var center := Vector2(size, size) / 2.0
+	for y in size:
+		for x in size:
+			var d := Vector2(x + 0.5, y + 0.5).distance_to(center)
+			var alpha := clampf(5.5 - d, 0.0, 1.0)
+			# „Offen“ ist nur ein Ring.
+			if status == "open":
+				alpha *= clampf(d - 3.2, 0.0, 1.0)
+			image.set_pixel(x, y, Color(color, alpha))
+	var texture := ImageTexture.create_from_image(image)
+	_status_icons[status] = texture
+	return texture

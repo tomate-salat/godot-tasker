@@ -42,6 +42,7 @@ Per Token freigegeben (laut Tasker-Sitzung gepusht mit Commit `dc5877d` und depl
 | `/api/move` | alle | Verschieben und Umsortieren |
 | `/api/bilder/<id>` | nur GET | Titelbilder, `?v=klein` für die Vorschau |
 | `/api/settings` | nur GET | liefert per Token nur `{ "velocity": n }` (Wochenziel) |
+| `/api/zeichnungsbild` | nur GET | eine Zeichnung als PNG, beim Abruf gerendert (`taskId` oder `milestoneId`, `name`, optional `kante`, `thema=dunkel`). Lokal in Tasker gebaut, Stand 2026-10-06 noch nicht deployt |
 
 Alles andere antwortet mit Token 401, darunter `/api/me`, `/api/steps`, `/api/bulk`, Papierkorb, Archiv-Suche und die Galerie.
 
@@ -155,10 +156,16 @@ Tests laufen mit `godot --headless --path . -s tests/run_tests.gd`. `tests/snaps
 
 ### Schritt 2: Dock und Suche
 
-- [ ] Dock mit Hand und laufendem Milestone
-- [ ] Statuswechsel und Bearbeiten der wichtigsten Felder
-- [ ] Suche im Dock und als Popup über die Befehlspalette
-- [ ] Neuladen bei Fokus und per Knopf
+Gebaut am 2026-10-06. Geprüft sind die Suche (Test), das fehlerfreie Laden der Skripte und das Aussehen des Dock-Inhalts mit Beispieldaten. Im Editor selbst noch nicht ausprobiert: das Andocken, das Ändern gegen den Server, Such-Popup, Tastenkürzel und das Neuladen bei Fokus.
+
+- [x] Dock mit laufendem Milestone als Karten in den Abschnitten „Im Spiel“, „Offen“, „Gesperrt“ (`ui/dock.gd`), Vorgabe als Tab neben dem Inspektor. Die Hand kommt mit Schritt 3, bis dahin zeigt „Offen“ alle offenen Karten.
+- [x] Aufgabenfenster (`ui/task_window.gd`): Ein Doppelklick auf eine Karte oder einen Suchtreffer, ein Klick auf einen Verweis oder eine Unteraufgabe öffnet die Aufgabe in einem eigenen Fenster. Je Aufgabe gibt es eines; ist es schon offen, kommt es nach vorn. Titel und Beschreibung sind Anzeige, Status und Prio änderbar. Im Dock selbst gibt es keine Einzelheiten mehr, Statuswechsel dort per Rechtsklick auf die Karte. Titel und Beschreibung zu bearbeiten kommt später. Escape schließt das Fenster.
+- [x] „In Tasker öffnen“: öffnet die Aufgabe in der Web-App im Browser, im Kontextmenü der Karte und im Aufgabenfenster.
+- [x] Zeichnungen in Beschreibungen: Tasker rendert sie auf Anfrage als PNG (`GET /api/zeichnungsbild`, nach Besitzer und Name, dunkles Thema) und speichert nichts dazu. Das Addon merkt sich das Bild je Version der Zeichnung; die Versionen kommen mit `drawings` aus `bootstrap`. Eingebaut, aber ungetestet: die Route ist auf Tasker-Seite noch nicht deployt.
+- [x] Beschreibung als gerendertes Markdown (`ui/markdown.gd`, eigener kleiner Übersetzer nach BBCode): Überschriften, Listen, Checklisten, Zitate, Code, Hervorhebungen, Links, Galerie-Bilder und Verweise wie `$142`, die anklickbar sind. Tabellen bleiben als Text stehen.
+- [x] Suche im Dock und als Popup (`ui/search_popup.gd`, `rules/search.gd`): Befehlspalette „Tasker: Aufgabe suchen“ oder Strg+Alt+T, änderbar in den Editor-Einstellungen unter Tastenkürzel.
+- [x] Neuladen per Knopf und beim Zurückkehren in den Editor, höchstens alle 15 Sekunden
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
 ### Schritt 3: Tisch
 
@@ -292,7 +299,7 @@ Der Node-Pfad bricht beim Umbenennen und Umhängen. Dagegen:
 
 - **Animationen im Editor-Fenster:** Der Editor zeichnet sparsam neu. Ob Karten dort flüssig laufen, klärt der Prototyp in Schritt 1. Ausweichweg wäre ein eigener Prozess, mit den Nachteilen, dass das Token durchgereicht werden muss und die Autoloads des Spiels mitstarten.
 - **Regeln doppelt:** Die Tischregeln gibt es dann in Tasker und im Addon. Ändert Tasker sie, muss das Addon nachziehen. Die Tests sollen das auffangen.
-- **Markdown in Beschreibungen:** Godot rendert keines. Zunächst Rohtext, Bilder in Beschreibungen werden nicht angezeigt.
+- **Markdown in Beschreibungen:** Der Übersetzer deckt das Übliche ab, ist aber kein vollständiges Markdown. Tabellen und verschachtelte Sonderfälle bleiben als Text stehen, Zeichnungen werden nur genannt.
 - **Größe von `bootstrap`:** Bei sehr großem Bestand wäre ein Projektfilter am Server sinnvoll. Das wäre eine Anfrage an die Tasker-Sitzung.
 - **Inhalt des Docks:** Für den ersten Wurf bleibt es bei Hand, laufendem Milestone und Suche. Weitere Wünsche fürs Dock kommen später.
 

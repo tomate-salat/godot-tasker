@@ -2,7 +2,7 @@ extends SceneTree
 ## Lässt alle Tests laufen:
 ##   godot --headless --path . -s tests/run_tests.gd
 
-const SUITES := ["res://tests/test_tisch.gd", "res://tests/test_rules.gd"]
+const SUITES := ["res://tests/test_tisch.gd", "res://tests/test_rules.gd", "res://tests/test_markdown.gd"]
 
 
 func _init() -> void:

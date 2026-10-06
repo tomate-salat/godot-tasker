@@ -19,7 +19,16 @@ static func data() -> Dictionary:
 			t["milestoneId"] = null
 		tasks.append(t)
 
-	add.call("a", "Hauptmenü aufräumen", {"prio": 2})
+	add.call("a", "Hauptmenü aufräumen", {"prio": 2, "desc": "## Ziel
+Das Menü soll **schlanker** werden, siehe $13.
+
+- [x] Einträge sammeln
+- [ ] Reihenfolge festlegen
+  - `Optionen` nach unten
+
+> Nicht vor dem Speichern anfassen.
+
+Mehr unter https://example.com/menue"})
 	add.call("b", "Speicherstände", {"prio": 1, "desc": "- [x] Format festlegen\n- [ ] Schreiben\n- [ ] Laden"})
 	add.call("c", "Kamera folgt dem Spieler")
 	add.call("d", "Level 2 mit langem Titel", {"markId": "mk"})

@@ -138,3 +138,9 @@ func _load_velocity() -> void:
 func _set_state(next: String) -> void:
 	state = next
 	state_changed.emit()
+
+
+## Die Adresse der Aufgabe in der Web-App: `/<projekt>/<id>`, wie Taskers
+## `client/url.ts` sie liest.
+func web_url(task: Dictionary) -> String:
+	return "%s/%s/%s" % [client.base_url, str(task["projectId"]).uri_encode(), str(task["id"]).uri_encode()]

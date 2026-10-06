@@ -18,10 +18,44 @@ var _textures := {}
 var _pending := {}
 
 
+## Längere Kante einer gerenderten Zeichnung in Pixeln.
+const DRAWING_EDGE := 1600
+
+
 ## Das Bild als Textur – `small` ist die Vorschau für Karten. Null, wenn es
 ## das Bild nicht gibt oder der Server nicht antwortet.
 func get_texture(id: String, small := true) -> Texture2D:
-	var key := id + ("-k" if small else "")
+	return await _load(image_key(id, small), "/api/bilder/%s%s" % [id.uri_encode(), "?v=klein" if small else ""])
+
+
+## Eine Zeichnung als Bild. Tasker rendert sie beim Abruf (`/api/zeichnungsbild`)
+## und speichert nichts dazu. `meta` ist der Eintrag aus `drawings` im Stand.
+##
+## Die Version steht im Schlüssel: solange sie gleich bleibt, kommt das Bild
+## von der Platte, und der Server muss nicht neu zeichnen – sein Zeichner
+## läuft als eigener Prozess und soll nicht unnötig geweckt werden.
+func get_drawing(meta: Dictionary) -> Texture2D:
+	var owner_param := "taskId" if meta.get("taskId") else "milestoneId"
+	var path := "/api/zeichnungsbild?%s=%s&name=%s&kante=%d&thema=dunkel" % [
+		owner_param, str(meta[owner_param]).uri_encode(), str(meta["name"]).uri_encode(), DRAWING_EDGE]
+	return await _load(drawing_key(meta), path)
+
+
+static func image_key(id: String, small := true) -> String:
+	return id + ("-k" if small else "")
+
+
+static func drawing_key(meta: Dictionary) -> String:
+	return "z-%s-%d" % [meta["id"], int(meta.get("version", 0))]
+
+
+
+## Das Bild unter diesem Schlüssel, falls es schon geladen ist – ohne zu warten.
+func peek_key(key: String) -> Texture2D:
+	return _textures.get(key)
+
+
+func _load(key: String, path: String) -> Texture2D:
 	if _textures.has(key):
 		return _textures[key]
 	# Dieselbe Karte kann mehrfach auf dem Tisch liegen – geholt wird nur einmal.
@@ -33,8 +67,9 @@ func get_texture(id: String, small := true) -> Texture2D:
 	_pending[key] = true
 	var bytes := _read(key)
 	if bytes.is_empty() and client != null:
-		var res := await client.request(HTTPClient.METHOD_GET, "/api/bilder/%s%s" % [id.uri_encode(), "?v=klein" if small else ""])
-		if res["ok"]:
+		var res := await client.request(HTTPClient.METHOD_GET, path)
+		# 204 heißt bei Zeichnungen: es gibt sie, sie ist aber leer.
+		if res["ok"] and res["body"].size() > 0:
 			bytes = res["body"]
 			_write(key, bytes)
 	var texture := _decode(bytes)
@@ -79,6 +114,12 @@ func _write(key: String, bytes: PackedByteArray) -> void:
 	if path == "":
 		return
 	DirAccess.make_dir_recursive_absolute(cache_dir)
+	# Von einer Zeichnung bleibt nur die neueste Version liegen.
+	if key.begins_with("z-"):
+		var older := key.substr(0, key.rfind("-") + 1)
+		for name in DirAccess.get_files_at(cache_dir):
+			if name.begins_with(older) and name != key:
+				DirAccess.remove_absolute(cache_dir.path_join(name))
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file != null:
 		file.store_buffer(bytes)

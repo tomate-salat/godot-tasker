@@ -116,3 +116,23 @@ func test_titelbild_folgt_der_kette_task_markierung_kategorie_projekt() -> void:
 func test_ohne_bild_gibt_es_kein_titelbild() -> void:
 	var ws: Workspace = Builder.new().project("p").task("a", "p").build()
 	eq(Inherit.effective_cover(ws, ws.task("a")), null)
+
+
+func test_suche_findet_nach_nummer_titel_label_und_beschreibung_in_dieser_reihenfolge() -> void:
+	var Search := preload("res://addons/tasker/rules/search.gd")
+	var ws: Workspace = Builder.new() \
+		.project("p") \
+		.project("q") \
+		.task("beschreibung", "p", {"title": "Menü", "desc": "Der Sprung fehlt"}) \
+		.task("label", "p", {"title": "Physik", "tags": ["sprung"]}) \
+		.task("mitte", "p", {"title": "Wandsprung"}) \
+		.task("anfang", "p", {"title": "Sprung über Kisten"}) \
+		.task("fertig", "p", {"title": "Sprung testen", "status": "done"}) \
+		.task("fremd", "q", {"title": "Sprung im anderen Projekt"}) \
+		.task("weg", "p", {"title": "Sprung archiviert", "archivedAt": "2026-01-01T00:00:00Z"}) \
+		.build()
+	eq(ids(Search.find(ws, "p", "sprung")), ["anfang", "fertig", "mitte", "label", "beschreibung"])
+	eq(ids(Search.find(ws, "p", "SPRUNG kisten")), ["anfang"], "alle Wörter")
+	eq(ids(Search.find(ws, "p", "$%d" % ws.task("label")["ref"])), ["label"], "Nummer")
+	eq(ids(Search.find(ws, "p", "   ")), [], "leer")
+	eq(Search.find(ws, "p", "sprung", 2).size(), 2, "Grenze")

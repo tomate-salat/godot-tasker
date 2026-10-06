@@ -20,7 +20,12 @@ const RADIUS := 11
 const TITLE_SIZE := 14
 const NBSP := " "
 
+## Ein Mausklick auf die Karte, mit dem Ereignis (Taste, Doppelklick).
+signal pressed(card: Control, event: InputEventMouseButton)
+
 var task_id := ""
+## Hervorgehoben: die Karte, deren Einzelheiten gerade offen sind.
+var selected := false: set = set_selected
 
 var _status: Variant = "open"
 var _prio := 0
@@ -29,6 +34,7 @@ var _locked := false
 var _segments: Array = []
 
 var _body: Panel
+var _face: StyleBoxFlat
 var _cover: TextureRect
 var _shade: TextureRect
 var _crumb: Label
@@ -145,13 +151,13 @@ func _build() -> void:
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Das Titelbild und der Fuß enden an den runden Ecken der Karte.
 	_body.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
-	var face := StyleBoxFlat.new()
-	face.bg_color = Palette.SURFACE
-	face.border_color = Palette.LINE_STRONG
-	face.set_border_width_all(1)
-	face.set_corner_radius_all(RADIUS)
-	face.anti_aliasing_size = 0.6
-	_body.add_theme_stylebox_override("panel", face)
+	_face = StyleBoxFlat.new()
+	_face.bg_color = Palette.SURFACE
+	_face.border_color = Palette.LINE_STRONG
+	_face.set_border_width_all(1)
+	_face.set_corner_radius_all(RADIUS)
+	_face.anti_aliasing_size = 0.6
+	_body.add_theme_stylebox_override("panel", _face)
 	add_child(_body)
 
 	_cover = TextureRect.new()
@@ -352,3 +358,14 @@ static func _shade_texture() -> Texture2D:
 	texture.width = 4
 	texture.height = 64
 	return texture
+
+
+func set_selected(value: bool) -> void:
+	selected = value
+	_face.border_color = Palette.ACCENT if value else Palette.LINE_STRONG
+	_face.set_border_width_all(2 if value else 1)
+
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		pressed.emit(self, event)
