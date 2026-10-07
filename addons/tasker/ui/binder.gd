@@ -734,19 +734,6 @@ func land(task_id: String) -> void:
 		card.create_tween().tween_property(card, "scale", Vector2.ONE, 0.3).from(Vector2(1.08, 1.08)).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
-## Ein Zug ging nicht: die Karte gleitet von dort, wo sie abgelegt wurde,
-## zurück in ihr Fach.
-func slide_back(task_id: String, from: Vector2) -> void:
-	var card := _card_of(task_id)
-	if card == null:
-		return
-	var home := card.position
-	card.z_index = 20
-	var back: Tween = card.create_tween()
-	back.tween_property(card, "position", home, 0.36).from(_sheets.get_global_transform().affine_inverse() * from).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	back.tween_callback(func() -> void: card.z_index = 0)
-
-
 func _card_of(task_id: String) -> Control:
 	if is_instance_valid(_sheet):
 		for card in _sheet.get_meta("cards", []):

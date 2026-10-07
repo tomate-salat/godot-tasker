@@ -47,6 +47,8 @@ const TILT_RESPONSE_MS := 90.0
 const TILT_STILL_MS := 60
 ## So lange fliegt eine losgelassene Karte an ihr Ziel.
 const FLY_SECONDS := 0.16
+## So lange braucht eine Karte zurück, wenn Tasker den Zug ablehnt.
+const BACK_SECONDS := 0.36
 
 ## Der Datenbestand, über den Karten verschoben werden – fehlt er oder steht
 ## keine Verbindung, wird nur angesehen.
@@ -530,7 +532,8 @@ func _drop() -> void:
 	# Erst fliegt die Karte in die Lücke, dann steht der Ordner schon im neuen Stand.
 	# In ein Registerblatt schrumpft sie hinein.
 	var small := 0.25 if target["into_tab"] else 1.0
-	await _fly(card, target["at"] - (Card.SIZE * _size * small / 2.0 if target["into_tab"] else Vector2.ZERO), small)
+	var spot: Vector2 = target["at"] - (Card.SIZE * _size * small / 2.0 if target["into_tab"] else Vector2.ZERO)
+	await _fly(card, spot, small)
 	# Der Ordner wird gleich im neuen Stand aufgebaut – ohne Abbild und ohne Marke.
 	for binder in [_left, _right]:
 		binder.clear_drag()
@@ -542,13 +545,36 @@ func _drop() -> void:
 	var res := await store.move(id, move["body"], move["local"])
 	if store.changed.is_connected(landed):
 		store.changed.disconnect(landed)
-	_moving = false
 	if is_instance_valid(card):
 		card.queue_free()
 	if not res["ok"]:
-		# Der Stand ist wieder der alte: die Karte gleitet von dort zurück, wo sie lag.
+		# Der Stand ist wieder der alte: die Karte fliegt von dort zurück, wo sie lag.
 		_say(str(res["error"]))
-		source.slide_back(id, target["at"])
+		await _fly_back(source, id, spot, small)
+	_moving = false
+
+
+## Ein Zug ging nicht: die Karte fliegt von dort, wo sie abgelegt wurde, zurück
+## in ihr Fach. Sie fliegt über dem Fenster – im Ordner würde sie an dessen
+## Rand abgeschnitten.
+func _fly_back(source: Binder, id: String, from: Vector2, small: float) -> void:
+	var home = source.place_of(id)
+	if home == null or _ws.task(id) == null:
+		return
+	var card := Card.new()
+	add_child(card)
+	card.show_task(_ws, _ws.task(id), _images)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.z_index = 300
+	card.scale = Vector2(_size, _size) * small
+	card.position = from - (Card.SIZE - Card.SIZE * _size * small) / 2.0
+	source.ghost(id, true)
+	var back: Tween = card.create_tween().set_parallel().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	back.tween_property(card, "position", home - (Card.SIZE - Card.SIZE * _size) / 2.0, BACK_SECONDS)
+	back.tween_property(card, "scale", Vector2(_size, _size), BACK_SECONDS)
+	await back.finished
+	source.ghost(id, false)
+	card.queue_free()
 
 
 ## Bewegt die fliegende Karte an eine Stelle des Fensters.
