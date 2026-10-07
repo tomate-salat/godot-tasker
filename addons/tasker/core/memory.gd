@@ -9,6 +9,8 @@ extends RefCounted
 signal changed
 
 const SECTION := "tasker"
+## Steht für „nichts gemerkt“, wenn der Editor nach einem Schlüssel gefragt wird.
+const MISSING := "<tasker:nichts gemerkt>"
 
 ## Im Editor auf wahr setzen, damit der Zustand einen Neustart übersteht.
 var persistent := false
@@ -18,7 +20,10 @@ var _data := {}
 
 func read(key: String, default: Variant = null) -> Variant:
 	if persistent:
-		return EditorInterface.get_editor_settings().get_project_metadata(SECTION, key, default)
+		# Ohne Vorgabe meldet der Editor einen Fehler, wenn der Schlüssel fehlt –
+		# und „null“ zählt für ihn als keine Vorgabe.
+		var value = EditorInterface.get_editor_settings().get_project_metadata(SECTION, key, MISSING)
+		return default if value is String and value == MISSING else value
 	return _data.get(key, default)
 
 

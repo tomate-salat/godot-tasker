@@ -97,3 +97,11 @@ func test_unlesbares_faellt_beim_laden_weg() -> void:
 	eq(out[0]["nodeId"], 200)
 	eq(out[1]["kind"], "scene")
 	eq(Refs.sanitize(null), [])
+
+
+func test_die_karte_merkt_sich_wohin_sie_geschoben_wurde() -> void:
+	var refs := [_ref("a", "Enemies"), _ref("b", "Enemies")]
+	var out := Refs.place(refs, _ref("b", "Enemies"), Vector2(40, -12))
+	eq(out[0]["offset"], Vector2.ZERO)
+	eq(out[1]["offset"], Vector2(40, -12))
+	eq(Refs.sanitize(out)[1]["offset"], Vector2(40, -12), "übersteht das Speichern")

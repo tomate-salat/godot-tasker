@@ -28,6 +28,8 @@ const Refs := preload("../rules/refs.gd")
 const Model := preload("../rules/model.gd")
 const Tisch := preload("../rules/tisch.gd")
 const DropCatcher := preload("drop_catcher.gd")
+const SceneView := preload("../rules/scene_view.gd")
+const Hand := preload("../rules/hand.gd")
 
 ## So groß erscheint eine Karte im Viewport, gemessen an der im Dock.
 const SCALE := 0.62
@@ -49,6 +51,32 @@ const FACE_FACTOR := 2
 const MENU_OPEN := 100
 const MENU_BROWSER := 101
 const MENU_UNLINK := 102
+const MENU_HOME := 103
+
+## Was in `_hits` steht: eine Karte, ein Pin, ein zugeklappter Stapel oder
+## der Knopf, der einen aufgefächerten wieder zuklappt.
+const CARD := "card"
+const PIN := "pin"
+const STACK := "stack"
+const CLOSE := "close"
+
+## Unter dieser Zoomstufe des 2D-Editors wird die Karte zum Pin …
+const PIN_ZOOM := 0.35
+## … in 3D ab diesem Abstand in Metern, ohne Perspektive ab dieser Bildhöhe.
+const PIN_FAR := 30.0
+const PIN_SIZE := 60.0
+## Pins, die näher als so beieinander liegen, werden einer; so groß ist auch
+## ihre Klickfläche.
+const PIN_REACH := 20.0
+## Karten werden zum Stapel, wenn ihre Mitten näher als dieser Teil einer
+## Kartenbreite beieinander liegen.
+const STACK_REACH := 0.5
+## So groß sind die Karten eines Fächers aus Pins und die Karte, die ein Pin
+## unter dem Zeiger zeigt.
+const SPREAD_SCALE := 0.8
+const SPREAD_GAP := 6.0
+## Ab so vielen Pixeln wird aus einem Klick ein Ziehen.
+const DRAG_START := 5.0
 
 ## Der Schlüssel der 2D-Einblendung in `_hits`; die der 3D-Viewports stehen
 ## unter der Instanz-ID ihrer Kamera.
@@ -62,6 +90,8 @@ const DROP_REACH := 48.0
 var store: Store
 var images: Images
 var links: Links
+## Der Filter aus der Viewport-Leiste (`SceneView.MODES`).
+var mode := SceneView.ALL: set = set_mode
 
 ## Die Referenzen in die offene Szene, deren Aufgabe es gibt.
 var _here: Array = []
@@ -78,6 +108,12 @@ var _signature := 0
 var _menu: PopupMenu
 var _menu_ref := {}
 var _shadow: StyleBoxFlat
+var _plate: StyleBoxFlat
+## Der aufgefächerte Stapel (`_key` seiner obersten Karte), leer wenn keiner.
+var _open := ""
+## Die Karte, die gerade vom Node weggezogen wird: `{ ref, view, from, start,
+## home, scale, offset, moved }` – leer, wenn keine gegriffen ist.
+var _grab := {}
 ## Die Einblendungen, über die zuletzt gezeichnet wurde: Ansicht → Control.
 var _overlays := {}
 ## Solange eine Karte aus dem Dock gezogen wird: die Fangfelder und worauf
@@ -98,6 +134,12 @@ func _ready() -> void:
 	_shadow.shadow_color = Color(0, 0, 0, 0.4)
 	_shadow.shadow_size = 8
 	_shadow.shadow_offset = Vector2(0, 3)
+	_plate = StyleBoxFlat.new()
+	_plate.bg_color = Palette.SURFACE.darkened(0.15)
+	_plate.border_color = Palette.LINE_STRONG
+	_plate.set_border_width_all(1)
+	_plate.set_corner_radius_all(int(Card.RADIUS * SCALE))
+	mode = SceneView.mode_of(links.memory.read(SceneView.KEY))
 
 	_menu = PopupMenu.new()
 	for i in Model.STATUS.size():
@@ -106,6 +148,7 @@ func _ready() -> void:
 	_menu.add_item("Aufgabe öffnen", MENU_OPEN)
 	_menu.add_item("In Tasker öffnen (Browser)", MENU_BROWSER)
 	_menu.add_separator()
+	_menu.add_item("Karte zurück an den Node", MENU_HOME)
 	_menu.add_item("Vom Node lösen", MENU_UNLINK)
 	_menu.id_pressed.connect(_on_menu)
 	add_child(_menu)
@@ -123,12 +166,30 @@ func select(task_id: String) -> void:
 		redraw_requested.emit()
 
 
+## Stellt den Filter um und merkt ihn sich.
+func set_mode(value: String) -> void:
+	if value == mode:
+		return
+	mode = value
+	if is_inside_tree() and links.memory.read(SceneView.KEY) != mode:
+		links.memory.write(SceneView.KEY, mode)
+
+
+## Welche Aufgaben der Filter durchlässt – null heißt alle.
+func _allowed() -> Variant:
+	var m = Tisch.active_milestone(store.ws, store.project_id)
+	var hand = links.memory.read(Hand.key(m["id"]), null) if m != null else null
+	return SceneView.allowed(store.ws, store.project_id, mode, hand)
+
+
 # -------------------------------------------------------------- Bilder
 
 func _refresh() -> void:
 	_here = []
 	if store.state == "ready":
-		_here = links.here().filter(func(r: Dictionary) -> bool: return store.ws.task(r["taskId"]) != null)
+		var allowed = _allowed()
+		_here = links.here().filter(func(r: Dictionary) -> bool:
+			return store.ws.task(r["taskId"]) != null and (allowed == null or allowed.has(r["taskId"])))
 	var wanted := {}
 	for ref in _here:
 		wanted[ref["taskId"]] = true
@@ -212,13 +273,15 @@ func _process(_delta: float) -> void:
 ## Zeichnet die Karten über den 2D-Editor.
 func draw_2d(overlay: Control) -> void:
 	var to_screen := EditorInterface.get_editor_viewport_2d().global_canvas_transform
+	# Weit herausgezoomt bleibt von der Karte nur ein Pin.
+	var pin := to_screen.get_scale().x < PIN_ZOOM
 	var placed := []
 	for ref in _here:
 		var node := _placed_node(ref, false)
 		if node is Control:
-			placed.append({"ref": ref, "at": to_screen * (node.get_global_transform_with_canvas() * Vector2(node.size.x / 2.0, 0.0)), "scale": 1.0, "depth": 0.0})
+			placed.append({"ref": ref, "at": to_screen * (node.get_global_transform_with_canvas() * Vector2(node.size.x / 2.0, 0.0)), "scale": 1.0, "depth": 0.0, "pin": pin})
 		elif node is CanvasItem:
-			placed.append({"ref": ref, "at": to_screen * node.get_global_transform_with_canvas().origin, "scale": 1.0, "depth": 0.0})
+			placed.append({"ref": ref, "at": to_screen * node.get_global_transform_with_canvas().origin, "scale": 1.0, "depth": 0.0, "pin": pin})
 		elif node == null and _has_no_place(ref):
 			placed.append({"ref": ref, "scale": 1.0, "depth": 0.0})
 	_draw(overlay, VIEW_2D, placed)
@@ -232,6 +295,7 @@ func draw_3d(overlay: Control) -> void:
 		return
 	# Der Viewport kann gröber gerechnet sein, als er angezeigt wird.
 	var stretch := overlay.size / Vector2(viewport.size)
+	var flat := camera.projection == Camera3D.PROJECTION_ORTHOGONAL
 	var placed := []
 	for ref in _here:
 		var node := _placed_node(ref, true)
@@ -240,8 +304,9 @@ func draw_3d(overlay: Control) -> void:
 			if camera.is_position_behind(at):
 				continue
 			var far := camera.global_position.distance_to(at)
-			var scale := 1.0 if camera.projection == Camera3D.PROJECTION_ORTHOGONAL else clampf(NEAR / maxf(far, 0.01), MIN_SCALE, 1.0)
-			placed.append({"ref": ref, "at": camera.unproject_position(at) * stretch, "scale": scale, "depth": far})
+			var scale := 1.0 if flat else clampf(NEAR / maxf(far, 0.01), MIN_SCALE, 1.0)
+			var pin := camera.size > PIN_SIZE if flat else far > PIN_FAR
+			placed.append({"ref": ref, "at": camera.unproject_position(at) * stretch, "scale": scale, "depth": far, "pin": pin})
 		elif node == null and _has_no_place(ref):
 			placed.append({"ref": ref, "scale": 1.0, "depth": 0.0})
 	# Fernes zuerst, damit Nahes darüber liegt.
@@ -249,45 +314,179 @@ func draw_3d(overlay: Control) -> void:
 	_draw(overlay, camera.get_instance_id(), placed)
 
 
+## Zeichnet, was in dieser Ansicht liegt, und merkt sich in `_hits`, wo.
 func _draw(overlay: Control, view: int, placed: Array) -> void:
 	var hits := []
-	var at_node := {}
+	var cards := []
+	var pins := []
+	var grabbed := []
 	var in_corner := 0
 	for p in placed:
-		var ref: Dictionary = p["ref"]
-		var face = _faces.get(ref["taskId"])
-		if face == null:
-			continue
 		var size: Vector2 = Card.SIZE * SCALE * p["scale"]
-		var rect: Rect2
-		if p.has("at"):
-			var nth: int = at_node.get(ref["nodePath"], 0)
-			at_node[ref["nodePath"]] = nth + 1
-			var foot: Vector2 = p["at"] + FAN * nth * p["scale"]
-			rect = Rect2(foot - Vector2(size.x / 2.0, size.y + RISE * p["scale"]), size)
-			# Der Faden von der Karte zum Node.
-			overlay.draw_line(p["at"], Vector2(rect.get_center().x, rect.end.y), Color(Palette.ACCENT, 0.8), 1.5, true)
-			overlay.draw_circle(p["at"], 3.5, Palette.ACCENT)
-		else:
-			rect = Rect2(CORNER + Vector2(in_corner * (size.x + 10.0), 0.0), size)
+		if not p.has("at"):
+			# Ohne Ort: nebeneinander in der Ecke.
+			var rect := Rect2(CORNER + Vector2(in_corner * (size.x + 10.0), 0.0), size)
 			in_corner += 1
+			_draw_card(overlay, p["ref"], rect)
+			hits.append({"kind": CARD, "rect": rect, "ref": p["ref"]})
+			continue
+		var mine := _is_grabbed(p["ref"], view)
+		var offset: Vector2 = (_grab["offset"] if mine else p["ref"]["offset"]) * p["scale"]
+		p["home"] = p["at"] - Vector2(size.x / 2.0, size.y + RISE * p["scale"])
+		p["rect"] = Rect2(p["home"] + offset, size)
+		if mine:
+			grabbed.append(p)
+		elif p["pin"]:
+			pins.append(p)
+		else:
+			cards.append(p)
 
-		var t = store.ws.task(ref["taskId"])
-		var alpha := DONE_ALPHA if t != null and t.get("status") == "done" else 1.0
-		var marked: bool = ref["taskId"] == _selected or ref["taskId"] == _hover
-		if marked:
-			alpha = maxf(alpha, 0.9)
-		if alpha == 1.0:
-			overlay.draw_style_box(_shadow, rect)
-		overlay.draw_texture_rect(face["viewport"].get_texture(), rect, false, Color(1, 1, 1, alpha))
-		if marked:
-			overlay.draw_rect(rect.grow(2.0), Palette.ACCENT if ref["taskId"] == _selected else Color(Palette.ACCENT, 0.6), false, 2.0)
-		hits.append({"rect": rect, "ref": ref})
+	var late := []
+	for group in _groups(cards, false):
+		if group.size() == 1:
+			_draw_single(overlay, group[0], hits)
+		elif _open == _key(group[0]["ref"]):
+			_draw_spread(overlay, group, hits, false)
+		else:
+			_draw_stack(overlay, group, hits)
+	for group in _groups(pins, true):
+		var first: Dictionary = group[0]
+		if group.size() > 1 and _open == _key(first["ref"]):
+			_draw_spread(overlay, group, hits, true)
+			continue
+		var t = store.ws.task(first["ref"]["taskId"])
+		_draw_pin(overlay, first["at"], Palette.status_color(t.get("status") if t != null else null), group.size())
+		var spot := Rect2(first["at"] - Vector2(PIN_REACH, PIN_REACH) / 2.0, Vector2(PIN_REACH, PIN_REACH))
+		if group.size() > 1:
+			hits.append({"kind": STACK, "rect": spot, "key": _key(first["ref"])})
+		else:
+			hits.append({"kind": PIN, "rect": spot, "ref": first["ref"]})
+			if first["ref"]["taskId"] == _hover:
+				late.append(first)
+	# Die Karte, die gerade gezogen wird, liegt über allem.
+	for p in grabbed:
+		_draw_single(overlay, p, hits)
+	# Unter dem Zeiger zeigt ein Pin seine Karte.
+	for p in late:
+		var size: Vector2 = Card.SIZE * SCALE * SPREAD_SCALE
+		var rect := Rect2(p["at"] - Vector2(size.x / 2.0, size.y + PIN_REACH), size)
+		rect.position = rect.position.clamp(Vector2(4, 4), overlay.size - size - Vector2(4, 4))
+		_draw_card(overlay, p["ref"], rect)
+
 	_hits[view] = hits
 	_overlays[view] = overlay
 	if view == VIEW_2D and not _pads_queued:
 		_pads_queued = true
 		_sync_pads.call_deferred()
+
+
+## Fasst zusammen, was so nah beieinander liegt, dass es sich verdecken würde.
+func _groups(items: Array, as_pins: bool) -> Array:
+	if items.is_empty():
+		return []
+	var reach := PIN_REACH
+	if not as_pins:
+		var smallest := 1.0
+		for p in items:
+			smallest = minf(smallest, p["scale"])
+		reach = Card.SIZE.x * SCALE * smallest * STACK_REACH
+	var points := items.map(func(p: Dictionary) -> Vector2: return p["at"] if as_pins else p["rect"].get_center())
+	return SceneView.clusters(points, reach).map(func(group: Array) -> Array:
+		return group.map(func(i: int) -> Dictionary: return items[i]))
+
+
+## Eine Karte für sich: Faden zum Node, die Karte, und sie lässt sich wegziehen.
+func _draw_single(overlay: Control, p: Dictionary, hits: Array) -> void:
+	_draw_thread(overlay, p["at"], p["rect"])
+	_draw_card(overlay, p["ref"], p["rect"])
+	hits.append({"kind": CARD, "rect": p["rect"], "ref": p["ref"], "home": p["home"], "scale": p["scale"]})
+
+
+## Ein zugeklappter Stapel: die oberste Karte, dahinter angedeutet der Rest
+## und die Anzahl. Ein Klick fächert ihn auf.
+func _draw_stack(overlay: Control, group: Array, hits: Array) -> void:
+	var rect: Rect2 = group[0]["rect"]
+	for p in group:
+		_draw_thread(overlay, p["at"], rect)
+	for k in [2, 1]:
+		overlay.draw_style_box(_plate, Rect2(rect.position + Vector2(5, -5) * k, rect.size))
+	_draw_card(overlay, group[0]["ref"], rect)
+	_draw_badge(overlay, Vector2(rect.end.x - 2.0, rect.position.y + 2.0), str(group.size()))
+	hits.append({"kind": STACK, "rect": rect.grow(4.0), "key": _key(group[0]["ref"])})
+
+
+## Ein aufgefächerter Stapel: seine Karten nebeneinander, daneben der Knopf
+## zum Zuklappen.
+func _draw_spread(overlay: Control, group: Array, hits: Array, from_pins: bool) -> void:
+	var scale: float = SPREAD_SCALE if from_pins else group[0]["scale"]
+	var size: Vector2 = Card.SIZE * SCALE * scale
+	var middle := Vector2.ZERO
+	for p in group:
+		middle += p["at"] if from_pins else p["rect"].get_center()
+	middle /= group.size()
+	var width := group.size() * size.x + (group.size() - 1) * SPREAD_GAP
+	var start := middle - Vector2(width / 2.0, size.y + PIN_REACH if from_pins else size.y / 2.0)
+	start = start.clamp(Vector2(28, 4), (overlay.size - Vector2(width + 4.0, size.y + 4.0)).max(Vector2(28, 4)))
+	var rects := []
+	for i in group.size():
+		rects.append(Rect2(start + Vector2(i * (size.x + SPREAD_GAP), 0.0), size))
+		_draw_thread(overlay, group[i]["at"], rects[i])
+	for i in group.size():
+		_draw_card(overlay, group[i]["ref"], rects[i])
+		var hit := {"kind": CARD, "rect": rects[i], "ref": group[i]["ref"]}
+		# Aus dem Fächer lässt sich eine Karte herausziehen – so trennt man einen Stapel.
+		if not from_pins:
+			hit["home"] = group[i]["home"]
+			hit["scale"] = group[i]["scale"]
+		hits.append(hit)
+	var close := start + Vector2(-14.0, 10.0)
+	_draw_badge(overlay, close, "×")
+	hits.append({"kind": CLOSE, "rect": Rect2(close - Vector2(11, 11), Vector2(22, 22))})
+
+
+func _draw_card(overlay: Control, ref: Dictionary, rect: Rect2) -> void:
+	var face = _faces.get(ref["taskId"])
+	if face == null:
+		return
+	var t = store.ws.task(ref["taskId"])
+	var alpha := DONE_ALPHA if t != null and t.get("status") == "done" else 1.0
+	var marked: bool = ref["taskId"] == _selected or ref["taskId"] == _hover
+	if marked:
+		alpha = maxf(alpha, 0.9)
+	if alpha == 1.0:
+		overlay.draw_style_box(_shadow, rect)
+	overlay.draw_texture_rect(face["viewport"].get_texture(), rect, false, Color(1, 1, 1, alpha))
+	if marked:
+		overlay.draw_rect(rect.grow(2.0), Palette.ACCENT if ref["taskId"] == _selected else Color(Palette.ACCENT, 0.6), false, 2.0)
+
+
+## Der Faden vom Node zur Karte – zur nächsten Stelle an ihrem Rand.
+func _draw_thread(overlay: Control, at: Vector2, rect: Rect2) -> void:
+	var to := at.clamp(rect.position, rect.end)
+	if to != at:
+		overlay.draw_line(at, to, Color(Palette.ACCENT, 0.8), 1.5, true)
+	overlay.draw_circle(at, 3.5, Palette.ACCENT)
+
+
+## Ein Pin in der Farbe des Status; stehen mehrere Karten dahinter, mit Anzahl.
+func _draw_pin(overlay: Control, at: Vector2, color: Color, count: int) -> void:
+	if count > 1:
+		_draw_badge(overlay, at, str(count))
+		return
+	overlay.draw_circle(at, 8.0, Color(0.05, 0.08, 0.07, 0.9))
+	overlay.draw_circle(at, 6.0, color)
+
+
+func _draw_badge(overlay: Control, at: Vector2, text: String) -> void:
+	var font := overlay.get_theme_default_font()
+	overlay.draw_circle(at, 11.0, Color(0.05, 0.08, 0.07))
+	overlay.draw_circle(at, 9.5, Palette.ACCENT)
+	var wide := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	overlay.draw_string(font, at + Vector2(-wide / 2.0, 4.5), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.05, 0.08, 0.07))
+
+
+static func _key(ref: Dictionary) -> String:
+	return "%s|%s" % [ref["taskId"], ref["nodePath"]]
 
 
 ## Der Node, an dessen Stelle die Karte in dieser Ansicht liegt: der Node der
@@ -324,13 +523,14 @@ static func _viewport_3d(overlay: Control) -> SubViewport:
 
 # ------------------------------------------------------------- Bedienen
 
-## Maus und Tasten über dem 2D-Editor (`VIEW_2D`) oder einem 3D-Viewport (die
-## Instanz-ID seiner Kamera). Wahr, wenn eine Karte das Ereignis genommen hat –
-## dann bekommt der Editor es nicht.
+## Maus und Tasten über einem 3D-Viewport (die Instanz-ID seiner Kamera).
+## Wahr, wenn eine Karte das Ereignis genommen hat – dann bekommt der Editor
+## es nicht. Im 2D-Editor kommen die Klicks über die Klickflächen (`_sync_pads`).
 func input(view: int, event: InputEvent) -> bool:
 	if event is InputEventMouseMotion:
-		var over := _hit(view, event.position)
-		var id: String = over.get("taskId", "")
+		if _drag(event):
+			return true
+		var id: String = _hit(view, event.position).get("ref", {}).get("taskId", "")
 		if id != _hover:
 			_hover = id
 			redraw_requested.emit()
@@ -338,39 +538,89 @@ func input(view: int, event: InputEvent) -> bool:
 	if not event is InputEventMouseButton:
 		return false
 	if not event.pressed:
-		var was := _held
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			_held = false
-		return was and event.button_index == MOUSE_BUTTON_LEFT
+		return _release(event)
 	if event.button_index != MOUSE_BUTTON_LEFT and event.button_index != MOUSE_BUTTON_RIGHT:
 		return false
-	var ref := _hit(view, event.position)
-	if ref.is_empty():
+	var hit := _hit(view, event.position)
+	if hit.is_empty():
 		return false
-
-	_click(ref, event)
-	_held = event.button_index == MOUSE_BUTTON_LEFT
+	_press(hit, view, event)
 	return true
 
 
-## Ein Klick auf die Karte dieser Referenz: markieren, öffnen oder das Menü.
+## Ein Klick auf etwas Gezeichnetes: einen Stapel auf- oder zuklappen, sonst
+## gilt er der Karte – und mit ihm kann ein Wegziehen beginnen.
+func _press(hit: Dictionary, view: int, event: InputEventMouseButton) -> void:
+	var left := event.button_index == MOUSE_BUTTON_LEFT
+	_held = left
+	match hit["kind"]:
+		STACK:
+			if left:
+				_open = hit["key"]
+				redraw_requested.emit()
+		CLOSE:
+			_open = ""
+			redraw_requested.emit()
+		_:
+			_click(hit["ref"], event)
+			if left and hit.has("home") and not event.double_click:
+				_grab = {
+					"ref": hit["ref"], "view": view, "from": event.global_position,
+					"start": hit["rect"].position, "home": hit["home"], "scale": hit["scale"],
+					"offset": hit["ref"]["offset"], "moved": false,
+				}
+
+
+## Markieren, öffnen oder das Menü.
 func _click(ref: Dictionary, event: InputEventMouseButton) -> void:
 	select(ref["taskId"])
 	task_selected.emit(ref["taskId"])
 	if event.button_index == MOUSE_BUTTON_RIGHT:
 		_menu_ref = ref
+		_menu.set_item_disabled(_menu.get_item_index(MENU_HOME), ref["offset"] == Vector2.ZERO)
 		_menu.position = Vector2i(DisplayServer.mouse_get_position())
 		_menu.popup()
 	elif event.double_click:
 		task_requested.emit(ref["taskId"])
 
 
-## Die Referenz der obersten Karte an dieser Stelle – leer, wenn dort keine ist.
+## Zieht die gegriffene Karte mit dem Zeiger. Wahr, solange eine gegriffen ist.
+func _drag(event: InputEventMouseMotion) -> bool:
+	if _grab.is_empty():
+		return false
+	var delta: Vector2 = event.global_position - _grab["from"]
+	# Ein Klick, bei dem die Hand etwas zittert, ist noch kein Ziehen.
+	if _grab["moved"] or delta.length() >= DRAG_START:
+		_grab["moved"] = true
+		_grab["offset"] = (_grab["start"] + delta - _grab["home"]) / _grab["scale"]
+		redraw_requested.emit()
+	return true
+
+
+## Lässt die Maustaste los: eine weggezogene Karte merkt sich, wo sie liegt.
+func _release(event: InputEventMouseButton) -> bool:
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		return false
+	var was := _held
+	_held = false
+	if not _grab.is_empty():
+		var grab := _grab
+		_grab = {}
+		if grab["moved"]:
+			links.place(grab["ref"], grab["offset"])
+	return was
+
+
+func _is_grabbed(ref: Dictionary, view: int) -> bool:
+	return not _grab.is_empty() and _grab["moved"] and _grab["view"] == view and Refs.same(ref, _grab["ref"])
+
+
+## Was an dieser Stelle zuoberst gezeichnet ist – leer, wenn dort nichts ist.
 func _hit(view: int, at: Vector2) -> Dictionary:
 	var hits: Array = _hits.get(view, [])
 	for i in range(hits.size() - 1, -1, -1):
 		if hits[i]["rect"].has_point(at):
-			return hits[i]["ref"]
+			return hits[i]
 	return {}
 
 
@@ -384,6 +634,8 @@ func _on_menu(id: int) -> void:
 			task_requested.emit(task_id)
 		MENU_BROWSER:
 			OS.shell_open(store.web_url(t))
+		MENU_HOME:
+			links.place(_menu_ref, Vector2.ZERO)
 		MENU_UNLINK:
 			links.unlink(_menu_ref)
 		_:
@@ -575,9 +827,9 @@ static func _scene_tree() -> Tree:
 # --------------------------------------------- Klickflächen im 2D-Editor
 
 ## Der 2D-Editor reicht Maus und Tasten nur weiter, solange ein Node
-## ausgewählt ist, den das Plugin bearbeitet. Deshalb liegt dort über jeder
-## Karte eine unsichtbare Fläche, die Klicks selbst annimmt. Mausrad und
-## mittlere Taste gehen durch sie hindurch an den Editor.
+## ausgewählt ist, den das Plugin bearbeitet. Deshalb liegt dort über allem
+## Gezeichneten eine unsichtbare Fläche, die Klicks selbst annimmt. Mausrad
+## und mittlere Taste gehen durch sie hindurch an den Editor.
 func _sync_pads() -> void:
 	_pads_queued = false
 	var overlay = _overlays.get(VIEW_2D)
@@ -601,19 +853,24 @@ func _sync_pads() -> void:
 			if pad.position != rect.position or pad.size != rect.size:
 				pad.position = rect.position
 				pad.size = rect.size
-			pad.set_meta("ref", hits[i]["ref"])
+			pad.set_meta("hit", hits[i])
 
 
 func _on_pad_input(event: InputEvent, pad: Control) -> void:
-	if event is InputEventMouseButton and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT):
+	if event is InputEventMouseMotion:
+		if _drag(event):
+			pad.accept_event()
+	elif event is InputEventMouseButton and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT):
 		if event.pressed:
-			_click(pad.get_meta("ref"), event)
+			_press(pad.get_meta("hit"), VIEW_2D, event)
+		else:
+			_release(event)
 		pad.accept_event()
 
 
 func _on_pad_hover(pad: Control, inside: bool) -> void:
-	var id: String = pad.get_meta("ref", {}).get("taskId", "")
-	if inside or _hover == id:
+	var id: String = pad.get_meta("hit", {}).get("ref", {}).get("taskId", "")
+	if (inside and id != _hover) or (not inside and _hover == id and id != ""):
 		_hover = id if inside else ""
 		redraw_requested.emit()
 

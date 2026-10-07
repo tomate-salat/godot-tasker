@@ -78,6 +78,11 @@ func unlink(ref: Dictionary) -> void:
 	memory.write(Refs.KEY, Refs.remove(all(), ref))
 
 
+## Merkt sich, wie weit die Karte dieser Referenz von ihrem Node weggeschoben ist.
+func place(ref: Dictionary, offset: Vector2) -> void:
+	_write_if_changed(Refs.place(all(), ref, offset))
+
+
 ## Der Node, auf den die Referenz zeigt – wenn sie in die offene Szene zeigt
 ## und er dort zu finden ist.
 func node_of(ref: Dictionary) -> Node:

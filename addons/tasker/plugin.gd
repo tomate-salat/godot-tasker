@@ -18,6 +18,7 @@ const ImageWindow := preload("ui/image_window.gd")
 const Links := preload("core/links.gd")
 const SceneMenu := preload("ui/scene_menu.gd")
 const SceneCards := preload("ui/scene_cards.gd")
+const SceneView := preload("rules/scene_view.gd")
 
 const MENU_SETUP := "Tasker einrichten …"
 const MENU_TABLE := "Tasker-Tisch"
@@ -49,6 +50,8 @@ var _attach: SearchPopup
 var _attach_nodes: Array = []
 var _scene_menu: SceneMenu
 var _scene_cards: SceneCards
+## Der Filter der Karten in den Leisten des 2D- und des 3D-Editors: Leiste → Knopf.
+var _filters := {}
 var _last_reload := 0
 ## Die offenen Aufgabenfenster, je Aufgabe höchstens eines: ID → Fenster.
 var _task_windows := {}
@@ -109,6 +112,8 @@ func _enter_tree() -> void:
 	add_child(_scene_cards)
 	set_force_draw_over_forwarding_enabled()
 	set_input_event_forwarding_always_enabled()
+	for bar in [CONTAINER_CANVAS_EDITOR_MENU, CONTAINER_SPATIAL_EDITOR_MENU]:
+		_add_filter(bar)
 
 	_panel = Dock.new()
 	_dock = EditorDock.new()
@@ -136,6 +141,10 @@ func _exit_tree() -> void:
 	var palette := EditorInterface.get_command_palette()
 	for key in COMMANDS:
 		palette.remove_command(key)
+	for bar in _filters:
+		remove_control_from_container(bar, _filters[bar])
+		_filters[bar].queue_free()
+	_filters.clear()
 	if _scene_menu != null:
 		remove_context_menu_plugin(_scene_menu)
 	if _dock != null:
@@ -329,3 +338,20 @@ func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 	if _scene_cards != null and _scene_cards.input(camera.get_instance_id(), event):
 		return AFTER_GUI_INPUT_STOP
 	return AFTER_GUI_INPUT_PASS
+
+
+## Der Filter in der Leiste über dem Viewport: welche Karten eingeblendet werden.
+func _add_filter(bar: int) -> void:
+	var button := OptionButton.new()
+	button.flat = true
+	button.tooltip_text = "Tasker: welche Karten an den Nodes eingeblendet werden"
+	for i in SceneView.MODES.size():
+		button.add_item("▣ " + SceneView.LABELS[SceneView.MODES[i]], i)
+	button.select(SceneView.MODES.find(_scene_cards.mode))
+	button.item_selected.connect(func(i: int) -> void:
+		_scene_cards.mode = SceneView.MODES[i]
+		# Beide Leisten zeigen denselben Filter.
+		for other in _filters.values():
+			other.select(i))
+	add_control_to_container(bar, button)
+	_filters[bar] = button

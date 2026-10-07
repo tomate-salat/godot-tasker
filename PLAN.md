@@ -355,9 +355,10 @@ Noch ohne Viewport.
 
 #### Schritt 3: Wegschieben und Lesbarkeit
 
-- [ ] Karten wegziehen, Faden zum Node, Versatz merken
-- [ ] Pin beim Herauszoomen, Stapel bei Karten nah beieinander
-- [ ] Filter in der Viewport-Leiste
+- [x] Karten wegziehen, Faden zum Node, Versatz merken; „Karte zurück an den Node“ im Kartenmenü
+- [x] Pin beim Herauszoomen (zeigt unter dem Zeiger seine Karte), Stapel bei Karten nah beieinander (ein Klick fächert auf, aus dem Fächer lässt sich eine Karte herausziehen)
+- [x] Filter in der Viewport-Leiste von 2D und 3D, lokal gemerkt
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
 #### Schritt 4: Selbstheilung
 

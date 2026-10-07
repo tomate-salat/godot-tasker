@@ -99,6 +99,17 @@ static func move(refs: Array, scene_uid: String, scene_path: String, from: Strin
 	return out
 
 
+## Die Karte dieser Referenz liegt jetzt so weit von ihrem Node weg.
+static func place(refs: Array, ref: Dictionary, offset: Vector2) -> Array:
+	var out := []
+	for r in refs:
+		if same(r, ref):
+			r = r.duplicate()
+			r["offset"] = offset
+		out.append(r)
+	return out
+
+
 ## Die Datei der Szene liegt jetzt woanders.
 static func rename_scene(refs: Array, scene_uid: String, scene_path: String) -> Array:
 	var out := []
