@@ -132,26 +132,19 @@ func _build() -> void:
 	box.add_theme_constant_override("separation", 8)
 	margin.add_child(box)
 
+	# Oben, wo die Aufgabe liegt, und ihre Nummer – wie im Milestone-Fenster.
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 10)
+	box.add_child(top)
 	_crumb = Label.new()
+	_crumb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crumb.clip_text = true
 	_crumb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_crumb.add_theme_color_override("font_color", Palette.MUTED)
-	box.add_child(_crumb)
-
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 10)
-	box.add_child(head)
+	top.add_child(_crumb)
 	_ref = Label.new()
 	_ref.add_theme_color_override("font_color", Palette.MUTED)
-	_ref.add_theme_font_size_override("font_size", 20)
-	_ref.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	head.add_child(_ref)
-	_title = Label.new()
-	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_title.add_theme_font_override("font", Palette.title_font())
-	_title.add_theme_font_size_override("font_size", 20)
-	head.add_child(_title)
+	top.add_child(_ref)
 
 	_props = HBoxContainer.new()
 	box.add_child(_props)
@@ -190,6 +183,14 @@ func _build() -> void:
 	box.add_child(_message)
 
 	box.add_child(HSeparator.new())
+
+	# Der Titel steht direkt über der Beschreibung: beim Bearbeiten sind beide
+	# ein Feld, dessen erste Zeile der Titel ist.
+	_title = Label.new()
+	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title.add_theme_font_override("font", Palette.title_font())
+	_title.add_theme_font_size_override("font_size", 24)
+	box.add_child(_title)
 
 	_desc = Description.new()
 	_desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
