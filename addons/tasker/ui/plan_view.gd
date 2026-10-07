@@ -155,7 +155,6 @@ func _init() -> void:
 
 	# Der Graph einer Karte legt sich über den Ordner.
 	_graph = DepGraphView.new()
-	_graph.jump_requested.connect(_jump)
 	_graph.task_requested.connect(func(id: String) -> void: task_requested.emit(id))
 	add_child(_graph)
 	resized.connect(_on_resized)
@@ -389,32 +388,6 @@ func _open_graph(id: String) -> void:
 	if item != null:
 		_graph.open(_ws, item, _project)
 
-
-## Aus dem Graphen zur Karte: der Ordner blättert zu ihr, ihr Fach leuchtet auf.
-func _jump(id: String) -> void:
-	_graph.close()
-	var decks := Planning.decks(_ws, _project)
-	var order := Planning.deck_order(decks)
-	if order.has(id):
-		_right.reveal_section(order[id])
-		return
-	var t = _ws.task(id)
-	if t == null:
-		return
-	# Im Ordner steckt die Karte der obersten Ebene; Unteraufgaben nur aufgefächert.
-	var root := _ws.root(t)
-	var at := Planning.place(_ws, t, order)
-	if at >= 0:
-		if not _right.reveal(id) and not _right.reveal(root["id"]):
-			_right.reveal_section(at)
-		return
-	var which := Planning.READY if Planning.is_loose_root(root) and root.get("ready", false) else Planning.BACKLOG
-	if which != _stock:
-		_stock = which
-		_shown = 0
-		_rebuild()
-	if not _left.reveal(id):
-		_left.reveal(root["id"])
 
 
 

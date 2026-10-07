@@ -80,11 +80,6 @@ var _key := ""
 var _pages := {}
 var _flipping := false
 var _flip: Tween
-## Die Karte, zu der geblättert wurde, und wie stark ihr Fach gerade
-## aufleuchtet (1 bis 0).
-var _glow_task := ""
-var _glow := 0.0: set = _set_glow
-var _glow_tween: Tween
 ## Das Fach, vor dem eine gezogene Karte landen würde (-1: keins), und das
 ## Registerblatt, auf dem sie schwebt.
 var _drop_pocket := -1
@@ -445,31 +440,6 @@ func reveal_section(section: int) -> void:
 	_show_place()
 
 
-## Blättert zur Karte dieser Aufgabe und lässt ihr Fach aufleuchten. Falsch,
-## wenn sie in diesem Ordner nicht steckt.
-func reveal(task_id: String) -> bool:
-	for i in _leaves.size():
-		for item in _leaves[i]["items"]:
-			if item["task"]["id"] == task_id:
-				_glow_task = task_id
-				open_page(i)
-				_show_place()
-				if _glow_tween != null:
-					_glow_tween.kill()
-				_glow = 1.0
-				_glow_tween = create_tween()
-				_glow_tween.tween_interval(FLIP_SECONDS if _flipping else 0.01)
-				_glow_tween.tween_property(self, "_glow", 0.0, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-				return true
-	return false
-
-
-func _set_glow(value: float) -> void:
-	_glow = value
-	if is_instance_valid(_sheet):
-		_sheet.queue_redraw()
-
-
 ## Eine Seite des Ordners: das Blatt mit Kopfzeile, Fächern und den Karten darin.
 func _make_sheet(page: int) -> Control:
 	var sheet := Control.new()
@@ -612,10 +582,6 @@ func _draw_sheet(sheet: Control, pockets: Array, header: Dictionary) -> void:
 	for pocket in pockets:
 		var rect: Rect2 = pocket["rect"]
 		sheet.draw_style_box(sleeve, rect)
-		# Wurde zu einer Karte geblättert, leuchtet ihr Fach kurz auf.
-		if _glow > 0.0 and sheet == _sheet and _glow_task != "" and pocket["task"] == _glow_task:
-			sheet.draw_rect(rect.grow(1.0), Color(Palette.ACCENT, _glow), false, 2.5)
-			sheet.draw_rect(rect, Color(Palette.ACCENT, _glow * 0.12))
 		# Hier würde die gezogene Karte landen: das Fach leuchtet.
 		if sheet == _sheet and _drop_pocket >= 0 and pockets[_drop_pocket] == pocket:
 			sheet.draw_style_box(_landing, rect)

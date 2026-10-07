@@ -4,12 +4,10 @@ extends Control
 ## wartet, rechts, was auf sie wartet, über alle Stufen – aufgebaut wie der
 ## Graph in Tasker. Jeder Knoten nennt, wo er liegt.
 ##
-## Hier wird nur angesehen. Ein Klick auf einen Knoten springt zu seiner
-## Karte im Ordner, ein Doppelklick öffnet die Aufgabe. Was zusammenhängt,
+## Hier wird nur angesehen. Ein Doppelklick auf einen Knoten öffnet die
+## Aufgabe. Was zusammenhängt,
 ## steht in `rules/dep_graph.gd`.
 
-## Zur Karte dieser Aufgabe oder zu diesem Milestone soll geblättert werden.
-signal jump_requested(id: String)
 signal task_requested(id: String)
 
 const Palette := preload("palette.gd")
@@ -34,8 +32,6 @@ const EDGE_SECONDS := 0.32
 ## Die wandernden Punkte: Tempo in Pixeln je Sekunde und Abstand zueinander.
 const DOT_SPEED := 70.0
 const DOT_SPACING := 44.0
-## So lange wartet ein Klick, ob ein zweiter folgt.
-const DOUBLE_CLICK_SECONDS := 0.3
 
 var _panel: PanelContainer
 var _title: Label
@@ -47,9 +43,6 @@ var _edges: Array = []
 var _focus_id := ""
 ## Der Knoten unter dem Zeiger: seine Pfeile treten hervor.
 var _hot := ""
-## Der Klick, der noch darauf wartet, ob ein Doppelklick daraus wird.
-var _pending := ""
-var _click_timer: Timer
 ## Sekunden seit dem Öffnen, und wann der Aufbau fertig ist.
 var _time := 0.0
 var _built_at := 0.0
@@ -113,18 +106,8 @@ func _init() -> void:
 	_canvas.draw.connect(_draw_edges)
 	_scroll.add_child(_canvas)
 
-	_click_timer = Timer.new()
-	_click_timer.one_shot = true
-	_click_timer.timeout.connect(func() -> void:
-		if _pending != "":
-			jump_requested.emit(_pending)
-		_pending = "")
-	add_child(_click_timer)
-
 
 func close() -> void:
-	_click_timer.stop()
-	_pending = ""
 	if not visible:
 		return
 	if _fade != null:
@@ -154,7 +137,7 @@ func open(ws: Workspace, focus: Dictionary, project_id: String) -> void:
 	_title.text = "Abhängigkeiten: %s" % _name(focus)
 	var alone: bool = graph["nodes"].size() == 1
 	_hint.text = "An dieser Karte hängt nichts, und sie hängt an nichts." if alone else \
-		"Links, worauf die Karte wartet – rechts, was auf sie wartet. Klick springt zur Karte, Doppelklick öffnet sie.
+		"Links, worauf die Karte wartet – rechts, was auf sie wartet. Doppelklick öffnet die Karte.
 Rot: die Voraussetzung liegt in einem späteren Deck oder noch im Vorrat. Blass: schon erledigt.%s" % (
 			"\nDer Graph ist größer, als hier Platz hat – gezeigt sind die ersten %d Knoten." % DepGraph.MAX_NODES if graph["cut"] else "")
 
@@ -312,7 +295,7 @@ func _node(ws: Workspace, item: Dictionary, pos: Vector2, order: Dictionary) -> 
 	node.position = pos
 	node.size = NODE
 	node.focus_mode = Control.FOCUS_NONE
-	node.tooltip_text = "%s\n%s\nKlick springt zur Karte, Doppelklick öffnet sie." % [_name(item), place]
+	node.tooltip_text = "%s\n%s\nDoppelklick öffnet die Karte." % [_name(item), place]
 	for state in ["normal", "hover", "pressed"]:
 		var box := StyleBoxFlat.new()
 		box.bg_color = Palette.SURFACE if state == "normal" else Palette.SURFACE.lightened(0.06)
@@ -364,18 +347,10 @@ func _node(ws: Workspace, item: Dictionary, pos: Vector2, order: Dictionary) -> 
 	return node
 
 
-## Ein Klick springt zur Karte, ein Doppelklick öffnet sie. Der Klick wartet
-## deshalb kurz, ob ein zweiter folgt.
+## Ein Doppelklick öffnet die Aufgabe.
 func _on_node_input(event: InputEvent, id: String) -> void:
-	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
-		return
-	if event.double_click:
-		_click_timer.stop()
-		_pending = ""
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
 		task_requested.emit(id)
-	else:
-		_pending = id
-		_click_timer.start(DOUBLE_CLICK_SECONDS)
 
 
 func _set_hot(id: String) -> void:
