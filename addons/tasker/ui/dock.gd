@@ -38,6 +38,7 @@ var _collapsed := {"locked": true, "deck": true}
 var _cards: Array = []
 
 var _query: LineEdit
+var _reload_button: Button
 var _notice: VBoxContainer
 var _notice_text: Label
 var _notice_setup: Button
@@ -87,13 +88,13 @@ func _build() -> void:
 	_query.text_changed.connect(func(_t: String) -> void: _refresh())
 	bar.add_child(_query)
 
-	var reload := Button.new()
-	reload.text = "↻"
-	reload.tooltip_text = "Neu laden"
-	reload.pressed.connect(func() -> void:
+	_reload_button = Button.new()
+	_reload_button.text = "↻"
+	_reload_button.pressed.connect(func() -> void:
 		if store != null:
 			store.reload())
-	bar.add_child(reload)
+	bar.add_child(_reload_button)
+	set_live(false)
 
 	var table := Button.new()
 	table.text = "Tisch"
@@ -301,3 +302,11 @@ func _on_menu(id: int) -> void:
 				OS.shell_open(store.web_url(t))
 		_:
 			_set_status(Model.STATUS[id])
+
+
+## Zeigt am Neuladen-Knopf, ob der Änderungs-Strom steht.
+func set_live(live: bool) -> void:
+	if _reload_button == null:
+		return
+	_reload_button.tooltip_text = "Neu laden\nÄnderungen aus Tasker kommen sofort an." if live else "Neu laden\nKeine laufende Verbindung – der Stand ist der vom letzten Laden."
+	_reload_button.add_theme_color_override("font_color", Palette.OK if live else Palette.MUTED)

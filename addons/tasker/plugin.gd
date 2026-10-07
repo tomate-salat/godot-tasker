@@ -6,6 +6,7 @@ const Config := preload("core/config.gd")
 const Client := preload("core/client.gd")
 const Images := preload("core/images.gd")
 const Store := preload("core/store.gd")
+const Events := preload("core/events.gd")
 const Dock := preload("ui/dock.gd")
 const SearchPopup := preload("ui/search_popup.gd")
 const SetupDialog := preload("ui/setup_dialog.gd")
@@ -31,6 +32,7 @@ const RELOAD_EVERY_MSEC := 15_000
 var client: Client
 var images: Images
 var store: Store
+var events: Events
 var memory: Memory
 
 var _dock: EditorDock
@@ -57,6 +59,17 @@ func _enter_tree() -> void:
 	store = Store.new()
 	store.client = client
 	add_child(store)
+
+	events = Events.new()
+	events.client = client
+	events.received.connect(store.apply_event)
+	# Nach einer Unterbrechung fehlt, was in der Lücke passiert ist.
+	events.connected.connect(func(again: bool) -> void:
+		if again:
+			_reload()
+		_panel.set_live(true))
+	events.disconnected.connect(func() -> void: _panel.set_live(false))
+	add_child(events)
 
 	memory = Memory.new()
 	memory.persistent = true
@@ -93,13 +106,16 @@ func _exit_tree() -> void:
 		if is_instance_valid(window):
 			window.queue_free()
 	_task_windows.clear()
-	for node in [_dock, _search, _setup, _table, store, images, client]:
+	if events != null:
+		events.stop()
+	for node in [_dock, _search, _setup, _table, events, store, images, client]:
 		if node != null:
 			node.queue_free()
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_IN and store != null and Config.is_configured():
+	# Steht der Änderungs-Strom, kommt ohnehin alles an – neu geladen wird dann nicht.
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN and store != null and Config.is_configured() and not events.live:
 		if Time.get_ticks_msec() - _last_reload > RELOAD_EVERY_MSEC:
 			_reload()
 
@@ -135,6 +151,9 @@ func _connect_to_server() -> void:
 	store.project_id = Config.project_id()
 	if Config.is_configured():
 		_reload()
+		events.start()
+	else:
+		events.stop()
 
 
 func _reload() -> void:

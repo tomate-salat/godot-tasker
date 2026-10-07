@@ -37,12 +37,15 @@ var ws: Workspace = Workspace.new({})
 var velocity := DEFAULT_VELOCITY
 
 var _loading := false
+var _reload_again := false
 
 
 ## Holt den ganzen Stand neu. Falsch, wenn der Server nicht mitspielt – der
 ## Grund steht dann in `error`.
 func reload() -> bool:
 	if _loading:
+		# Während des Ladens kann schon wieder etwas passiert sein – danach noch einmal.
+		_reload_again = true
 		await state_changed
 		return state == "ready"
 	_loading = true
@@ -60,6 +63,9 @@ func reload() -> bool:
 	_rebuild()
 	_set_state("ready")
 	_load_velocity()
+	if _reload_again:
+		_reload_again = false
+		reload()
 	return true
 
 
@@ -144,3 +150,42 @@ func _set_state(next: String) -> void:
 ## `client/url.ts` sie liest.
 func web_url(task: Dictionary) -> String:
 	return "%s/%s/%s" % [client.base_url, str(task["projectId"]).uri_encode(), str(task["id"]).uri_encode()]
+
+
+## Wendet eine Änderung aus dem Änderungs-Strom an (`core/events.gd`).
+##
+## Kleine Änderungen tragen das Objekt bei sich und werden eingesetzt. Was
+## viele Zeilen auf einmal betrifft – Verschieben, Archivieren, Löschen –,
+## meldet Tasker nur als „neu laden“; dann wird der ganze Stand geholt.
+func apply_event(envelope: Dictionary) -> void:
+	# Der eigene Hall: was dieses Addon selbst geändert hat, ist schon eingesetzt.
+	if envelope.get("origin") == client.client_id:
+		return
+	if state != "ready":
+		return
+	var event: Dictionary = envelope.get("event", {})
+	match event.get("type"):
+		"upsert":
+			if event.get("object") is Dictionary and LISTS.has(event.get("kind")):
+				_upsert(event["kind"], event["object"])
+		"delete":
+			_remove(str(event.get("kind")), str(event.get("id")))
+		"settings":
+			var settings = event.get("settings")
+			if settings is Dictionary and settings.get("velocity") != null:
+				velocity = int(settings["velocity"])
+				changed.emit()
+		"reload", "drawings":
+			# Die Liste der Zeichnungen kommt mit dem Stand.
+			reload()
+
+
+func _remove(kind: String, id: String) -> void:
+	if not LISTS.has(kind):
+		return
+	var list: Array = data.get(LISTS[kind], [])
+	for i in list.size():
+		if list[i]["id"] == id:
+			list.remove_at(i)
+			_rebuild()
+			return

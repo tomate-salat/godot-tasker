@@ -68,7 +68,7 @@ Vier Teile unter `addons/tasker/`:
 Grundsätze:
 
 - Objekte bleiben Dictionaries, so wie sie als JSON kommen. Eigene Klassen je Typ müssten bei jeder Modelländerung in Tasker nachgezogen werden.
-- Die Regeln werden aus Tasker nach GDScript portiert und bekommen Tests nach Vorlage von `tisch.test.ts`. Sie hängen nicht an der Darstellung, damit eine spätere 3D-Ansicht sie mitbenutzen kann.
+- Die Regeln werden aus Tasker nach GDScript portiert und bekommen Tests nach Vorlage von `tisch.test.ts`. Sie hängen nicht an der Darstellung.
 - Dock, Suche und Tisch teilen sich einen Datenbestand und eine Kartenszene.
 
 ### Einstellungen
@@ -90,7 +90,7 @@ Ein Einrichtungsdialog fragt URL und Token ab, prüft die Verbindung und lässt 
 
 ## Der Tisch
 
-Darstellung in 2,5D: flache Karten mit Kippen, Anheben und Schatten. Echtes 3D bleibt als spätere Option offen.
+Darstellung in 2,5D: flache Karten mit Kippen, Anheben und Schatten. Dabei bleibt es; eine echte 3D-Darstellung des Tischs ist nicht geplant (Nutzer, 2026-10-07).
 
 ### Zonen
 
@@ -205,7 +205,13 @@ Gebaut am 2026-10-07. Geprüft per Bildprobe mit Beispieldaten: Wochenziel und S
 
 ### Schritt 5: Änderungs-Strom
 
-- [ ] `/api/events` über `HTTPClient`, damit Änderungen aus der Web-App sofort ankommen
+Gebaut am 2026-10-07. Geprüft per Test (Zerlegen der Ereignisse, Anwenden auf den Stand) und gegen einen Probe-Server auf dem Rechner: Verbinden, Empfangen, ein über zwei Stücke verteiltes Ereignis, Erkennen des eigenen Halls, Abriss und Neuverbindung nach drei Sekunden. Nicht geprüft: die verschlüsselte Verbindung zu Railway und der Lauf im Editor.
+
+- [x] `/api/events` über `HTTPClient` (`core/events.gd`): Der Strom bleibt offen und verbindet sich nach einem Abriss neu, mit wachsendem Abstand von 3 bis 30 Sekunden. Bleibt das Lebenszeichen 70 Sekunden aus, gilt die Verbindung als tot. Bei 401 wird nicht neu versucht.
+- [x] Anwenden im Datenbestand (`Store.apply_event`): geänderte und gelöschte Objekte werden eingesetzt, „neu laden“ und geänderte Zeichnungen holen den ganzen Stand, das Tempo folgt den Einstellungen. Der eigene Hall wird übergangen.
+- [x] Nach einer Neuverbindung wird der ganze Stand geholt, weil in der Lücke etwas passiert sein kann.
+- [x] Solange der Strom steht, entfällt das Neuladen beim Zurückkehren in den Editor. Der Neuladen-Knopf im Dock zeigt grün, dass er steht.
+- [x] Im Editor gegen Railway ausprobiert (Nutzer, 2026-10-07)
 
 ### Zum Schluss: Feinschliff der Bewegung
 
@@ -220,7 +226,6 @@ Bewusst ans Ende gestellt (Nutzer, 2026-10-07): Die Animationen am Tisch gefalle
 - **Aufgaben aus Godot anlegen:** offen, ob und wie. Bisher entstehen Aufgaben in der Web-App oder über MCP, das Addon arbeitet mit vorhandenen.
 - **Karten in Szenen:** Aufgaben an Szenen und Nodes hängen und im 2D- und 3D-Editor einblenden, siehe den eigenen Abschnitt unten.
 - **Hand auch in Tasker:** Würde ein eigenes Feld in Tasker brauchen. Die Umbenennung „Offen/Im Spiel“ in „Hand/Tisch“ dort ist eine offene Idee.
-- **Echtes 3D** als zweite Darstellung.
 
 ## Ausbau: Planen am Tisch
 
