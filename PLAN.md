@@ -181,7 +181,7 @@ Gebaut am 2026-10-07. Geprüft sind die Regeln für Hand und Nachziehstapel (Tes
 - [x] Doppelklick auf eine Karte öffnet ihr Aufgabenfenster
 - [x] Milestone-Fenster (`ui/milestone_window.gd`, 2026-10-07): Ein Klick auf den Milestone-Titel in Dock oder Tisch öffnet es. Status, Fortschritt in Segmenten, Zeitraum, Beschreibung mit Zeichnungen, Burnup-Diagramm (`rules/burnup.gd`, `ui/burnup_chart.gd`, aus `milestoneLog` im Stand) und die Aufgaben. Alles Anzeige, der Status wird hier bewusst nicht geändert. Geprüft per Test und Bildprobe mit Beispieldaten, nicht gegen den Server.
 - [x] Bildfenster (`ui/image_window.gd`, 2026-10-07): Ein Klick auf ein Bild oder eine Zeichnung in einer Beschreibung zeigt es groß, mit Zoom per Mausrad und Verschieben per Ziehen. Es nutzt das schon geladene Bild (Zeichnungen mit 1600 Pixeln Kantenlänge); größer nachladen ginge über den Parameter `kante` der Route bis 4000. Lädt fehlerfrei, im Editor noch nicht ausprobiert.
-- [x] Im Editor ausprobiert (Nutzer, 2026-10-07). Die Animationen gefallen noch nicht, siehe „Zum Schluss“.
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07). Was an der Bewegung störte, wurde mit Schritt 4 behoben (Kippen, Schimmer, Landeplatz, Ablage).
 
 Die Kette über den gesperrten Karten und das Austeilen beim Öffnen kamen mit Schritt 4.
 
@@ -212,13 +212,6 @@ Gebaut am 2026-10-07. Geprüft per Test (Zerlegen der Ereignisse, Anwenden auf d
 - [x] Nach einer Neuverbindung wird der ganze Stand geholt, weil in der Lücke etwas passiert sein kann.
 - [x] Solange der Strom steht, entfällt das Neuladen beim Zurückkehren in den Editor. Der Neuladen-Knopf im Dock zeigt grün, dass er steht.
 - [x] Im Editor gegen Railway ausprobiert (Nutzer, 2026-10-07)
-
-### Zum Schluss: Feinschliff der Bewegung
-
-Bewusst ans Ende gestellt (Nutzer, 2026-10-07): Die Animationen am Tisch gefallen noch nicht. Überarbeitet werden sie erst, wenn das meiste steht, damit nichts poliert wird, was später doch verworfen wird.
-
-- [ ] Mit dem Nutzer durchgehen, was an Ziehen, Gleiten, Auffächern und Ablegen stört
-- [ ] Bewegung am Tisch überarbeiten
 
 ### Später
 
