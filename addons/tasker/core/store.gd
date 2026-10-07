@@ -69,7 +69,8 @@ func reload() -> bool:
 	return true
 
 
-## Ändert ein Objekt. Antwort: `{ ok, conflict, error, object }`.
+## Ändert ein Objekt. Antwort: `{ ok, conflict, error, object }`. Die Änderung
+## steht sofort im Stand und wird zurückgenommen, wenn Tasker ablehnt.
 ##
 ## Jede Änderung nennt die Version, auf der sie beruht. Hat inzwischen jemand
 ## anderes geändert, kommt 409 mit dem aktuellen Stand – der wird übernommen,
@@ -79,6 +80,14 @@ func patch(kind: String, id: String, changes: Dictionary) -> Dictionary:
 	if current == null:
 		return {"ok": false, "conflict": false, "error": "Nicht gefunden.", "object": null}
 
+	# Die Änderung steht sofort im Stand, damit niemand auf die Antwort warten
+	# muss. Lehnt Tasker ab, gilt wieder, was vorher galt.
+	var local: Dictionary = current.duplicate()
+	local.merge(changes, true)
+	if kind == "task" and changes.has("status"):
+		local["doneAt"] = Time.get_datetime_string_from_system(true) + ".000Z" if changes["status"] == "done" else null
+	_upsert(kind, local)
+
 	var res := await client.patch("/api/kind/%s/%s" % [kind, id.uri_encode()], {
 		"version": int(current["version"]),
 		"changes": changes,
@@ -87,6 +96,9 @@ func patch(kind: String, id: String, changes: Dictionary) -> Dictionary:
 		_upsert(kind, res["data"]["current"])
 		return {"ok": false, "conflict": true, "error": "Inzwischen woanders geändert – der neue Stand ist geladen.", "object": res["data"]["current"]}
 	if not res["ok"] or not res["data"] is Dictionary:
+		# Zurück – außer es steht inzwischen ohnehin etwas Neueres da.
+		if is_same(_find(kind, id), local):
+			_upsert(kind, current)
 		return {"ok": false, "conflict": false, "error": res["error"], "object": null}
 
 	var object: Dictionary = res["data"]

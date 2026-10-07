@@ -80,7 +80,9 @@ var _cards := {}
 var _zone := {}
 var _rest := {}
 var _tweens := {}
-## Karten, deren Änderung noch beim Server ist – sie bleiben liegen, wo sie sind.
+## Karten, deren Änderung noch beim Server ist. Sie liegen schon am neuen
+## Platz, lassen sich aber erst wieder greifen, wenn die Antwort da ist –
+## eine zweite Änderung nennte sonst eine veraltete Version.
 var _busy := {}
 var _batch := false
 
@@ -539,8 +541,7 @@ func _notice_changes() -> void:
 func _show_cards(wanted: Dictionary) -> void:
 	var g := _geometry()
 	for id in _cards.keys():
-		# Was noch beim Server ist, bleibt liegen, auch wenn der Zwischenstand es nicht mehr zeigt.
-		if wanted.has(id) or _busy.has(id):
+		if wanted.has(id):
 			continue
 		var gone: Control = _cards[id]
 		_cards.erase(id)
@@ -566,8 +567,7 @@ func _show_cards(wanted: Dictionary) -> void:
 			card.mouse_entered.connect(_on_hover.bind(card, true))
 			card.mouse_exited.connect(_on_hover.bind(card, false))
 			_cards[id] = card
-		if not _busy.has(id):
-			_zone[id] = wanted[id]
+		_zone[id] = wanted[id]
 		# Im Spiel und in der Schublade steht über einer Unteraufgabe, wozu sie gehört.
 		card.show_task(_ws, task, images if store != null else null, _zone.get(id) == "play")
 		# Auf dem Stapel liegen die Karten deckend – durchscheinend übereinander wird es Brei.
@@ -698,7 +698,7 @@ func _rest_at(id: String, spot: Vector2, angle: float, z: int, card_scale := 1.0
 	var position := spot - Card.SIZE * (1.0 - card_scale) / 2.0
 	_rest[id] = {"position": position, "rotation": angle, "z": z, "scale": card_scale}
 	var card: Control = _cards.get(id)
-	if card == null or _busy.has(id) or (card == _pressed and _dragging):
+	if card == null or (card == _pressed and _dragging):
 		return
 	card.z_index = z
 	card.lift = 0.0
@@ -1011,11 +1011,20 @@ func _drop(id: String, at: Vector2, play_index := -1) -> void:
 			if from == "hand":
 				_move_in_hand(id, at)
 			elif from == "play":
-				# Erst der Status, dann die Hand: vorher ist die Karte noch nicht offen.
-				if await _change(id, {"status": "open"}) and not task.get("parentId"):
-					if not _state["hand"].has(id):
+				# Die Karte liegt sofort wieder auf der Hand; lehnt Tasker ab, ist
+				# sie zurück im Spiel. Hand und Status ändern sich in einem Zug,
+				# damit kein Zwischenstand die Karte kurz woanders zeigt.
+				var top: bool = not task.get("parentId")
+				var added: bool = top and not _state["hand"].has(id)
+				if top:
+					_batch = true
+					if added:
 						_state["hand"].append(id)
 					_state["buried"].erase(id)
+					_save_state()
+					_batch = false
+				if not await _change(id, {"status": "open"}) and added:
+					_state["hand"].erase(id)
 					_save_state()
 	_sync()
 
@@ -1031,11 +1040,17 @@ func _play_index(x: float, dragged: String) -> int:
 
 
 ## Legt die Karte an diesen Platz im Spiel. Die Reihe wird durchgezählt; wer
-## dabei erst ins Spiel kommt, bekommt den Status gleich mit.
+## dabei erst ins Spiel kommt, bekommt den Status gleich mit. Alles liegt
+## sofort so da; lehnt Tasker die Karte selbst ab, kommt sie zurück auf die Hand.
 func _play_at(id: String, index: int) -> void:
 	var row: Array = _layout["play"].map(func(t: Dictionary) -> String: return t["id"]).filter(func(x: String) -> bool: return x != id)
 	row.insert(mini(index, row.size()), id)
+	var was_in_hand: int = _state["hand"].find(id)
 	_batch = true
+	_state["hand"].erase(id)
+	_save_state()
+	# Alle Änderungen gehen zugleich hinaus – jede steht mit dem Abschicken im Stand.
+	var moved: Array = []
 	for i in row.size():
 		var t = _ws.task(row[i])
 		if t == null:
@@ -1045,12 +1060,24 @@ func _play_at(id: String, index: int) -> void:
 			changes["status"] = "progress"
 		if int(t.get("playOrder", 0)) != i + 1:
 			changes["playOrder"] = i + 1
-		if not changes.is_empty():
-			if not await _change(row[i], changes):
-				break
+		if changes.is_empty():
+			continue
+		if row[i] == id:
+			moved = [changes]
+		else:
+			_change(row[i], changes)
 	_batch = false
-	_state["hand"].erase(id)
-	_save_state()
+	_sync_soon()
+	if moved.is_empty():
+		return
+	if not await _change(id, moved[0]) and was_in_hand >= 0 and not _state["hand"].has(id):
+		_state["hand"].insert(mini(was_in_hand, _state["hand"].size()), id)
+		_save_state()
+
+
+## Gleicht den Tisch im nächsten Leerlauf ab – nach Zügen, deren Antwort noch aussteht.
+func _sync_soon() -> void:
+	_sync.call_deferred()
 
 
 func _move_in_hand(id: String, at: Vector2) -> void:
@@ -1176,7 +1203,8 @@ func _save_state() -> void:
 
 # ------------------------------------------------------------- Ändern
 
-## Schickt eine Änderung an Tasker. Die Karte bleibt so lange liegen, wo sie ist.
+## Schickt eine Änderung an Tasker. Sie gilt sofort (`Store.patch`); die Karte
+## lässt sich nur so lange nicht greifen, bis die Antwort da ist.
 func _change(id: String, changes: Dictionary) -> bool:
 	_busy[id] = true
 	var ok := true

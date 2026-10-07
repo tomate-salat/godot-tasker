@@ -117,6 +117,8 @@ Die Trennung von Hand und Nachziehstapel kennt Tasker nicht. Sie ist lokaler Zus
 | Karten auf dem Tisch umsortieren | `playOrder` |
 | Stapel anklicken | fächert die Unteraufgaben auf (lokal) |
 
+- **Sofort, nicht erst nach der Antwort:** Ein Zug steht mit dem Loslassen im Stand (`Store.patch` wendet die Änderung gleich an) und wird zurückgenommen, wenn Tasker ablehnt – wie beim Verteilen in der Planung (Nutzer, 2026-10-07). Bis die Antwort da ist, lässt sich die Karte nicht erneut greifen. Das gilt für jede Änderung über `patch`, auch Status im Dock und im Aufgabenfenster.
+
 ### Regeln
 
 - **Ziehen per gewichtetem Zufall:** Karten mit hoher Prio und weit vorn in der Plan-Reihenfolge kommen wahrscheinlicher.
