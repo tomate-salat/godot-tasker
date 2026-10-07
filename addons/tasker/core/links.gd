@@ -21,6 +21,8 @@ const SCENE_GONE := "scene"
 const TASK_GONE := "task"
 
 var memory: Memory
+## Der Tasker, mit dem das Addon gerade verbunden ist: Server und Projekt.
+var home := ""
 
 ## Die Nodes der offenen Szene, an denen etwas hängt: `{ node, path }` mit der
 ## Instanz-ID und dem Pfad, unter dem die Referenz sie kennt.
@@ -76,6 +78,8 @@ func link(task_id: String, nodes: Array) -> String:
 	nodes = nodes.filter(func(n: Node) -> bool: return _inside(scene["root"], n))
 	if nodes.is_empty():
 		return "Erst einen Node im Szenenbaum auswählen."
+	if home != "" and (all().is_empty() or memory.read(Refs.HOME_KEY, "") == ""):
+		memory.write(Refs.HOME_KEY, home)
 	var ids := _ids(scene["path"])
 	var refs := all()
 	for node in nodes:
@@ -92,6 +96,28 @@ func unlink(ref: Dictionary) -> void:
 ## Merkt sich, wie weit die Karte dieser Referenz von ihrem Node weggeschoben ist.
 func place(ref: Dictionary, offset: Vector2) -> void:
 	_write_if_changed(Refs.place(all(), ref, offset))
+
+
+## Löst von selbst, was an archivierten oder gelöschten Aufgaben hing. `ws`
+## ist der Stand aus Tasker.
+##
+## Aufgeräumt wird nur bei dem Tasker, mit dem die Referenzen entstanden
+## sind – sonst würde ein anderer Server oder ein anderes Projekt, das die
+## Aufgaben nicht kennt, alles wegräumen.
+func prune(ws: Workspace) -> void:
+	var refs := all()
+	if refs.is_empty() or home == "":
+		return
+	var known := func(id: String) -> bool: return ws.task(id) != null
+	var kept := Refs.prune(refs, known)
+	if memory.read(Refs.HOME_KEY, "") == "":
+		# Ältere Referenzen wissen noch nicht, wohin sie gehören: kennt dieser
+		# Tasker wenigstens eine ihrer Aufgaben, ist es der richtige.
+		if kept.is_empty():
+			return
+		memory.write(Refs.HOME_KEY, home)
+	if memory.read(Refs.HOME_KEY, "") == home:
+		_write_if_changed(kept)
 
 
 ## Der Node, auf den die Referenz zeigt – wenn sie in die offene Szene zeigt

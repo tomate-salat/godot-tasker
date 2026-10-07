@@ -21,6 +21,8 @@ const LABELS := {
 
 ## Unter diesem Schlüssel merkt sich das Addon den Filter.
 const KEY := "scene_cards_show"
+## … und ob erledigte Karten versteckt sind.
+const HIDE_DONE_KEY := "scene_cards_hide_done"
 
 
 static func mode_of(saved: Variant) -> String:

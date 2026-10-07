@@ -92,6 +92,8 @@ var images: Images
 var links: Links
 ## Der Filter aus der Viewport-Leiste (`SceneView.MODES`).
 var mode := SceneView.ALL: set = set_mode
+## Ob Karten erledigter Aufgaben versteckt sind. Die Verknüpfung bleibt.
+var hide_done := false: set = set_hide_done
 
 ## Die Referenzen in die offene Szene, deren Aufgabe es gibt.
 var _here: Array = []
@@ -140,6 +142,7 @@ func _ready() -> void:
 	_plate.set_border_width_all(1)
 	_plate.set_corner_radius_all(int(Card.RADIUS * SCALE))
 	mode = SceneView.mode_of(links.memory.read(SceneView.KEY))
+	hide_done = links.memory.read(SceneView.HIDE_DONE_KEY, false) == true
 
 	_menu = PopupMenu.new()
 	for i in Model.STATUS.size():
@@ -175,6 +178,14 @@ func set_mode(value: String) -> void:
 		links.memory.write(SceneView.KEY, mode)
 
 
+func set_hide_done(value: bool) -> void:
+	if value == hide_done:
+		return
+	hide_done = value
+	if is_inside_tree() and links.memory.read(SceneView.HIDE_DONE_KEY, false) != hide_done:
+		links.memory.write(SceneView.HIDE_DONE_KEY, hide_done)
+
+
 ## Welche Aufgaben der Filter durchlässt – null heißt alle.
 func _allowed() -> Variant:
 	var m = Tisch.active_milestone(store.ws, store.project_id)
@@ -189,7 +200,10 @@ func _refresh() -> void:
 	if store.state == "ready":
 		var allowed = _allowed()
 		_here = links.here().filter(func(r: Dictionary) -> bool:
-			return store.ws.task(r["taskId"]) != null and (allowed == null or allowed.has(r["taskId"])))
+			var t = store.ws.task(r["taskId"])
+			if t == null or (hide_done and t.get("status") == "done"):
+				return false
+			return allowed == null or allowed.has(r["taskId"]))
 	var wanted := {}
 	for ref in _here:
 		wanted[ref["taskId"]] = true

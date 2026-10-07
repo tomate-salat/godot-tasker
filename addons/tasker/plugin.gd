@@ -24,6 +24,8 @@ const OrphansWindow := preload("ui/orphans_window.gd")
 const MENU_SETUP := "Tasker einrichten …"
 const MENU_TABLE := "Tasker-Tisch"
 const MENU_ORPHANS := "Tasker: Verknüpfungen prüfen …"
+## Der Eintrag „Erledigtes einblenden“ im Filter-Menü.
+const FILTER_DONE := 100
 
 const SHORTCUT_SEARCH := "tasker/search"
 const COMMANDS := {
@@ -95,6 +97,10 @@ func _enter_tree() -> void:
 	add_child(links)
 	scene_changed.connect(func(_root: Node) -> void: links.on_scene_changed())
 	scene_saved.connect(links.on_scene_saved)
+	# Was an archivierten oder gelöschten Aufgaben hing, löst sich von selbst.
+	store.changed.connect(func() -> void:
+		if store.state == "ready":
+			links.prune(store.ws))
 
 	_scene_menu = SceneMenu.new()
 	_scene_menu.store = store
@@ -118,6 +124,8 @@ func _enter_tree() -> void:
 	set_input_event_forwarding_always_enabled()
 	for bar in [CONTAINER_CANVAS_EDITOR_MENU, CONTAINER_SPATIAL_EDITOR_MENU]:
 		_add_filter(bar)
+	links.scene_changed.connect(_show_filters)
+	memory.changed.connect(_show_filters)
 
 	_panel = Dock.new()
 	_dock = EditorDock.new()
@@ -204,6 +212,7 @@ func _connect_to_server() -> void:
 	client.base_url = Config.server_url()
 	client.token = Config.token()
 	store.project_id = Config.project_id()
+	links.home = "%s|%s" % [Config.server_url(), Config.project_id()] if Config.is_configured() else ""
 	if Config.is_configured():
 		_reload()
 		events.start()
@@ -348,21 +357,40 @@ func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 	return AFTER_GUI_INPUT_PASS
 
 
-## Der Filter in der Leiste über dem Viewport: welche Karten eingeblendet werden.
+## Der Filter in der Leiste über dem Viewport: welche Karten eingeblendet
+## werden, und im selben Menü, ob Erledigtes dazugehört.
 func _add_filter(bar: int) -> void:
-	var button := OptionButton.new()
+	var button := MenuButton.new()
 	button.flat = true
 	button.tooltip_text = "Tasker: welche Karten an den Nodes eingeblendet werden"
+	var menu := button.get_popup()
+	menu.hide_on_checkable_item_selection = false
 	for i in SceneView.MODES.size():
-		button.add_item("▣ " + SceneView.LABELS[SceneView.MODES[i]], i)
-	button.select(SceneView.MODES.find(_scene_cards.mode))
-	button.item_selected.connect(func(i: int) -> void:
-		_scene_cards.mode = SceneView.MODES[i]
-		# Beide Leisten zeigen denselben Filter.
-		for other in _filters.values():
-			other.select(i))
+		menu.add_radio_check_item(SceneView.LABELS[SceneView.MODES[i]], i)
+	menu.add_separator()
+	menu.add_check_item("Erledigtes einblenden", FILTER_DONE)
+	menu.id_pressed.connect(func(id: int) -> void:
+		if id == FILTER_DONE:
+			_scene_cards.hide_done = not _scene_cards.hide_done
+		else:
+			_scene_cards.mode = SceneView.MODES[id]
+		_show_filters())
 	add_control_to_container(bar, button)
 	_filters[bar] = button
+	_show_filters()
+
+
+## Beide Leisten zeigen denselben Filter – aber nur, wenn an der offenen Szene
+## überhaupt etwas hängt. Sonst gäbe es nichts zu filtern.
+func _show_filters() -> void:
+	var any := not links.here().is_empty()
+	for button in _filters.values():
+		button.visible = any
+		button.text = "▣ " + SceneView.LABELS[_scene_cards.mode]
+		var menu: PopupMenu = button.get_popup()
+		for i in SceneView.MODES.size():
+			menu.set_item_checked(menu.get_item_index(i), SceneView.MODES[i] == _scene_cards.mode)
+		menu.set_item_checked(menu.get_item_index(FILTER_DONE), not _scene_cards.hide_done)
 
 
 ## Zeigt die Verknüpfungen, die ins Leere zeigen, zum Aufräumen.

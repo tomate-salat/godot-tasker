@@ -275,7 +275,7 @@ Vorhandene Aufgaben bekommen Referenzen auf Szenen und Nodes. Der 2D- und 3D-Edi
 - **Szenendateien bleiben unberührt.** Die Referenz steht an der Aufgabe, nicht in der Szene. Keine Marker-Nodes, keine Metadaten.
 - **Nur Szenen und Nodes** als Ziel. Skripte, andere Dateien und freie Positionen ohne Node sind nicht vorgesehen.
 - **Nur vorhandene Aufgaben verknüpfen.** Ob und wie Aufgaben aus Godot heraus angelegt werden, ist offen.
-- **Erst lokal, dann Tasker:** Die Referenzen liegen zunächst im lokalen Zustand des Addons (unter `.godot/`, also weg nach dem Löschen des Ordners oder einem frischen Klon). Wenn sich die Form bewährt hat, bekommt Tasker Tabelle, Routen und Token-Freigabe, und die lokalen Referenzen wandern hinüber. Ziel ist, dass die Referenz in der Tasker-Datenbank steht, auch wenn die Web-App sie nicht anzeigt.
+- **Lokal:** Die Referenzen liegen im lokalen Zustand des Addons (unter `.godot/`, also weg nach dem Löschen des Ordners oder einem frischen Klon). Tasker kennt sie nicht und soll sie auch nicht kennen, siehe „Referenzen teilen“ unten.
 
 ### Aufbau einer Referenz
 
@@ -328,7 +328,7 @@ Aus der Klassenbeschreibung des Editors (2026-10-07), noch nichts davon ausprobi
 
 ### Schritte
 
-An Tasker ändert sich bis einschließlich Schritt 4 nichts. Die Schritte 1 bis 4 lesen und schreiben dort nur, was das Addon heute schon tut (Stand holen, Status wechseln).
+An Tasker ändert sich durch „Karten in Szenen“ nichts. Die Schritte lesen und schreiben dort nur, was das Addon ohnehin tut (Stand holen, Status wechseln).
 
 #### Schritt 1: Referenzen und Verknüpfen
 
@@ -357,7 +357,7 @@ Noch ohne Viewport.
 
 - [x] Karten wegziehen, Faden zum Node, Versatz merken; „Karte zurück an den Node“ im Kartenmenü
 - [x] Pin beim Herauszoomen (zeigt unter dem Zeiger seine Karte), Stapel bei Karten nah beieinander (ein Klick fächert auf, aus dem Fächer lässt sich eine Karte herausziehen)
-- [x] Filter in der Viewport-Leiste von 2D und 3D, lokal gemerkt
+- [x] Filter in der Viewport-Leiste von 2D und 3D, lokal gemerkt; der Knopf erscheint nur, wenn an der offenen Szene etwas hängt
 - [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
 #### Schritt 4: Selbstheilung
@@ -366,12 +366,17 @@ Noch ohne Viewport.
 - [x] Liste verwaister Referenzen als eigenes Fenster (Hinweis im Dock, Werkzeug-Menü, Befehlspalette): Vorschlag übernehmen, an ausgewählten Node hängen, lösen
 - [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
-#### Schritt 5: Umzug nach Tasker
+#### Erledigte und archivierte Aufgaben
 
-Der einzige Schritt, der Tasker ändert. Erst wenn sich die Form der Referenz bewährt hat, und als Anfrage an die Tasker-Sitzung nach Rückfrage.
+- [x] Erledigt: Die Karte bleibt am Node und verblasst. Der Eintrag „Erledigtes einblenden“ im Filter-Menü blendet sie aus, die Verknüpfung bleibt.
+- [x] Archiviert oder gelöscht: Die Verknüpfung löst sich von selbst, sobald die Aufgabe nicht mehr im Stand ist. Wer eine Aufgabe aus dem Archiv zurückholt, muss neu verknüpfen.
+- [x] Aufgeräumt wird nur bei dem Tasker (Server und Projekt), mit dem die Referenzen entstanden sind. Ein anderer Server oder ein anderes Projekt lässt sie stehen; sie erscheinen dann als verwaist.
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
-- [ ] Tabelle, Routen und Token-Freigabe in Tasker
-- [ ] Lokale Referenzen hinüberschieben, danach ist Tasker die Quelle
+#### Später, falls gewünscht: Referenzen teilen
+
+Entschieden am 2026-10-07: Die Referenzen bleiben lokal. Nach Tasker ziehen sie nicht um, dort wären sie unnötig. Sollen sie einmal über Rechner hinweg gleich sein, gehören sie eher als Datei ins Godot-Projekt, die mit ins Repo des Spiels kann.
+
 ## Risiken und offene Punkte
 
 - **Animationen im Editor-Fenster:** Der Editor zeichnet sparsam neu. Ob Karten dort flüssig laufen, klärt der Prototyp in Schritt 1. Ausweichweg wäre ein eigener Prozess, mit den Nachteilen, dass das Token durchgereicht werden muss und die Autoloads des Spiels mitstarten.

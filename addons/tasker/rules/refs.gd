@@ -15,6 +15,9 @@ extends RefCounted
 
 ## Unter diesem Schlüssel liegen alle Referenzen des Projekts.
 const KEY := "refs"
+## Zu welchem Tasker (Server und Projekt) die Referenzen gehören – nur dort
+## wird von selbst aufgeräumt.
+const HOME_KEY := "refs_home"
 
 const ROOT := "."
 
@@ -108,6 +111,12 @@ static func place(refs: Array, ref: Dictionary, offset: Vector2) -> Array:
 			r["offset"] = offset
 		out.append(r)
 	return out
+
+
+## Lässt die Referenzen fallen, deren Aufgabe es nicht mehr gibt. `known`
+## sagt zu einer Aufgaben-ID, ob sie noch im Stand ist.
+static func prune(refs: Array, known: Callable) -> Array:
+	return refs.filter(func(r: Dictionary) -> bool: return known.call(r["taskId"]))
 
 
 ## Die Datei der Szene liegt jetzt woanders.

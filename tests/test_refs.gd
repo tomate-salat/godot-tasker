@@ -137,3 +137,8 @@ func test_bei_gleich_guten_kandidaten_wird_nicht_geraten() -> void:
 	var nodes := {"A/Boss": {"type": "Node3D"}, "B/Boss": {"type": "Node3D"}, "Enemies/Licht": {"type": "OmniLight3D"}}
 	eq(Refs.suggest(Refs.make("a", UID, LEVEL, "Enemies/Boss", "Node3D"), nodes), "")
 	eq(Refs.suggest(Refs.make("a", UID, LEVEL, "Enemies/Boss", "Node3D"), {"Enemies/Licht": {"type": "OmniLight3D"}}), "", "nichts Ähnliches")
+
+
+func test_referenzen_ohne_aufgabe_fallen_beim_aufraeumen_weg() -> void:
+	var refs := [_ref("a", "Enemies"), _ref("weg", "Enemies"), _ref("b", ".")]
+	eq(_paths(Refs.prune(refs, func(id: String) -> bool: return id != "weg")), ["a@Enemies", "b@."])
