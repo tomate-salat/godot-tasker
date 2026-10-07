@@ -80,8 +80,8 @@ func _process(delta: float) -> bool:
 				plan._graph.visible = false
 				plan._pressed = plan._left._sheet.get_meta("cards")[1]
 				plan._start_drag(Vector2(900, 380))
-				# Beim Ziehen weiterblättern: die Karte im Fach verschwindet mit ihrer Seite.
-				plan._left.turn(1)
+				# Beim Ziehen zurückblättern, auf die Seite einer leeren Gruppe.
+				plan._left.turn(-1)
 				plan._flying.position = Vector2(880, 330)
 				plan._pointer_speed = Vector2(900, -200)
 				plan._last_move = Time.get_ticks_msec() + 5000

@@ -71,7 +71,11 @@ Mehr unter https://example.com/menue"})
 		"projects": [{"id": PROJECT, "version": 1, "name": "Beispiel", "color": "#2A6B5A", "order": 0, "coverImageId": null}],
 		"categories": [],
 		"marks": [{"id": "mk", "version": 1, "projectId": PROJECT, "emoji": "🔧", "name": "Wichtig", "order": 0, "coverImageId": null}],
-		"groups": [{"id": "gr", "version": 1, "projectId": PROJECT, "title": "Stimmung", "order": 0, "archivedAt": null}],
+		"groups": [
+			{"id": "gr", "version": 1, "projectId": PROJECT, "title": "Stimmung", "order": 0, "archivedAt": null},
+			# Eine leere Gruppe: in der Planung zeigt sie sich nur, während eine Karte gezogen wird.
+			{"id": "gr2", "version": 1, "projectId": PROJECT, "title": "Später", "order": 1, "archivedAt": null},
+		],
 		"milestones": [{
 			"id": "ms", "ref": 1, "version": 1, "projectId": PROJECT, "title": "Erster spielbarer Stand", "desc": "",
 			"planned": true, "status": "progress", "order": 0, "qorder": 0, "startDate": null, "endDate": null,

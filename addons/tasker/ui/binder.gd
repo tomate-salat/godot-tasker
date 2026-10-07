@@ -15,7 +15,9 @@ extends Control
 ## aus der eine Unteraufgabe aufgefächert wurde, sonst leer. `header` steht
 ## über jeder Seite des Abschnitts: `{ id, title, line, late, pct, accent, tip }`;
 ## ohne `pct` gibt es keinen Fortschrittsbalken, ohne `id` keinen Klick. Mit
-## `drop: false` nimmt der Abschnitt keine Karten an.
+## `drop: false` nimmt der Abschnitt keine Karten an. Mit `hide_if_empty`
+## hat er, solange er leer ist, weder Seite noch Registerblatt – beides
+## erscheint nur, während eine Karte gezogen wird.
 ##
 ## Karten lassen sich ablegen: in ein Fach (die Karte landet
 ## an diesem Platz), auf ein Registerblatt (ans Ende des Abschnitts), auch in den
@@ -67,6 +69,8 @@ var columns := 3
 var tab_out := TAB_OUT
 ## Mit welchem Abschnitt ein Ordner aufgeschlagen wird, den es noch nicht gab.
 var start_section := 0
+## Was über der Seite steht, wenn kein Abschnitt etwas zu zeigen hat.
+var empty_title := "Hier steckt nichts"
 
 var _sections: Array = []
 ## Die Seiten: je `{ section, items }` – `items` mit `{ task, child_of }`.
@@ -89,6 +93,9 @@ var _drop_tab := -1
 ## ein blasses Abbild liegt.
 var _dragged := ""
 var _ghost_id := ""
+## Solange eine Karte gezogen wird, zeigen sich auch die Registerblätter
+## leerer Abschnitte, damit man etwas hineinlegen kann.
+var _show_empty := false
 
 var _tabs: Control
 ## Hier liegen die Seiten: die aufgeschlagene und, beim Blättern, die zweite.
@@ -222,11 +229,14 @@ func _paginate() -> void:
 	var per_page := _rows() * columns
 	for s in _sections.size():
 		var items: Array = _sections[s]["items"]
-		# Auch ein leerer Abschnitt hat seine Seite.
+		# Ein leerer Abschnitt hat seine Seite – außer er versteckt sich, solange er leer ist.
+		if _hidden(s):
+			continue
 		for from in range(0, maxi(items.size(), 1), per_page):
 			_leaves.append({"section": s, "items": items.slice(from, from + per_page)})
 	if _leaves.is_empty():
-		_leaves.append({"section": 0, "items": []})
+		# Nichts zu zeigen: eine leere Seite, die zu keinem Abschnitt gehört.
+		_leaves.append({"section": -1, "items": []})
 
 
 func page_count() -> int:
@@ -309,8 +319,6 @@ func open_page(to: int) -> void:
 func _build_tabs() -> void:
 	for c in _tabs.get_children():
 		c.queue_free()
-	# Viele Abschnitte rücken zusammen, damit alle Blätter an den Rand passen.
-	var step := minf(TAB_HEIGHT + 4.0, (size.y - FOOT - 24.0) / maxf(_sections.size(), 1))
 	for s in _sections.size():
 		var section: Dictionary = _sections[s]
 		var color: Color = TAB_COLORS[s % TAB_COLORS.size()]
@@ -339,9 +347,93 @@ func _build_tabs() -> void:
 			tab.add_theme_stylebox_override(state, box)
 		tab.tooltip_text = section.get("tip", "Zu „%s“ blättern" % section["title"])
 		tab.pressed.connect(reveal_section.bind(s))
-		tab.position.y = 16.0 + s * step
-		tab.size = Vector2(tab_out + 8.0, minf(TAB_HEIGHT, step - 2.0))
 		_tabs.add_child(tab)
+	_place_tabs(false)
+
+
+## Ob der Abschnitt gerade weder Seite noch Registerblatt hat: leer und zum
+## Verstecken bestimmt – außer es wird eine Karte gezogen.
+func _hidden(section: int) -> bool:
+	return not _show_empty and _sections[section].get("hide_if_empty", false) and _sections[section]["items"].is_empty()
+
+
+## Reiht die Registerblätter am Rand auf. Versteckte fehlen – außer es wird
+## gerade eine Karte gezogen: dann schieben sie sich dazwischen.
+func _place_tabs(animated: bool) -> void:
+	var tabs := _tabs.get_children().filter(func(t: Node) -> bool: return not t.is_queued_for_deletion())
+	var shown := []
+	for s in tabs.size():
+		if not _hidden(s):
+			shown.append(s)
+	# Viele Abschnitte rücken zusammen, damit alle Blätter an den Rand passen.
+	var step := minf(TAB_HEIGHT + 4.0, (size.y - FOOT - 24.0) / maxf(shown.size(), 1))
+	for s in tabs.size():
+		var tab: Control = tabs[s]
+		var at := shown.find(s)
+		var y := 16.0 + maxi(at, 0) * step
+		tab.size = Vector2(tab_out + 8.0, minf(TAB_HEIGHT, step - 2.0))
+		if tab.has_meta("slide"):
+			var running: Tween = tab.get_meta("slide")
+			if running != null and running.is_valid():
+				running.kill()
+		if not animated:
+			tab.visible = at >= 0
+			tab.position.y = y
+			tab.modulate.a = 1.0
+			continue
+		# Ein neues Blatt blendet an seinem Platz ein, die anderen rücken.
+		if at >= 0 and not tab.visible:
+			tab.visible = true
+			tab.position.y = y
+			tab.modulate.a = 0.0
+		var slide: Tween = tab.create_tween().set_parallel().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		slide.tween_property(tab, "position:y", y, 0.16)
+		slide.tween_property(tab, "modulate:a", 1.0 if at >= 0 else 0.0, 0.16)
+		if at < 0:
+			slide.chain().tween_callback(func() -> void: tab.visible = false)
+		tab.set_meta("slide", slide)
+
+
+## Eine Karte wird gezogen (oder nicht mehr): solange zeigen sich auch die
+## Registerblätter leerer Abschnitte.
+func set_dragging(on: bool) -> void:
+	if on == _show_empty:
+		return
+	_show_empty = on
+	_repaginate()
+	_place_tabs(true)
+
+
+## Teilt die Seiten neu ein, ohne umzublättern: beim Ziehen kommen die Seiten
+## leerer Abschnitte dazu, danach fallen sie wieder weg.
+func _repaginate() -> void:
+	var page: int = _pages.get(_key, 0)
+	var section: int = _leaves[page]["section"] if page < _leaves.size() else -1
+	# Die wievielte Seite ihres Abschnitts aufgeschlagen ist.
+	var nth := 0
+	for i in mini(page, _leaves.size()):
+		if _leaves[i]["section"] == section:
+			nth += 1
+	_paginate()
+	var to := -1
+	var seen := 0
+	for i in _leaves.size():
+		if _leaves[i]["section"] == section:
+			if seen == nth:
+				to = i
+				break
+			seen += 1
+	if to >= 0:
+		_pages[_key] = to
+	else:
+		# Die aufgeschlagene Seite gibt es nicht mehr – sie gehörte zu einem
+		# leeren Abschnitt. Dann liegt die nächstgelegene da.
+		_pages[_key] = clampi(page, 0, _leaves.size() - 1)
+		for c in _sheets.get_children():
+			c.queue_free()
+		_sheet = _make_sheet(_pages[_key])
+		_sheets.add_child(_sheet)
+	_show_place()
 
 
 ## Blättert zur ersten Seite dieses Abschnitts.
@@ -384,7 +476,7 @@ func _make_sheet(page: int) -> Control:
 	sheet.size = _sheets.size
 	sheet.mouse_filter = Control.MOUSE_FILTER_PASS
 	var leaf: Dictionary = _leaves[page]
-	var header: Dictionary = _sections[leaf["section"]].get("header", {}) if not _sections.is_empty() else {}
+	var header: Dictionary = _sections[leaf["section"]].get("header", {}) if leaf["section"] >= 0 else {"title": empty_title, "line": ""}
 	var top := PAD + HEADER
 	var rows := _rows()
 	# Was in der Höhe übrig bleibt, verteilt sich über und unter den Fächern.
@@ -578,12 +670,12 @@ func hover(at: Vector2, task_id: String) -> bool:
 		for t in _tabs.get_children():
 			if t.is_queued_for_deletion():
 				continue
-			if t.get_global_rect().has_point(at) and _sections[n].get("drop", true):
+			if t.visible and t.get_global_rect().has_point(at) and _sections[n].get("drop", true):
 				tab = n
 			n += 1
 		var local: Vector2 = _sheets.get_global_transform().affine_inverse() * at
 		var section: int = _leaves[_pages.get(_key, 0)]["section"]
-		if tab < 0 and Rect2(Vector2.ZERO, _sheets.size).has_point(local) and _sections[section].get("drop", true):
+		if tab < 0 and section >= 0 and Rect2(Vector2.ZERO, _sheets.size).has_point(local) and _sections[section].get("drop", true):
 			# Weiter hinten als hinter die letzte Karte der Seite geht es nicht.
 			pocket = mini(_pocket_at(local), _others(task_id).size())
 	_dragged = task_id
@@ -743,6 +835,7 @@ func _make_room(gap: int, moved_id: String) -> void:
 ## Das Ziehen ist vorbei: kein Abbild und keine Marke mehr, auch nicht auf
 ## Seiten, die erst noch aufgeschlagen werden.
 func clear_drag() -> void:
+	set_dragging(false)
 	var ghost_id := _ghost_id
 	_ghost_id = ""
 	_dragged = ""

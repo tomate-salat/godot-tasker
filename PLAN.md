@@ -236,7 +236,7 @@ Derselbe Tisch, nur zum Planen statt zum Spielen. Ein Umschalter wechselt zwisch
 - **Der Graph einer Karte auf Wunsch:** Ein Klick aufs Schloss (oder der Rechtsklick, auch bei Karten ohne Sperre) zeigt über den Decks, worauf die Karte wartet und was auf sie wartet, über alle Stufen, aufgebaut wie der Graph in Tasker. Jede Karte nennt, wo sie liegt. Gezogen wird aus dem Graphen nicht: er liegt über den Ordnern, es gäbe kein Ziel.
 - **Abhängigkeiten nur ansehen.** Anlegen und Trennen bleibt vorerst in Tasker.
 - **Karten verteilen:** in ein Deck (auch in das laufende), zwischen zwei Karten, zurück in den Vorrat.
-- **Decks umsortieren:** gewünscht. Dafür bekommt Tasker eine enge Route „setze Milestone X vor oder nach Y“, die selbst neu nummeriert. Anfrage an die Tasker-Sitzung erst nach Rückfrage, wenn der Schritt ansteht.
+- **Decks umsortieren:** entfällt, siehe unten.
 
 ### Schritte
 
@@ -260,16 +260,15 @@ Derselbe Tisch, nur zum Planen statt zum Spielen. Ein Umschalter wechselt zwisch
 #### Schritt 3: Karten verteilen
 
 - [x] Karte ziehen: in ein Fach (sie nimmt diesen Platz ein), auf ein Registerblatt (ans Ende), auch in den anderen Ordner – in ein Deck, in eine Gruppe von „Ready“ oder „Backlog“, oder an eine andere Stelle im selben (`/api/move`)
-- [x] Auch leere Gruppen, Kategorien und „Unsortiert“ haben ihr Registerblatt, damit man etwas hineinlegen kann
+- [x] Leere Gruppen, Kategorien und „Unsortiert“ haben im Vorrat weder Seite noch Registerblatt. Ihr Registerblatt erscheint, solange eine Karte gezogen wird, damit man etwas hineinlegen kann
 - [x] Beim Ziehen lässt sich mit dem Mausrad weiterblättern und auf einer anderen Seite ablegen
 - [x] Im Editor gegen Tasker ausprobiert (Nutzer, 2026-10-07)
 - [x] Gezogen wird wie am Spieltisch: die Karte selbst hängt am Zeiger und kippt in die Bewegungsrichtung, im Fach bleibt ein blasses Abbild, am Ziel rücken die Karten zur Seite
 - [x] Die Karte liegt sofort am neuen Platz, Tasker erfährt es gleichzeitig; geht der Zug nicht, gleitet sie zurück
 
-#### Schritt 4: Decks umsortieren
+#### Nicht gebaut: Decks umsortieren
 
-- [ ] Anfrage an die Tasker-Sitzung: Route „Milestone X vor oder nach Y“
-- [ ] Kopfkarten ziehen
+Entschieden am 2026-10-07: wird nicht gebraucht. Die Plan-Reihenfolge der Milestones ändert man weiter in Tasker; eine neue Route dort entfällt damit.
 
 ### Ideen für später
 

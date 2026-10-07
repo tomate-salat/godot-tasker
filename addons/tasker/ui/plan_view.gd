@@ -231,12 +231,12 @@ func _build_stock() -> void:
 	var sections := []
 	for section in Planning.stock(_ws, _project, _stock, true):
 		var count: int = section["cards"].size()
-		sections.append({"title": section["title"], "items": _items(section["cards"]), "place": section["place"], "roots": _ids(section["cards"]), "header": {
+		# Leere Gruppen zeigen sich nur beim Ziehen, als Ziel.
+		sections.append({"title": section["title"], "items": _items(section["cards"]), "place": section["place"], "roots": _ids(section["cards"]), "hide_if_empty": true, "header": {
 			"title": section["title"], "line": "%d %s in „%s“" % [count, "Karte" if count == 1 else "Karten", "Ready" if _stock == Planning.READY else "Backlog"]}})
-	if sections.is_empty():
-		sections.append({"title": "Leer", "items": [], "drop": false, "header": {"title": "Dieser Stapel ist leer", "line": ""}})
 	_left.card_maker = _card.bind(Planning.deck_order(Planning.decks(_ws, _project)))
 	_stock_sections = sections
+	_left.empty_title = "Dieser Stapel ist leer"
 	_left.show_sections(_stock, sections)
 
 
@@ -496,6 +496,8 @@ func _start_drag(mouse: Vector2) -> void:
 	_pointer_speed = Vector2.ZERO
 	_tilt = Vector2.ZERO
 	_source.ghost(_pressed.task_id, true)
+	for binder in [_left, _right]:
+		binder.set_dragging(true)
 
 
 ## Lässt die gezogene Karte in die Bewegungsrichtung kippen und richtet sie
