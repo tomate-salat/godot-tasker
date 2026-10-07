@@ -16,7 +16,7 @@ func test_ueberschriften_hervorhebungen_und_zeilenumbrueche() -> void:
 
 func test_listen_und_checklisten_mit_einrueckung() -> void:
 	eq(Markdown.to_bbcode("- eins\n  - zwei\n1. drei\n- [ ] offen\n- [x] fertig"),
-		"• eins\n    • zwei\n1. drei\n☐ offen\n☑ [color=#9ba49f]fertig[/color]")
+		"• eins\n    • zwei\n1. drei\n%shaken:3:0%s offen\n%shaken:4:1%s [color=#9ba49f]fertig[/color]" % [Markdown.IMAGE, Markdown.IMAGE, Markdown.IMAGE, Markdown.IMAGE])
 
 
 func test_code_bleibt_woertlich() -> void:
@@ -53,3 +53,10 @@ func test_bilder_der_galerie_bekommen_eine_marke_andere_nur_ihren_namen() -> voi
 func test_zitat_und_trennlinie() -> void:
 	eq(Markdown.to_bbcode("> gesagt\n---"),
 		"[indent][color=#9ba49f][i]gesagt[/i][/color][/indent]\n[color=#9ba49f]────────────[/color]")
+
+
+func test_kaestchen_nennen_ihre_zeile_im_quelltext() -> void:
+	var box := func(line: int, done: bool) -> String:
+		return "%s%s%d:%d%s" % [Markdown.IMAGE, Markdown.CHECK, line, 1 if done else 0, Markdown.IMAGE]
+	eq(Markdown.to_bbcode("Text\n\n  - [ ] tief\n```\n- [ ] Code\n```\n1. [X] nummeriert\n- [ ]"),
+		"Text\n\n    %s tief\n[code][color=#e6ae58]- [lb] ] Code[/color][/code]\n%s [color=#9ba49f]nummeriert[/color]\n%s " % [box.call(2, false), box.call(6, true), box.call(7, false)])

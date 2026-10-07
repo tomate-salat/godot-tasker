@@ -236,6 +236,7 @@ func _build() -> void:
 	_desc.scroll_active = false
 	_desc.target_requested.connect(func(id: String) -> void: task_requested.emit(id))
 	_desc.image_requested.connect(func(key: String, name: String) -> void: image_requested.emit(key, name))
+	_desc.save_failed.connect(_on_desc_failed)
 	box.add_child(_desc)
 
 	_burnup = VBoxContainer.new()
@@ -310,3 +311,9 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		set_input_as_handled()
 		queue_free()
+
+
+## Ein Kästchen der Beschreibung ließ sich nicht umschalten.
+func _on_desc_failed(message: String) -> void:
+	if Engine.is_editor_hint():
+		EditorInterface.get_editor_toaster().push_toast("Tasker: " + message, EditorToaster.SEVERITY_WARNING)

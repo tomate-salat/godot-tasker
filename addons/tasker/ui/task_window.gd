@@ -188,6 +188,7 @@ func _build() -> void:
 	_desc.custom_minimum_size.y = 80
 	_desc.target_requested.connect(func(id: String) -> void: task_requested.emit(id))
 	_desc.image_requested.connect(func(key: String, name: String) -> void: image_requested.emit(key, name))
+	_desc.save_failed.connect(_on_desc_failed)
 	box.add_child(_desc)
 
 	_kids = VBoxContainer.new()
@@ -232,3 +233,9 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		set_input_as_handled()
 		queue_free()
+
+
+## Ein Kästchen der Beschreibung ließ sich nicht umschalten.
+func _on_desc_failed(message: String) -> void:
+	_message.text = message
+	_message.visible = true

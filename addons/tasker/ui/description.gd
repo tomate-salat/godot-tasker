@@ -8,13 +8,18 @@ extends RichTextLabel
 signal target_requested(id: String)
 ## Ein Bild oder eine Zeichnung wurde angeklickt und soll groß gezeigt werden.
 signal image_requested(key: String, title: String)
+## Ein Kästchen ließ sich nicht umschalten – mit dem Grund.
+signal save_failed(message: String)
 
 const Store := preload("../core/store.gd")
 const Images := preload("../core/images.gd")
 const Palette := preload("palette.gd")
 const Markdown := preload("markdown.gd")
+const Checklist := preload("../rules/checklist.gd")
 
 const IMAGE_SCHEME := "bild:"
+## Kantenlänge eines Kästchens in der Zeile.
+const BOX_SIZE := 16
 
 var store: Store
 var images: Images
@@ -27,6 +32,12 @@ var _owner_id := ""
 var _missing := {}
 ## Wie die gezeigten Bilder heißen: Schlüssel → Name, für den Fenstertitel.
 var _titles := {}
+## Ein umgeschaltetes Kästchen ist unterwegs; `_unsaved`: seither kam noch eins dazu.
+var _saving := false
+var _unsaved := false
+## Die Bilder der Kästchen, offen und abgehakt – gezeichnet statt gesetzt,
+## weil die Schriftzeichen dafür verschieden breit ausfallen.
+static var _boxes := {}
 
 
 func _init() -> void:
@@ -37,10 +48,17 @@ func _init() -> void:
 
 ## Zeigt die Beschreibung. `owner_field` ist "taskId" oder "milestoneId".
 func show_text(text: Variant, owner_field: String, owner_id: String) -> void:
-	_text = text if text is String else ""
+	var same := owner_id == _owner_id and owner_field == _owner_field
+	# Ein Kästchen, das noch nicht hinausgegangen ist, soll der Stand nicht zurücknehmen.
+	if not (same and _saving and _unsaved):
+		_text = text if text is String else ""
 	_owner_field = owner_field
 	_owner_id = owner_id
+	# Dieselbe Beschreibung neu gezeigt bleibt, wo man gerade liest.
+	var scroll := get_v_scroll_bar().value if same else 0.0
 	_render()
+	if scroll > 0.0:
+		get_v_scroll_bar().set_deferred("value", scroll)
 
 
 func _render() -> void:
@@ -57,6 +75,17 @@ func _render() -> void:
 			continue
 		# Eine Marke des Übersetzers: ein Bild der Galerie oder eine Zeichnung.
 		var mark: String = parts[i]
+		if mark.begins_with(Markdown.CHECK):
+			# Ein Kästchen: anklickbar, solange gespeichert werden kann.
+			var bits := mark.trim_prefix(Markdown.CHECK).split(":")
+			var box := _box(bits[1] == "1")
+			if _can_tick():
+				push_meta(Markdown.CHECK + bits[0], RichTextLabel.META_UNDERLINE_NEVER, "Klicken hakt ab" if bits[1] == "0" else "Klicken nimmt den Haken weg")
+				add_image(box, BOX_SIZE, BOX_SIZE, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+				pop()
+			else:
+				add_image(box, BOX_SIZE, BOX_SIZE, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+			continue
 		var what := "Bild"
 		var key := ""
 		var drawing = null
@@ -140,6 +169,9 @@ func _by_ref(number: int) -> Variant:
 ## Ein Verweis öffnet sein Ziel in dessen Fenster, alles andere den Browser.
 func _on_link(meta: Variant) -> void:
 	var link := str(meta)
+	if link.begins_with(Markdown.CHECK):
+		_tick(int(link.trim_prefix(Markdown.CHECK)))
+		return
 	if link.begins_with(IMAGE_SCHEME):
 		var key := link.trim_prefix(IMAGE_SCHEME)
 		image_requested.emit(key, str(_titles.get(key, "Bild")).replace("[lb]", "["))
@@ -149,3 +181,82 @@ func _on_link(meta: Variant) -> void:
 			target_requested.emit(target["id"])
 	elif link.begins_with("http://") or link.begins_with("https://"):
 		OS.shell_open(link)
+
+
+# ------------------------------------------------------------- Abhaken
+
+## Kästchen lassen sich nur umschalten, wenn die Änderung auch ankommt.
+func _can_tick() -> bool:
+	return store != null and store.state == "ready" and _owner_id != ""
+
+
+## Schaltet das Kästchen in dieser Zeile des Quelltexts um. Es steht sofort
+## so da; lehnt Tasker ab, gilt wieder, was im Stand steht.
+func _tick(line: int) -> void:
+	var n: int = Checklist.lines_of(_text)["out"].find(line)
+	if n < 0 or not _can_tick():
+		return
+	_text = Checklist.toggle_item(_text, n)
+	show_text(_text, _owner_field, _owner_id)
+	_unsaved = true
+	if _saving:
+		return
+	# Mehrere Klicks kurz nacheinander gehen nacheinander hinaus: jede
+	# Änderung muss die Version nennen, die die vorige hinterlassen hat.
+	_saving = true
+	var owner_id := _owner_id
+	var kind := "task" if _owner_field == "taskId" else "milestone"
+	while _unsaved and owner_id == _owner_id:
+		_unsaved = false
+		var res := await store.patch(kind, owner_id, {"desc": _text})
+		if not is_instance_valid(self):
+			return
+		if not res["ok"]:
+			_unsaved = false
+			if owner_id == _owner_id:
+				var current = store._find(kind, owner_id)
+				_text = current.get("desc") if current != null and current.get("desc") is String else ""
+				_render()
+				save_failed.emit(str(res["error"]))
+	_saving = false
+
+
+## Das Bild eines Kästchens: offen ein Rahmen, abgehakt gefüllt mit Haken.
+static func _box(done: bool) -> Texture2D:
+	if _boxes.has(done):
+		return _boxes[done]
+	# Doppelt so groß gezeichnet, damit es verkleinert glatt aussieht.
+	var n := BOX_SIZE * 4
+	var image := Image.create_empty(n, n, true, Image.FORMAT_RGBA8)
+	var edge := Palette.ACCENT if done else Palette.MUTED
+	var fill := Color(Palette.ACCENT, 0.9) if done else Color(Palette.MUTED, 0.0)
+	var inset := 6.0
+	var radius := 12.0
+	var border := 6.0
+	# Der Haken als zwei Striche.
+	var a := Vector2(0.24, 0.52) * n
+	var b := Vector2(0.43, 0.70) * n
+	var c := Vector2(0.77, 0.30) * n
+	var half := Vector2(n, n) / 2.0 - Vector2(inset, inset)
+	for y in n:
+		for x in n:
+			var p := Vector2(x + 0.5, y + 0.5)
+			# Abstand zum abgerundeten Rechteck: innen negativ.
+			var q := (p - Vector2(n, n) / 2.0).abs() - half + Vector2(radius, radius)
+			var dist := Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0) - radius
+			var color := Color(0, 0, 0, 0)
+			if dist <= 0.0:
+				color = edge if dist > -border else fill
+			if done and dist < -border:
+				var near := minf(_to_segment(p, a, b), _to_segment(p, b, c))
+				if near < 4.5:
+					color = Palette.SURFACE
+			image.set_pixel(x, y, color)
+	image.generate_mipmaps()
+	_boxes[done] = ImageTexture.create_from_image(image)
+	return _boxes[done]
+
+
+static func _to_segment(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var t := clampf((p - a).dot(b - a) / (b - a).length_squared(), 0.0, 1.0)
+	return p.distance_to(a + (b - a) * t)

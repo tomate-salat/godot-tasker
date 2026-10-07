@@ -217,6 +217,7 @@ Gebaut am 2026-10-07. Geprüft per Test (Zerlegen der Ereignisse, Anwenden auf d
 
 - **Planen am Tisch:** eingeplant, siehe den eigenen Abschnitt unten.
 - **Abhängigkeiten als Fäden:** am Spieltisch fraglich, siehe unten.
+- **Aufgaben bearbeiten:** eingeplant, siehe den eigenen Abschnitt unten. Den Anfang macht die Beschreibung.
 - **Aufgaben aus Godot anlegen:** offen, ob und wie. Bisher entstehen Aufgaben in der Web-App oder über MCP, das Addon arbeitet mit vorhandenen.
 - **Karten in Szenen:** Aufgaben an Szenen und Nodes hängen und im 2D- und 3D-Editor einblenden, siehe den eigenen Abschnitt unten.
 
@@ -412,6 +413,48 @@ Noch ohne Viewport.
 #### Später, falls gewünscht: Referenzen teilen
 
 Entschieden am 2026-10-07: Die Referenzen bleiben lokal. Nach Tasker ziehen sie nicht um, dort wären sie unnötig. Sollen sie einmal über Rechner hinweg gleich sein, gehören sie eher als Datei ins Godot-Projekt, die mit ins Repo des Spiels kann.
+
+## Ausbau: Aufgaben bearbeiten
+
+Stand 2026-10-07: Es beginnt mit der Beschreibung. Sie soll sich bedienen lassen wie in Tasker: im Ansichtsmodus Kästchen abhaken, im Editiermodus Listen mit klugen Einrückungen und Befehlen. An Tasker ändert sich dafür nichts – gespeichert wird über `/api/kind/<kind>/<id>`, die Route ist per Token frei und schränkt keine Felder ein.
+
+### Festgelegt
+
+- **Vorbild ist Taskers Editor** (`client/ui/editor.tsx`, `shared/listEdit.ts`, `client/ui/caretMenu.tsx`). Die Listenlogik dort sind reine Textfunktionen (Text und Auswahl hinein, Änderung heraus); sie kommt samt ihrer Tests nach `rules/`.
+- **Bilder einfügen** bleibt vorerst draußen. Vorhandene Bilder und Zeichnungen bleiben im Text stehen.
+- **Angelegt wird weiterhin nichts.** Bearbeitet werden vorhandene Aufgaben.
+
+### Schritte
+
+#### Schritt 1: Kästchen abhaken
+
+- [x] Kästchen in der gerenderten Beschreibung sind anklickbar, in Aufgaben- und Milestone-Fenster. Der Haken steht sofort da; mehrere Klicks kurz nacheinander gehen nacheinander hinaus, weil jede Änderung die Version der vorigen nennen muss.
+- [x] Welche Zeile ein Kästchen umschaltet, entscheidet `rules/checklist.gd` wie in Tasker: Zeilen in Code-Blöcken zählen nicht.
+- [x] Lehnt Tasker ab, steht wieder da, was im Stand steht, und das Fenster nennt den Grund. Ohne Verbindung sind die Kästchen nicht anklickbar.
+
+#### Schritt 2: Editiermodus
+
+- [ ] Vorher in Tasker nachsehen und genauso machen: wie man in den Editiermodus kommt und wann gespeichert wird.
+- [ ] Beschreibung als Text bearbeiten und speichern, noch ohne Komfort.
+- [ ] Konfliktfall: Ändert jemand die Beschreibung, während getippt wird, geht der eigene Text nicht verloren.
+
+#### Schritt 3: Listen
+
+- [ ] `rules/list_edit.gd` aus `shared/listEdit.ts`, mit den Tests von dort.
+- [ ] Enter setzt die Liste fort (auch nummeriert und mit leerem Kästchen); in einem leeren Punkt beendet es sie oder geht eine Ebene hinauf.
+- [ ] Umschalt+Enter bricht im Punkt um, eingerückt unter seinen Inhalt.
+- [ ] Tab und Umschalt+Tab rücken Listenpunkte ein und aus, auch mehrere markierte, mit passender Nummer.
+- [ ] Alt und Pfeil hoch/runter verschieben Zeilen.
+
+#### Schritt 4: Befehle und Verweise
+
+- [ ] `/`-Menü unter der Schreibmarke mit den Befehlen aus Tasker: „TodoListe“ und „Liste“.
+- [ ] `$`-Suche nach Aufgaben und Milestones für einen Verweis, mit derselben Mechanik.
+
+#### Später
+
+- Titel bearbeiten.
+- Bilder ins Feld legen.
 
 ## Risiken und offene Punkte
 

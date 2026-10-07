@@ -13,6 +13,9 @@ extends RefCounted
 ## Wer anzeigt, teilt dort auf und setzt das Bild ein.
 const IMAGE := "\u0001"
 const DRAWING := "zeichnung:"
+## Ein Kästchen einer Checkliste: `IMAGE + CHECK + zeile + ":" + (0 oder 1) + IMAGE`.
+## Die Zeile zählt ab 0 im Quelltext, damit ein Klick die richtige umschaltet.
+const CHECK := "haken:"
 ## Verweise auf Aufgaben werden Links mit diesem Anfang: `tasker:142`.
 const REF_SCHEME := "tasker:"
 
@@ -29,8 +32,9 @@ static var _re := {}
 static func to_bbcode(source: Variant, resolve_ref := Callable()) -> String:
 	var out := PackedStringArray()
 	var fence := ""
-	for raw in (source if source is String else "").split("\n"):
-		var line: String = raw.trim_suffix("\r")
+	var lines: PackedStringArray = (source if source is String else "").split("\n")
+	for at in lines.size():
+		var line: String = lines[at].trim_suffix("\r")
 
 		var fm := _rx("^\\s*(```|~~~)").search(line)
 		if fm:
@@ -43,11 +47,11 @@ static func to_bbcode(source: Variant, resolve_ref := Callable()) -> String:
 			out.append("[code][color=%s]%s[/color][/code]" % [_CODE, _escape(line)])
 			continue
 
-		out.append(_block(line, resolve_ref))
+		out.append(_block(line, resolve_ref, at))
 	return "\n".join(out)
 
 
-static func _block(line: String, resolve_ref: Callable) -> String:
+static func _block(line: String, resolve_ref: Callable, at: int) -> String:
 	if line.strip_edges() == "":
 		return ""
 
@@ -62,7 +66,7 @@ static func _block(line: String, resolve_ref: Callable) -> String:
 	if m:
 		return "[indent][color=%s][i]%s[/i][/color][/indent]" % [_MUTED, _inline(m.get_string(1), resolve_ref)]
 
-	m = _rx("^(\\s*)(?:([-*+])|(\\d+)[.)])\\s+(?:\\[( |x|X)\\]\\s+)?(.*)$").search(line)
+	m = _rx("^(\\s*)(?:([-*+])|(\\d+)[.)])\\s+(?:\\[( |x|X)\\](?:\\s+|$))?(.*)$").search(line)
 	if m:
 		var depth := m.get_string(1).replace("\t", "    ").length() / 2
 		var bullet := "•"
@@ -71,9 +75,9 @@ static func _block(line: String, resolve_ref: Callable) -> String:
 		var text := _inline(m.get_string(5), resolve_ref)
 		var check := m.get_string(4)
 		if check == " ":
-			bullet = "☐"
+			bullet = IMAGE + CHECK + "%d:0" % at + IMAGE
 		elif check != "":
-			bullet = "☑"
+			bullet = IMAGE + CHECK + "%d:1" % at + IMAGE
 			text = "[color=%s]%s[/color]" % [_MUTED, text]
 		return "%s%s %s" % ["    ".repeat(depth), bullet, text]
 
