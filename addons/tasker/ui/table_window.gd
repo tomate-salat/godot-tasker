@@ -27,6 +27,9 @@ const Workspace := preload("../rules/workspace.gd")
 const Store := preload("../core/store.gd")
 const Images := preload("../core/images.gd")
 const Memory := preload("../core/memory.gd")
+const Sounds := preload("sounds.gd")
+const Shelf := preload("shelf.gd")
+const Burnup := preload("../rules/burnup.gd")
 
 const HEADER := 60.0
 const MARGIN := 28.0
@@ -37,6 +40,17 @@ const DRAG_START := 6.0
 const Z_DRAG := 500
 const Z_BROWSE := 20
 const Z_DIM := 8
+const Z_SHELF := 400
+## Kippen beim Ziehen, wie `cardTilt.ts` in Tasker: stärkste Neigung in Grad,
+## das Tempo, bei dem drei Viertel davon erreicht sind, und wie träge die
+## Karte folgt und sich wieder aufrichtet.
+const MAX_TILT := 22.0
+## Wie viel davon die Karte am Tisch zeigt. Mit der vollen Neigung aus Tasker
+## kippte sie zu stark (Nutzer, 2026-10-07).
+const TILT_STRENGTH := 0.5
+const TILT_SPEED := 180.0
+const TILT_RESPONSE_MS := 90.0
+const TILT_STILL_MS := 60
 
 ## Der Datenbestand und der Bild-Zwischenspeicher – ohne sie oder ohne
 ## Verbindung liegen ausgedachte Karten auf dem Tisch.
@@ -45,6 +59,8 @@ var images: Images
 var memory := Memory.new()
 ## Wie viele Karten die Hand höchstens hält (Addon-Einstellung).
 var hand_size := 7
+## Ob der Tisch Töne spielt (Addon-Einstellung).
+var sound_enabled := true: set = set_sound_enabled
 
 var _demo_data := {}
 var _ws: Workspace
@@ -71,6 +87,28 @@ var _hot := ""
 var _browse := false
 ## Die Stapelkarte, die gegen eine Handkarte getauscht werden soll.
 var _swap := ""
+## Der Erledigt-Stapel ist aufgedeckt: die Ablage zeigt je Woche, was erledigt wurde.
+var _shelf := false
+var _shelf_data := {"weeks": [], "streak": 0, "this_week": 0}
+## Der Stand beim letzten Abgleich – daran erkennt der Tisch, was sich getan hat.
+var _seen := {}
+## Beim Öffnen fliegen die Karten nacheinander an ihren Platz.
+var _dealing := false
+var _deal_count := 0
+
+var _week: Label
+var _week_bar: ProgressBar
+var _streak: Label
+var _chain: Control
+var _shelf_panel: Shelf
+## Der Platz im Spiel, an dem die gezogene Karte landen würde – oder -1.
+var _gap := -1
+## Tempo des Zeigers beim Ziehen in Pixeln pro Sekunde, geglättet, und die
+## Neigung der gezogenen Karte in Grad (x nach links/rechts, y nach oben/unten).
+var _velocity := Vector2.ZERO
+var _tilt := Vector2.ZERO
+var _last_move := 0
+var _sounds: Sounds
 
 var _board: Control
 var _layer: Control
@@ -100,10 +138,39 @@ func _ready() -> void:
 		store.changed.connect(_sync)
 		store.state_changed.connect(_sync)
 	memory.changed.connect(_sync)
+	visibility_changed.connect(func() -> void:
+		if visible:
+			_dealing = true
+			_place())
+	_dealing = true
 	_sync()
 
 
-# ------------------------------------------------------------- Aufbau
+func set_sound_enabled(value: bool) -> void:
+	sound_enabled = value
+	if _sounds != null:
+		_sounds.enabled = value
+
+
+## Lässt die gezogene Karte in die Bewegungsrichtung kippen und richtet sie
+## wieder auf, sobald der Zeiger steht.
+func _process(delta: float) -> void:
+	if not _dragging or _pressed == null or not is_instance_valid(_pressed):
+		return
+	var k := 1.0 - exp(-delta * 1000.0 / TILT_RESPONSE_MS)
+	if Time.get_ticks_msec() - _last_move > TILT_STILL_MS:
+		_velocity -= _velocity * k
+	# Nach rechts gezogen weicht die rechte Kante zurück, nach unten die untere.
+	var target := Vector2(tanh(_velocity.x / TILT_SPEED), tanh(_velocity.y / TILT_SPEED)) * MAX_TILT * TILT_STRENGTH
+	_tilt += (target - _tilt) * k
+
+	# Ohne echte Tiefe: die Karte wird in der Kipprichtung schmaler, lehnt sich
+	# leicht mit, und Licht und Schatten auf ihr zeigen, welche Seite zurückweicht.
+	var squash := Vector2(cos(deg_to_rad(_tilt.x * 1.7)), cos(deg_to_rad(_tilt.y * 1.7)))
+	_pressed.scale = squash * 1.08
+	_pressed.rotation = deg_to_rad(_tilt.x) * 0.22
+	_pressed.set_tilt(-_tilt / MAX_TILT)
+
 
 func _build() -> void:
 	_board = Control.new()
@@ -123,8 +190,27 @@ func _build() -> void:
 	_dim.visible = false
 	_dim.gui_input.connect(func(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed:
-			_set_browse(false))
+			_close_overlays())
 	_layer.add_child(_dim)
+
+	# Die Kette liegt über den gesperrten Karten.
+	_chain = Control.new()
+	_chain.z_index = Z_DIM - 1
+	_chain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chain.draw.connect(_draw_chain)
+	_layer.add_child(_chain)
+
+	_sounds = Sounds.new()
+	_sounds.enabled = sound_enabled
+	add_child(_sounds)
+
+	_shelf_panel = Shelf.new()
+	_shelf_panel.z_index = Z_SHELF
+	_shelf_panel.visible = false
+	_shelf_panel.close_requested.connect(_close_overlays)
+	_shelf_panel.task_requested.connect(func(id: String) -> void: task_requested.emit(id))
+	# Als Letztes im Fenster: so fängt die Ablage alle Klicks ab.
+	add_child(_shelf_panel)
 
 	var bar := HBoxContainer.new()
 	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -152,6 +238,22 @@ func _build() -> void:
 	_count = Label.new()
 	_count.tooltip_text = "Erledigte von allen Aufgaben"
 	bar.add_child(_count)
+
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.add_child(gap)
+	_streak = Label.new()
+	_streak.add_theme_color_override("font_color", Palette.P2)
+	_streak.tooltip_text = "Wochen in Folge mit mindestens einer erledigten Karte"
+	bar.add_child(_streak)
+	_week = Label.new()
+	_week.tooltip_text = "Erledigte Karten ohne Unteraufgaben diese Woche, gegen das Tempo aus den Tasker-Einstellungen"
+	bar.add_child(_week)
+	_week_bar = ProgressBar.new()
+	_week_bar.show_percentage = false
+	_week_bar.custom_minimum_size = Vector2(120, 8)
+	_week_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.add_child(_week_bar)
 
 	for key in ["locked", "play", "pile", "deck", "hand", "drawer", "empty"]:
 		var l := Label.new()
@@ -232,6 +334,11 @@ func _sync() -> void:
 		_title.text = "Kein aktiver Milestone"
 		_progress.visible = false
 		_count.text = ""
+		_week.text = ""
+		_streak.text = ""
+		_week_bar.visible = false
+		_shelf_data = {"weeks": [], "streak": 0, "this_week": 0}
+		_seen = {}
 		_show_cards({})
 		_place()
 		return
@@ -248,6 +355,23 @@ func _sync() -> void:
 	_progress.visible = true
 	_progress.value = Progress.milestone_progress_pct(_ws, _milestone)
 	_count.text = "%d/%d" % [stats["done"], stats["total"]]
+
+	# Wochenziel und Serie: das Ziel ist das Tempo aus den Tasker-Einstellungen.
+	_shelf_data = Tisch.done_shelf(_ws, _milestone, Time.get_unix_time_from_system(), Time.get_time_zone_from_system()["bias"])
+	var goal := _goal()
+	var reached: bool = _shelf_data["this_week"] >= goal
+	_week.text = "%sWoche %d/%d" % ["★ " if reached else "", _shelf_data["this_week"], goal]
+	_week.add_theme_color_override("font_color", Palette.OK if reached else Palette.INK)
+	_week_bar.visible = true
+	_week_bar.max_value = goal
+	_week_bar.value = mini(_shelf_data["this_week"], goal)
+	_streak.text = "Serie: %d Wochen" % _shelf_data["streak"] if _shelf_data["streak"] >= 2 else ""
+	if _shelf and _shelf_data["weeks"].is_empty():
+		_shelf = false
+
+	_notice_changes()
+	if _shelf:
+		_shelf_panel.show_shelf(_ws, _shelf_data, goal, images if not demo else null, Time.get_time_zone_from_system()["bias"])
 
 	# Wer liegt wo – jede Karte liegt genau einmal.
 	var wanted := {}
@@ -268,6 +392,54 @@ func _sync() -> void:
 			wanted[t["id"]] = "deck"
 	_show_cards(wanted)
 	_place()
+
+
+func _goal() -> int:
+	return maxi(1, store.velocity if store != null and store.state == "ready" else Store.DEFAULT_VELOCITY)
+
+
+## Vergleicht mit dem letzten Abgleich und feiert, was sich getan hat – egal
+## ob am Tisch, im Dock oder in der Web-App.
+func _notice_changes() -> void:
+	var locked := {}
+	for t in _layout["locked"]:
+		locked[t["id"]] = true
+	var now := {
+		"milestone": _milestone["id"],
+		"locked": locked,
+		"pile": _layout["pile"].size(),
+		"week": _shelf_data["this_week"],
+		"complete": _layout["pile"].size() > 0 and _layout["open"].is_empty() and _layout["play"].is_empty() and _layout["locked"].is_empty(),
+	}
+	var before := _seen
+	_seen = now
+	if before.get("milestone") != now["milestone"]:
+		return
+
+	var g := _geometry()
+	for id in before["locked"]:
+		var t = _ws.task(id)
+		if not locked.has(id) and t != null and not Model.is_done(t) and _ws.is_active(t):
+			_say("Kette gelöst: %s" % (t["title"] if t.get("title") else "Ohne Titel"), Palette.OK)
+			_sounds.play("unlock")
+			_burst(g["locked"].position + Card.SIZE / 2.0, Color("c9d1cd"))
+
+	var gained: int = now["pile"] - before["pile"]
+	if gained > 0:
+		var pile_center: Vector2 = g["pile"].get_center()
+		_float_text(pile_center + Vector2(0, -70), "+%d" % gained, Palette.OK)
+		var goal := _goal()
+		if now["week"] >= goal and before["week"] < goal:
+			_float_text(pile_center + Vector2(0, -110), "★ Wochenziel", Palette.P2)
+			_burst(pile_center, Palette.P2)
+			_sounds.play("goal")
+		else:
+			_sounds.play("done")
+	if now["complete"] and not before["complete"]:
+		_float_text(Vector2(size.x / 2.0, size.y * 0.36), "◆ Milestone geschafft", Palette.P2, 34)
+		_burst(Vector2(size.x * 0.35, size.y * 0.4), Palette.P2)
+		_burst(Vector2(size.x * 0.65, size.y * 0.4), Palette.OK)
+		_sounds.play("complete")
 
 
 func _show_cards(wanted: Dictionary) -> void:
@@ -331,7 +503,7 @@ func _ids_in(zone: String) -> Array:
 		"locked":
 			return _layout["locked"].slice(0, 6).map(func(t: Dictionary) -> String: return t["id"])
 		"pile":
-			var top: Array = _layout["pile"].slice(0, 3).map(func(t: Dictionary) -> String: return t["id"])
+			var top: Array = _layout["pile"].slice(0, 3).map(func(t: Dictionary) -> String: return t["id"]).filter(func(id: String) -> bool: return _zone.get(id) == "pile")
 			top.reverse()
 			return top
 		"drawer":
@@ -347,6 +519,7 @@ func _ids_in(zone: String) -> Array:
 func _place() -> void:
 	if not is_inside_tree():
 		return
+	_deal_count = 0
 	var g := _geometry()
 	var c: Vector2 = g["card"]
 
@@ -360,8 +533,14 @@ func _place() -> void:
 		_rest_at(hand[i], spot, deg_to_rad(t * 3.0), 10 + i)
 
 	var play := _ids_in("play")
-	for i in play.size():
-		_rest_at(play[i], _play_spot(g, i, play.size()), 0.0, 3)
+	if _gap >= 0 and _pressed != null:
+		# Die Reihe rückt auseinander und lässt der gezogenen Karte ihren Platz.
+		var others := play.filter(func(id: String) -> bool: return id != _pressed.task_id)
+		for i in others.size():
+			_rest_at(others[i], _play_spot(g, i if i < _gap else i + 1, others.size() + 1), 0.0, 3)
+	else:
+		for i in play.size():
+			_rest_at(play[i], _play_spot(g, i, play.size()), 0.0, 3)
 
 	var locked := _ids_in("locked")
 	for i in locked.size():
@@ -387,11 +566,21 @@ func _place() -> void:
 	for i in deck.size():
 		_rest_at(deck[i], area.position + Vector2(8.0 + (i % cols) * (c.x + 12.0), 8.0 + (i / cols) * row_step), 0.0, Z_BROWSE + i)
 
-	_dim.visible = _browse
+	# Die Ablage legt sich über den ganzen Tisch.
+	_shelf_panel.visible = _shelf
+	_shelf_panel.position = Vector2(20, 20)
+	_shelf_panel.size = Vector2(size) - Vector2(40, 40)
+
+	_dim.visible = _browse or _shelf
 	_dim.position = Vector2.ZERO
-	_dim.size = Vector2(size.x, g["hand"].position.y)
+	_dim.size = Vector2(size.x, size.y if _shelf else g["hand"].position.y)
+	_dim.z_index = Z_SHELF - 1 if _shelf else Z_DIM
+	_chain.position = g["locked"].position
+	_chain.size = g["locked"].size
+	_chain.queue_redraw()
 	_place_labels(g)
 	_board.queue_redraw()
+	_dealing = false
 
 
 func _play_spot(g: Dictionary, index: int, count: int) -> Vector2:
@@ -403,27 +592,38 @@ func _play_spot(g: Dictionary, index: int, count: int) -> Vector2:
 	return Vector2(left + index * step, rect.position.y + 12.0)
 
 
-func _rest_at(id: String, spot: Vector2, angle: float, z: int) -> void:
-	_rest[id] = {"position": spot, "rotation": angle, "z": z}
+## Merkt sich den Ruheplatz der Karte und lässt sie hingleiten. `spot` ist die
+## linke obere Ecke, wie die Karte dort zu sehen ist – auch verkleinert.
+func _rest_at(id: String, spot: Vector2, angle: float, z: int, card_scale := 1.0) -> void:
+	# Karten drehen und schrumpfen um ihre Mitte.
+	var position := spot - Card.SIZE * (1.0 - card_scale) / 2.0
+	_rest[id] = {"position": position, "rotation": angle, "z": z, "scale": card_scale}
 	var card: Control = _cards.get(id)
 	if card == null or _busy.has(id) or (card == _pressed and _dragging):
 		return
 	card.z_index = z
-	if card.position.distance_to(spot) < 0.5 and is_equal_approx(card.rotation, angle) and card.scale == Vector2.ONE:
+	card.lift = 0.0
+	var to_scale := Vector2(card_scale, card_scale)
+	if card.position.distance_to(position) < 0.5 and is_equal_approx(card.rotation, angle) and card.scale.is_equal_approx(to_scale):
 		return
-	_glide(id, spot, angle, Vector2.ONE, 0.3, Tween.TRANS_BACK)
+	# Beim Öffnen des Tischs werden die Karten nacheinander ausgeteilt.
+	var delay := 0.0
+	if _dealing:
+		delay = _deal_count * 0.035
+		_deal_count += 1
+	_glide(id, position, angle, to_scale, 0.3, Tween.TRANS_BACK, delay)
 
 
-func _glide(id: String, spot: Vector2, angle: float, to_scale: Vector2, time: float, trans := Tween.TRANS_CUBIC) -> void:
+func _glide(id: String, spot: Vector2, angle: float, to_scale: Vector2, time: float, trans := Tween.TRANS_CUBIC, delay := 0.0) -> void:
 	var card: Control = _cards.get(id)
 	if card == null:
 		return
 	if _tweens.get(id) != null and _tweens[id].is_valid():
 		_tweens[id].kill()
 	var tween := card.create_tween().set_parallel().set_trans(trans).set_ease(Tween.EASE_OUT)
-	tween.tween_property(card, "position", spot, time)
-	tween.tween_property(card, "rotation", angle, time)
-	tween.tween_property(card, "scale", to_scale, time)
+	tween.tween_property(card, "position", spot, time).set_delay(delay)
+	tween.tween_property(card, "rotation", angle, time).set_delay(delay)
+	tween.tween_property(card, "scale", to_scale, time).set_delay(delay)
 	_tweens[id] = tween
 
 
@@ -486,25 +686,19 @@ func _draw_board() -> void:
 	# Der Erledigt-Stapel hat auch leer einen Platz.
 	_board.draw_style_box(slot, Rect2(g["pile"].position + Vector2(12, 12), c))
 
-	# Der Nachziehstapel: verdeckte Karten, je mehr, desto höher.
+	# Der Nachziehstapel: verdeckte Karten mit Rückseite, je mehr, desto höher.
 	var deck := _deck().size()
-	var back := StyleBoxFlat.new()
-	back.bg_color = Palette.SURFACE.lerp(Palette.ACCENT, 0.22)
-	back.border_color = Palette.ACCENT.darkened(0.25)
-	back.set_border_width_all(2)
-	back.set_corner_radius_all(Card.RADIUS)
 	if deck == 0:
 		_board.draw_style_box(slot, Rect2(g["deck"].position, c))
-	for i in mini(deck, 4):
-		var at: Vector2 = g["deck"].position + Vector2(6.0 - i * 2.0, 6.0 - i * 2.0)
-		_board.draw_style_box(back, Rect2(at, c))
-		if i == mini(deck, 4) - 1:
-			var inner := StyleBoxFlat.new()
-			inner.bg_color = Color(0, 0, 0, 0)
-			inner.border_color = Color(Palette.ACCENT, 0.55)
-			inner.set_border_width_all(1)
-			inner.set_corner_radius_all(7)
-			_board.draw_style_box(inner, Rect2(at + Vector2(10, 10), c - Vector2(20, 20)))
+		var font := Palette.body_font()
+		var text := "leer"
+		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		_board.draw_string(font, g["deck"].position + Vector2((c.x - width) / 2.0, c.y / 2.0 + 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.35))
+	var layers := mini(deck, 5)
+	for i in layers:
+		var at: Vector2 = g["deck"].position + Vector2(8.0 - i * 2.0, 8.0 - i * 2.0)
+		var top := i == layers - 1
+		_draw_card_back(Rect2(at, c), top, i == 0)
 
 	if _state["open"].size() > 0:
 		var tray := StyleBoxFlat.new()
@@ -523,11 +717,25 @@ func _draw_board() -> void:
 		glow.set_corner_radius_all(12)
 		_board.draw_style_box(glow, g[_hot])
 
+	# Der Platz im Spiel, an dem die gezogene Karte landen würde.
+	if _gap >= 0 and _pressed != null:
+		var others := _ids_in("play").filter(func(id: String) -> bool: return id != _pressed.task_id).size()
+		var landing := StyleBoxFlat.new()
+		landing.bg_color = Color(Palette.ACCENT, 0.22)
+		landing.border_color = Palette.ACCENT
+		landing.set_border_width_all(3)
+		landing.set_corner_radius_all(Card.RADIUS)
+		_board.draw_style_box(landing, Rect2(_play_spot(g, _gap, others + 1), c))
+
 
 # --------------------------------------------------------------- Maus
 
 func _on_card_pressed(card: Control, event: InputEventMouseButton) -> void:
 	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	# Unter der Ablage und dem aufgedeckten Stapel liegt der Tisch still.
+	var zone: String = _zone.get(card.task_id, "")
+	if _shelf or (_browse and zone != "deck" and zone != "hand"):
 		return
 	if event.double_click:
 		_pressed = null
@@ -540,10 +748,10 @@ func _on_card_pressed(card: Control, event: InputEventMouseButton) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel") and (_browse or _state["open"].size() > 0):
+	if event.is_action_pressed("ui_cancel") and (_browse or _shelf or _state["open"].size() > 0):
 		set_input_as_handled()
-		if _browse:
-			_set_browse(false)
+		if _browse or _shelf:
+			_close_overlays()
 		else:
 			_open_stack([])
 		return
@@ -559,24 +767,37 @@ func _input(event: InputEvent) -> void:
 			if _tweens.get(id) != null and _tweens[id].is_valid():
 				_tweens[id].kill()
 			_pressed.z_index = Z_DRAG
-			_pressed.scale = Vector2(1.08, 1.08)
+			_pressed.lift = 1.0
+			_velocity = Vector2.ZERO
+			_tilt = Vector2.ZERO
 		if _dragging:
 			_pressed.position = mouse + _grab
-			# Die Karte kippt in die Bewegungsrichtung.
-			_pressed.rotation = lerpf(_pressed.rotation, clampf(event.relative.x * 0.02, -0.3, 0.3), 0.3)
+			# Die Karte kippt in die Bewegungsrichtung – das Tempo dazu wird hier
+			# gemessen, die Neigung selbst folgt in `_process`.
+			_velocity = _velocity.lerp(event.velocity, 0.5)
+			_last_move = Time.get_ticks_msec()
 			var hot := _zone_at(mouse)
-			if hot != _hot:
+			# Über dem Spiel zeigt eine Lücke, wo die Karte landen würde.
+			var gap := -1
+			var id: String = _pressed.task_id
+			if hot == "play" and (_zone.get(id) == "play" or Tisch.play_refusal(_ws, _ws.task(id)) == ""):
+				gap = _play_index(_pressed.position.x + Card.SIZE.x / 2.0, id)
+			if hot != _hot or gap != _gap:
 				_hot = hot
-				_board.queue_redraw()
+				_gap = gap
+				_place()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		var card := _pressed
 		var was_dragging := _dragging
+		var gap := _gap
 		_pressed = null
 		_dragging = false
 		_hot = ""
+		_gap = -1
+		card.set_tilt(Vector2.ZERO)
 		_board.queue_redraw()
 		if was_dragging:
-			_drop(card.task_id, mouse)
+			_drop(card.task_id, mouse, gap)
 		else:
 			_click(card.task_id)
 
@@ -585,9 +806,6 @@ func _can_drag(id: String) -> bool:
 	match _zone.get(id, ""):
 		"hand", "play", "drawer":
 			return not _busy.has(id)
-		"pile":
-			# Nur die oberste Karte lässt sich wieder herausziehen.
-			return not _busy.has(id) and _layout["pile"].size() > 0 and _layout["pile"][0]["id"] == id
 	return false
 
 
@@ -605,21 +823,25 @@ func _zone_at(at: Vector2) -> String:
 
 func _on_hover(card: Control, inside: bool) -> void:
 	var id: String = card.task_id
-	if _zone.get(id) != "hand" or _busy.has(id) or _pressed != null or not _rest.has(id):
+	if _shelf or _zone.get(id) != "hand" or _busy.has(id) or _pressed != null or not _rest.has(id):
 		return
 	var rest: Dictionary = _rest[id]
 	if inside:
 		card.z_index = 100
+		card.lift = 0.5
 		_glide(id, rest["position"] + Vector2(0, -30), 0.0, Vector2(1.1, 1.1), 0.14)
 	else:
 		card.z_index = rest["z"]
-		_glide(id, rest["position"], rest["rotation"], Vector2.ONE, 0.18)
+		card.lift = 0.0
+		_glide(id, rest["position"], rest["rotation"], Vector2(rest["scale"], rest["scale"]), 0.18)
 
 
 # --------------------------------------------------------------- Züge
 
 func _click(id: String) -> void:
 	match _zone.get(id, ""):
+		"pile":
+			_set_shelf(not _shelf)
 		"deck":
 			_take_from_deck(id)
 		"hand":
@@ -634,7 +856,9 @@ func _click(id: String) -> void:
 				_open_stack(path)
 
 
-func _drop(id: String, at: Vector2) -> void:
+## Legt die Karte ab. `play_index` ist der Platz im Spiel aus der Vorschau;
+## ohne ihn zählt die Stelle `at`.
+func _drop(id: String, at: Vector2, play_index := -1) -> void:
 	var from: String = _zone.get(id, "")
 	var to := _zone_at(at)
 	var task = _ws.task(id)
@@ -648,7 +872,9 @@ func _drop(id: String, at: Vector2) -> void:
 			if refusal != "":
 				_refuse(refusal)
 			else:
-				await _play_at(id, _play_index(at, id))
+				if from != "play":
+					_sounds.play("play")
+				await _play_at(id, play_index if play_index >= 0 else _play_index(at.x, id))
 		"pile":
 			var refusal := Tisch.done_refusal(_ws, task)
 			if refusal != "":
@@ -667,7 +893,7 @@ func _drop(id: String, at: Vector2) -> void:
 		"hand":
 			if from == "hand":
 				_move_in_hand(id, at)
-			elif from == "play" or from == "pile":
+			elif from == "play":
 				# Erst der Status, dann die Hand: vorher ist die Karte noch nicht offen.
 				if await _change(id, {"status": "open"}) and not task.get("parentId"):
 					if not _state["hand"].has(id):
@@ -677,13 +903,14 @@ func _drop(id: String, at: Vector2) -> void:
 	_sync()
 
 
-func _play_index(at: Vector2, dragged: String) -> int:
+## An welchen Platz im Spiel eine Karte käme, deren Mitte bei `x` liegt: der
+## nächstgelegene Platz in der Reihe, wie sie mit der Karte aussähe.
+func _play_index(x: float, dragged: String) -> int:
 	var g := _geometry()
-	var others := _ids_in("play").filter(func(id: String) -> bool: return id != dragged)
-	for i in others.size():
-		if at.x < _play_spot(g, i, others.size() + 1).x + Card.SIZE.x / 2.0:
-			return i
-	return others.size()
+	var others := _ids_in("play").filter(func(id: String) -> bool: return id != dragged).size()
+	var first := _play_spot(g, 0, others + 1).x + Card.SIZE.x / 2.0
+	var step := _play_spot(g, 1, others + 1).x - _play_spot(g, 0, others + 1).x
+	return clampi(roundi((x - first) / step), 0, others)
 
 
 ## Legt die Karte an diesen Platz im Spiel. Die Reihe wird durchgezählt; wer
@@ -733,6 +960,7 @@ func _draw_from_deck() -> void:
 	if card == null:
 		_refuse("Der Nachziehstapel ist leer")
 		return
+	_sounds.play("draw")
 	_state["hand"].append(card["id"])
 	_state["buried"].erase(card["id"])
 	_save_state()
@@ -772,6 +1000,22 @@ func _open_stack(path: Array) -> void:
 
 func _set_browse(on: bool) -> void:
 	_browse = on
+	_shelf = false
+	_swap = ""
+	_sync()
+
+
+## Deckt den Erledigt-Stapel auf oder sammelt ihn wieder ein.
+func _set_shelf(on: bool) -> void:
+	_shelf = on and _shelf_data["weeks"].size() > 0
+	_browse = false
+	_swap = ""
+	_sync()
+
+
+func _close_overlays() -> void:
+	_browse = false
+	_shelf = false
 	_swap = ""
 	_sync()
 
@@ -811,10 +1055,12 @@ func _change_demo(id: String, changes: Dictionary) -> void:
 
 ## Ein abgelehnter Zug: die Karte geht zurück, und der Tisch sagt, warum.
 func _refuse(text: String) -> void:
+	_sounds.play("refuse")
 	_say(text)
 
 
-func _say(text: String) -> void:
+func _say(text: String, color := Palette.P2) -> void:
+	_toast.add_theme_color_override("font_color", color)
 	_toast.text = text
 	if _toast_tween != null and _toast_tween.is_valid():
 		_toast_tween.kill()
@@ -822,3 +1068,159 @@ func _say(text: String) -> void:
 	_toast_tween = _toast.create_tween()
 	_toast_tween.tween_interval(2.6)
 	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.5)
+
+
+# ------------------------------------------------------------ Effekte
+
+## Ein Wort, das kurz aufsteigt und verblasst – „+1“ über dem Erledigt-Stapel.
+func _float_text(at: Vector2, text: String, color: Color, font_size := 22) -> void:
+	var l := Label.new()
+	l.text = text
+	l.z_index = 700
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_override("font", Palette.title_font())
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 6)
+	_layer.add_child(l)
+	l.position = at - Vector2(l.get_minimum_size().x / 2.0, 0)
+	var tween := l.create_tween()
+	tween.tween_property(l, "position:y", l.position.y - 46.0, 1.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(l, "modulate:a", 0.0, 0.5).set_delay(0.8)
+	tween.tween_callback(l.queue_free)
+
+
+## Funken, die von einer Stelle aus aufstieben.
+func _burst(at: Vector2, color: Color) -> void:
+	var p := CPUParticles2D.new()
+	p.z_index = 650
+	p.position = at
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = 46
+	p.lifetime = 1.0
+	p.direction = Vector2.UP
+	p.spread = 180.0
+	p.initial_velocity_min = 140.0
+	p.initial_velocity_max = 340.0
+	p.gravity = Vector2(0, 520)
+	p.scale_amount_min = 2.5
+	p.scale_amount_max = 5.5
+	var fade := Gradient.new()
+	fade.colors = PackedColorArray([color, Color(color, 0.0)])
+	p.color_ramp = fade
+	_layer.add_child(p)
+	p.emitting = true
+	get_tree().create_timer(1.6).timeout.connect(p.queue_free)
+
+
+## Die Ketten über den gesperrten Karten: zwei, über Kreuz, mit einem Schloss
+## in der Mitte.
+func _draw_chain() -> void:
+	var count: int = _layout["locked"].size()
+	if count == 0 or _milestone == null:
+		return
+	var shown := mini(count, 6)
+	var c := Card.SIZE
+	# Die Fläche, die der gesperrte Stapel einnimmt.
+	var box := Rect2(Vector2(4.0, 2.0), Vector2(c.x + 14.0, c.y + (shown - 1) * 20.0))
+	var center := box.get_center()
+	var runs := [
+		[box.position + Vector2(-8.0, box.size.y * 0.20), box.position + Vector2(box.size.x + 8.0, box.size.y * 0.80)],
+		[box.position + Vector2(box.size.x + 8.0, box.size.y * 0.20), box.position + Vector2(-8.0, box.size.y * 0.80)],
+	]
+	# Erst der Schatten beider Ketten, dann die Ketten – so liegt keine im Schatten der anderen.
+	for run in runs:
+		_draw_chain_run(run[0] + Vector2(2, 4), run[1] + Vector2(2, 4), true)
+	for run in runs:
+		_draw_chain_run(run[0], run[1], false)
+	_draw_padlock(center)
+
+
+## Eine Kette aus Gliedern, abwechselnd von vorn und von der Seite gesehen.
+func _draw_chain_run(from: Vector2, to: Vector2, shadow: bool) -> void:
+	var steel_dark := Color("2f3634")
+	var steel := Color("8f9a96")
+	var steel_light := Color("e4ebe7")
+	var angle := from.angle_to_point(to)
+	var links := maxi(int(from.distance_to(to) / 13.0), 2)
+	for i in links + 1:
+		var at := from.lerp(to, float(i) / links)
+		if shadow:
+			_chain.draw_circle(at, 7.0, Color(0, 0, 0, 0.16), true, -1.0, true)
+			continue
+		if i % 2 == 0:
+			# Von vorn: ein längliches Oval.
+			_chain.draw_set_transform(at, angle, Vector2(1.0, 0.62))
+			_chain.draw_arc(Vector2.ZERO, 8.5, 0.0, TAU, 20, steel_dark, 6.5, true)
+			_chain.draw_arc(Vector2.ZERO, 8.5, 0.0, TAU, 20, steel, 3.8, true)
+			_chain.draw_arc(Vector2.ZERO, 8.5, PI * 1.08, PI * 1.92, 10, steel_light, 1.6, true)
+		else:
+			# Von der Seite: nur die Kante des Glieds.
+			_chain.draw_set_transform(at, angle)
+			_chain.draw_line(Vector2(-7.5, 0), Vector2(7.5, 0), steel_dark, 6.5, true)
+			_chain.draw_line(Vector2(-7.0, 0), Vector2(7.0, 0), steel, 3.6, true)
+			_chain.draw_line(Vector2(-6.0, -1.0), Vector2(6.0, -1.0), steel_light, 1.2, true)
+	_chain.draw_set_transform(Vector2.ZERO)
+
+
+func _draw_padlock(at: Vector2) -> void:
+	var brass := StyleBoxFlat.new()
+	brass.bg_color = Color("c9a24a")
+	brass.border_color = Color("6e561f")
+	brass.set_border_width_all(2)
+	brass.set_corner_radius_all(5)
+	brass.shadow_color = Color(0, 0, 0, 0.35)
+	brass.shadow_size = 5
+	brass.shadow_offset = Vector2(1, 3)
+	# Der Bügel aus Stahl, darunter der Körper aus Messing.
+	_chain.draw_arc(at + Vector2(0, -8), 8.5, PI, TAU, 16, Color("2f3634"), 7.0, true)
+	_chain.draw_arc(at + Vector2(0, -8), 8.5, PI, TAU, 16, Color("aab4b0"), 4.0, true)
+	_chain.draw_style_box(brass, Rect2(at + Vector2(-14, -9), Vector2(28, 22)))
+	_chain.draw_line(at + Vector2(-10, -5), at + Vector2(10, -5), Color("e9cf85"), 1.5, true)
+	_chain.draw_circle(at + Vector2(0, 1), 3.2, Color("3a2d10"), true, -1.0, true)
+	_chain.draw_rect(Rect2(at + Vector2(-1.3, 2), Vector2(2.6, 6)), Color("3a2d10"))
+
+
+## Die Rückseite einer Karte: dunkelblau mit hellem Rahmen und Rautenmuster,
+## damit sich der Nachziehstapel klar vom Filz abhebt.
+func _draw_card_back(rect: Rect2, with_pattern: bool, with_shadow: bool) -> void:
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color("24365c")
+	back.border_color = Color("a9c1ee")
+	back.set_border_width_all(2)
+	back.set_corner_radius_all(Card.RADIUS)
+	if with_shadow:
+		back.shadow_color = Color(0, 0, 0, 0.35)
+		back.shadow_size = 8
+		back.shadow_offset = Vector2(0, 4)
+	_board.draw_style_box(back, rect)
+	if not with_pattern:
+		return
+
+	var frame := StyleBoxFlat.new()
+	frame.bg_color = Color("1c2a49")
+	frame.border_color = Color("6f8fcf")
+	frame.set_border_width_all(1)
+	frame.set_corner_radius_all(6)
+	var inner := rect.grow(-10.0)
+	_board.draw_style_box(frame, inner)
+
+	# Ein Gitter aus Rauten, in der Mitte eine große.
+	var line := Color("6f8fcf", 0.55)
+	var cell := 16.0
+	var n := int((inner.size.x + inner.size.y) / cell) + 1
+	for i in n:
+		var d := i * cell
+		var a := inner.position + Vector2(minf(d, inner.size.x), maxf(0.0, d - inner.size.x))
+		var b := inner.position + Vector2(maxf(0.0, d - inner.size.y), minf(d, inner.size.y))
+		_board.draw_line(a, b, line, 1.0, true)
+		var a2 := inner.position + Vector2(inner.size.x - minf(d, inner.size.x), maxf(0.0, d - inner.size.x))
+		var b2 := inner.position + Vector2(inner.size.x - maxf(0.0, d - inner.size.y), minf(d, inner.size.y))
+		_board.draw_line(a2, b2, line, 1.0, true)
+	var mid := rect.get_center()
+	var diamond := PackedVector2Array([mid + Vector2(0, -24), mid + Vector2(17, 0), mid + Vector2(0, 24), mid + Vector2(-17, 0)])
+	_board.draw_colored_polygon(diamond, Color("24365c"))
+	diamond.append(diamond[0])
+	_board.draw_polyline(diamond, Color("a9c1ee"), 2.0, true)

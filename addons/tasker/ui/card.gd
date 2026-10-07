@@ -26,6 +26,8 @@ signal pressed(card: Control, event: InputEventMouseButton)
 var task_id := ""
 ## Hervorgehoben: die Karte, deren Einzelheiten gerade offen sind.
 var selected := false: set = set_selected
+## Wie weit die Karte vom Tisch abgehoben ist, 0 bis 1 – bestimmt ihren Schatten.
+var lift := 0.0: set = set_lift
 
 var _status: Variant = "open"
 var _prio := 0
@@ -37,6 +39,8 @@ var _body: Panel
 var _face: StyleBoxFlat
 var _cover: TextureRect
 var _shade: TextureRect
+var _foil: ColorRect
+var _is_foil := false
 var _crumb: Label
 var _title: Label
 ## Die Markierung steht vor dem Titel, aber ohne dessen Kontur – die steht einem Emoji nicht.
@@ -105,6 +109,7 @@ func show_task(ws: Workspace, task: Dictionary, images: Node = null, crumb := fa
 	_dot.visible = not doc
 	_prio_icon.visible = not doc
 	_lock.visible = _locked
+	_is_foil = _prio == 1 and not done and not doc
 	_bar.visible = _segments.size() > 0
 	modulate.a = 0.55 if done else 1.0
 
@@ -176,6 +181,15 @@ func _build() -> void:
 	_shade.texture = _shade_texture()
 	_shade.visible = false
 	_body.add_child(_shade)
+
+	# Licht und Folien-Schimmer beim Kippen liegen über dem Bild, unter der Schrift.
+	_foil = ColorRect.new()
+	_foil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_foil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foil.material = ShaderMaterial.new()
+	_foil.material.shader = _foil_shader()
+	_foil.visible = false
+	_body.add_child(_foil)
 
 	_crumb = Label.new()
 	_crumb.position = Vector2(12, 6)
@@ -270,6 +284,15 @@ func _layout_title() -> void:
 
 ## Zwei Kartenkanten hinter der Karte: sie hat Unteraufgaben.
 func _draw() -> void:
+	# Der Schatten: je höher die Karte angehoben ist, desto weiter fällt er.
+	var shadow := StyleBoxFlat.new()
+	shadow.bg_color = Color(0, 0, 0, 0.30)
+	shadow.set_corner_radius_all(RADIUS)
+	shadow.shadow_color = Color(0, 0, 0, 0.30)
+	shadow.shadow_size = int(7.0 + 16.0 * lift)
+	shadow.shadow_offset = Vector2(0.0, 3.0 + 11.0 * lift)
+	# Ein Stapel wirft den Schatten seiner hintersten Karte.
+	draw_style_box(shadow, Rect2(Vector2(5, 5) if _stack else Vector2.ZERO, size))
 	if not _stack:
 		return
 	var edge := StyleBoxFlat.new()
@@ -369,3 +392,57 @@ func set_selected(value: bool) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		pressed.emit(self, event)
+
+
+func set_lift(value: float) -> void:
+	lift = clampf(value, 0.0, 1.0)
+	queue_redraw()
+
+
+## Karten mit hoher Priorität schimmern wie eine Folienkarte, wenn sie kippen.
+func has_foil() -> bool:
+	return _is_foil
+
+
+## Wie die Karte gerade gekippt ist: x nach links/rechts, y nach oben/unten,
+## je von -1 bis 1. Die zurückweichende Seite wird dunkler, die nahe heller –
+## und über Folienkarten wandert dabei der Lichtstreifen.
+func set_tilt(tilt: Vector2) -> void:
+	var resting := tilt.length() < 0.01
+	_foil.visible = not resting
+	if resting:
+		return
+	_foil.material.set_shader_parameter("tilt", tilt)
+	_foil.material.set_shader_parameter("foil", 1.0 if _is_foil else 0.0)
+
+
+static var _foil_code: Shader
+
+
+static func _foil_shader() -> Shader:
+	if _foil_code == null:
+		_foil_code = Shader.new()
+		_foil_code.code = "
+shader_type canvas_item;
+
+uniform vec2 tilt = vec2(0.0);
+uniform float foil = 0.0;
+
+void fragment() {
+	// Licht von vorn: die Seite, die sich dem Betrachter zuneigt, wird heller.
+	float light = dot(UV - vec2(0.5), tilt) * 1.6;
+	vec3 color = light > 0.0 ? vec3(1.0) : vec3(0.0);
+	float alpha = light > 0.0 ? light * 0.22 : -light * 0.42;
+
+	// Der Folienstreifen wandert mit der Neigung über die Karte.
+	float d = UV.x * 0.62 + UV.y * 0.48;
+	float phase = 0.5 + tilt.x * 0.55 + tilt.y * 0.25;
+	float band = smoothstep(0.17, 0.0, abs(d - phase * 1.1)) * foil * clamp(length(tilt) * 2.5, 0.0, 1.0);
+	vec3 hue = 0.55 + 0.45 * cos(6.2831 * (d * 1.6 + vec3(0.0, 0.33, 0.67)));
+	color = mix(color, hue, band);
+	alpha = max(alpha, band * 0.5);
+
+	COLOR = vec4(color, alpha);
+}
+"
+	return _foil_code

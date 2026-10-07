@@ -42,6 +42,10 @@ static func token() -> String:
 	return str(_editor().get_setting(TOKEN)) if _editor().has_setting(TOKEN) else ""
 
 
+static func sound() -> bool:
+	return bool(_editor().get_setting(SOUND)) if _editor().has_setting(SOUND) else true
+
+
 static func hand_size() -> int:
 	return int(_editor().get_setting(HAND_SIZE)) if _editor().has_setting(HAND_SIZE) else DEFAULT_HAND_SIZE
 

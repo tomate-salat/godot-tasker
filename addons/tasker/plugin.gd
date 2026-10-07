@@ -160,6 +160,7 @@ func _open_table() -> void:
 		_table.task_requested.connect(_open_task)
 		EditorInterface.get_base_control().add_child(_table)
 	_table.hand_size = Config.hand_size()
+	_table.sound_enabled = Config.sound()
 	if _table.visible:
 		if _table.mode == Window.MODE_MINIMIZED:
 			_table.mode = Window.MODE_WINDOWED

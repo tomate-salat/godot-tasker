@@ -39,6 +39,15 @@ func _process(delta: float) -> bool:
 			4:
 				_table._drop("h", _table._geometry()["pile"].get_center())
 				_table._set_browse(true)
+			5:
+				_table._set_shelf(true)
+			6:
+				_table._close_overlays()
+				_table._pressed = _table._cards["b"]
+				_table._gap = 0
+				_table._cards["b"].set_tilt(Vector2(-0.8, 0.3))
+				_table._cards["b"].scale = Vector2(0.86, 1.04)
+				_table._place()
 			_:
 				return true
 		_next()

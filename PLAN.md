@@ -183,13 +183,25 @@ Gebaut am 2026-10-07. Geprüft sind die Regeln für Hand und Nachziehstapel (Tes
 - [x] Bildfenster (`ui/image_window.gd`, 2026-10-07): Ein Klick auf ein Bild oder eine Zeichnung in einer Beschreibung zeigt es groß, mit Zoom per Mausrad und Verschieben per Ziehen. Es nutzt das schon geladene Bild (Zeichnungen mit 1600 Pixeln Kantenlänge); größer nachladen ginge über den Parameter `kante` der Route bis 4000. Lädt fehlerfrei, im Editor noch nicht ausprobiert.
 - [x] Im Editor ausprobiert (Nutzer, 2026-10-07). Die Animationen gefallen noch nicht, siehe „Zum Schluss“.
 
-Noch offen aus dem Entwurf: die Kette über den gesperrten Karten (bisher nur das Schloss an der Karte) und das Austeilen beim Öffnen. Beides passt zu Schritt 4.
+Die Kette über den gesperrten Karten und das Austeilen beim Öffnen kamen mit Schritt 4.
 
 ### Schritt 4: Gamification
 
-- [ ] Wochenziel, Serie, Ablage je Woche
-- [ ] Folien-Schimmer, Effekte, Ton
-- [ ] Abschluss eines Milestones
+Gebaut am 2026-10-07. Geprüft per Bildprobe mit Beispieldaten: Wochenziel und Serie im Kopf, die Ablage, die Kette, der Schimmer und der Hinweis beim Lösen einer Kette. Nicht geprüft, weil sie sich in einem Standbild nicht zeigen: Töne, Funken, aufsteigender Text und das Austeilen. Im Editor noch nicht ausprobiert.
+
+- [x] Wochenziel und Serie im Kopf des Tischs, das Ziel ist das Tempo aus den Tasker-Einstellungen
+- [x] Ablage je Woche (`ui/shelf.gd`): Ein Klick auf den Erledigt-Stapel deckt ihn als Feld über dem ganzen Tisch auf, mit Wochenziel, bester Woche, Serie und der Uhrzeit je Karte. Alle Wochen, scrollbar. Hier wird nur angesehen: Karten lassen sich nicht ziehen, ein Doppelklick öffnet die Aufgabe. Auch vom Stapel selbst lässt sich nichts mehr herausziehen (Nutzer, 2026-10-07: Karten gerieten aus Versehen zurück ins Spiel); den Status ändert man im Aufgabenfenster.
+- [x] Kippen beim Ziehen wie `cardTilt.ts` in Tasker: Die Karte neigt sich in die Bewegungsrichtung (höchstens 11 Grad, die Hälfte von Tasker, träge nachgeführt) und richtet sich auf, wenn der Zeiger steht. Ohne echte Tiefe: sie wird in der Kipprichtung schmaler, und Licht und Schatten auf der Karte zeigen, welche Seite zurückweicht.
+- [x] Folien-Schimmer für Karten mit hoher Prio: nur beim Ziehen, der Lichtstreifen wandert mit der Neigung (`ui/card.gd`). Der regelmäßige Streifen in Ruhe war zu viel.
+- [x] Landeplatz im Spiel: Beim Ziehen über den Tisch rückt die Reihe auseinander und der Platz leuchtet, an dem die Karte landet. Maßgeblich ist die Mitte der gezogenen Karte, nicht der Zeiger. Der Nutzer will das auch in Tasker; beschrieben an die Tasker-Sitzung am 2026-10-07.
+- [x] Nachziehstapel mit eigener Kartenrückseite (blau, Rautenmuster); ein leerer Stapel zeigt „leer“.
+- [x] Effekte: „+1“ und Funken am Erledigt-Stapel, Funken und Hinweis beim Erreichen des Wochenziels und beim Lösen einer Kette. Ausgelöst wird durch den Vergleich mit dem letzten Stand, also auch bei Änderungen aus Dock oder Web-App.
+- [x] Abschluss eines Milestones: Schriftzug, Funken und Ton, sobald nichts mehr offen, im Spiel oder gesperrt ist
+- [x] Kette über den gesperrten Karten: zwei gekreuzte Stahlketten mit Messingschloss
+- [x] Karten werfen einen Schatten, der beim Anheben in der Hand und beim Ziehen wächst (`lift` an der Karte)
+- [x] Austeilen beim Öffnen: die Karten fliegen nacheinander an ihren Platz. Gezogen wird weiterhin von Hand.
+- [x] Töne (`ui/sounds.gd`): Ziehen, Ausspielen, Erledigt, Ablehnung, Kette, Wochenziel, Abschluss. Sie werden errechnet, das Addon bringt keine Tondateien mit. Abschaltbar über `tasker/sound` in den Editor-Einstellungen.
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
 ### Schritt 5: Änderungs-Strom
 
