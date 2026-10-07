@@ -434,9 +434,10 @@ Stand 2026-10-07: Es beginnt mit der Beschreibung. Sie soll sich bedienen lassen
 
 #### Schritt 2: Editiermodus
 
-- [ ] Vorher in Tasker nachsehen und genauso machen: wie man in den Editiermodus kommt und wann gespeichert wird.
-- [ ] Beschreibung als Text bearbeiten und speichern, noch ohne Komfort.
-- [ ] Konfliktfall: Ändert jemand die Beschreibung, während getippt wird, geht der eigene Text nicht verloren.
+- [x] Nachgesehen in Tasker (`client/ui/Inspector.tsx`, `Content`): Titel und Beschreibung sind ein Feld, die erste Zeile ist der Titel. Ein Klick in den Inhalt öffnet es – außer er trifft einen Verweis oder ein Kästchen oder es ist Text markiert. Die Schreibmarke steht am Ende. „Fertig“, Escape oder Strg+Enter übernehmen, „Abbrechen“ verwirft.
+- [x] Genauso im Aufgaben- und im Milestone-Fenster (`ui/content_editor.gd`). Damit ist auch der Titel bearbeitbar. Escape schließt beim Bearbeiten nicht das Fenster, sondern übernimmt; wer das Fenster schließt, übernimmt vorher ebenfalls.
+- [x] Konfliktfall, anders als in Tasker: Hat sich der Stand geändert, während getippt wurde (über den Änderungs-Strom oder als 409 beim Speichern), bleibt das Feld mit dem eigenen Text offen und sagt es. Erst ein zweites „Fertig“ überschreibt den neuen Stand. Auch bei einem Serverfehler bleibt der Text stehen.
+- Tab setzt vorerst noch ein Tabulatorzeichen; das wird in Schritt 3 zum Einrücken.
 
 #### Schritt 3: Listen
 
@@ -453,7 +454,6 @@ Stand 2026-10-07: Es beginnt mit der Beschreibung. Sie soll sich bedienen lassen
 
 #### Später
 
-- Titel bearbeiten.
 - Bilder ins Feld legen.
 
 ## Risiken und offene Punkte

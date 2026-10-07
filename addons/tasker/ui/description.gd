@@ -10,6 +10,9 @@ signal target_requested(id: String)
 signal image_requested(key: String, title: String)
 ## Ein Kästchen ließ sich nicht umschalten – mit dem Grund.
 signal save_failed(message: String)
+## Ein Klick in den Text, der weder Verweis noch Kästchen traf und nichts
+## markiert hat: es soll bearbeitet werden.
+signal edit_requested
 
 const Store := preload("../core/store.gd")
 const Images := preload("../core/images.gd")
@@ -35,6 +38,10 @@ var _titles := {}
 ## Ein umgeschaltetes Kästchen ist unterwegs; `_unsaved`: seither kam noch eins dazu.
 var _saving := false
 var _unsaved := false
+## Wo die Maustaste herunterging, und in welchem Bild zuletzt ein Verweis,
+## ein Bild oder ein Kästchen angeklickt wurde.
+var _press_at := Vector2.INF
+var _link_frame := -1
 ## Die Bilder der Kästchen, offen und abgehakt – gezeichnet statt gesetzt,
 ## weil die Schriftzeichen dafür verschieden breit ausfallen.
 static var _boxes := {}
@@ -168,6 +175,7 @@ func _by_ref(number: int) -> Variant:
 
 ## Ein Verweis öffnet sein Ziel in dessen Fenster, alles andere den Browser.
 func _on_link(meta: Variant) -> void:
+	_link_frame = Engine.get_process_frames()
 	var link := str(meta)
 	if link.begins_with(Markdown.CHECK):
 		_tick(int(link.trim_prefix(Markdown.CHECK)))
@@ -260,3 +268,23 @@ static func _box(done: bool) -> Texture2D:
 static func _to_segment(p: Vector2, a: Vector2, b: Vector2) -> float:
 	var t := clampf((p - a).dot(b - a) / (b - a).length_squared(), 0.0, 1.0)
 	return p.distance_to(a + (b - a) * t)
+
+
+# ---------------------------------------------------------- Bearbeiten
+
+## Ein schlichter Klick in den Text öffnet das Bearbeiten – wie in Tasker.
+## Wer zieht, markiert; wer einen Verweis oder ein Kästchen trifft, meint das.
+func _gui_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if event.pressed:
+		_press_at = event.position if not event.double_click else Vector2.INF
+	elif _press_at.distance_to(event.position) < 4.0:
+		# Erst danach steht fest, ob der Klick einem Verweis galt.
+		_maybe_edit.call_deferred()
+
+
+func _maybe_edit() -> void:
+	if _link_frame == Engine.get_process_frames() or get_selected_text() != "" or not _can_tick():
+		return
+	edit_requested.emit()

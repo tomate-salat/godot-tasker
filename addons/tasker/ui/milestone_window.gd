@@ -17,10 +17,14 @@ const Images := preload("../core/images.gd")
 const Card := preload("card.gd")
 const Palette := preload("palette.gd")
 const Description := preload("description.gd")
+const ContentEditor := preload("content_editor.gd")
 const BurnupChart := preload("burnup_chart.gd")
 const Model := preload("../rules/model.gd")
 const Progress := preload("../rules/progress.gd")
 const Burnup := preload("../rules/burnup.gd")
+
+## Was dieses Fenster zeigt – für das Speichern.
+const KIND := "milestone"
 
 var store: Store
 var images: Images
@@ -38,6 +42,9 @@ var _forecast: Label
 var _period: Label
 var _title: Label
 var _desc: Description
+var _editor: ContentEditor
+## Was beim Bearbeiten dem Feld weicht.
+var _reading: Array[Control] = []
 var _burnup: VBoxContainer
 var _burnup_count: Label
 var _chart: BurnupChart
@@ -51,12 +58,13 @@ func _init() -> void:
 	size = Vector2i(640, 900)
 	min_size = Vector2i(420, 360)
 	wrap_controls = false
-	close_requested.connect(queue_free)
+	close_requested.connect(_close)
 	_build()
 
 
 func _ready() -> void:
 	_desc.store = store
+	_editor.store = store
 	_desc.images = images
 	if store != null:
 		store.changed.connect(refresh)
@@ -237,7 +245,20 @@ func _build() -> void:
 	_desc.target_requested.connect(func(id: String) -> void: task_requested.emit(id))
 	_desc.image_requested.connect(func(key: String, name: String) -> void: image_requested.emit(key, name))
 	_desc.save_failed.connect(_on_desc_failed)
+	_desc.edit_requested.connect(_edit)
 	box.add_child(_desc)
+
+	_editor = ContentEditor.new()
+	_editor.grow = true
+	_editor.closed.connect(_show_editing.bind(false))
+	box.add_child(_editor)
+	_reading = [_title, _desc]
+	_title.mouse_filter = Control.MOUSE_FILTER_STOP
+	_title.mouse_default_cursor_shape = Control.CURSOR_IBEAM
+	_title.tooltip_text = "Klicken zum Bearbeiten"
+	_title.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			_edit())
 
 	_burnup = VBoxContainer.new()
 	box.add_child(_burnup)
@@ -306,14 +327,41 @@ func _draw_bar() -> void:
 		_bar.draw_rect(Rect2(i * (w + gap), 0.0, maxf(w, 1.0), _bar.size.y), color)
 
 
-## Escape schließt das Fenster.
-func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		set_input_as_handled()
-		queue_free()
-
 
 ## Ein Kästchen der Beschreibung ließ sich nicht umschalten.
 func _on_desc_failed(message: String) -> void:
 	if Engine.is_editor_hint():
 		EditorInterface.get_editor_toaster().push_toast("Tasker: " + message, EditorToaster.SEVERITY_WARNING)
+
+
+# ---------------------------------------------------------- Bearbeiten
+
+## Titel und Beschreibung weichen dem Feld zum Bearbeiten.
+func _edit() -> void:
+	if _editor.is_open() or not _editor.open(KIND, task_id):
+		return
+	_show_editing(true)
+
+
+func _show_editing(on: bool) -> void:
+	for c in _reading:
+		c.visible = not on
+
+
+## Das Fenster soll zu: was getippt wurde, wird vorher übernommen. Geht das
+## nicht, bleibt es offen und das Feld sagt, warum.
+func _close() -> void:
+	if _editor.is_open() and not await _editor.commit():
+		return
+	queue_free()
+
+
+## Escape übernimmt beim Bearbeiten den Text – wie in Tasker – und schließt
+## sonst das Fenster.
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		set_input_as_handled()
+		if _editor.is_open():
+			_editor.commit()
+		else:
+			queue_free()
