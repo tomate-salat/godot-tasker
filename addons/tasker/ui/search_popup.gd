@@ -10,6 +10,8 @@ const Search := preload("../rules/search.gd")
 const Results := preload("results.gd")
 
 var store: Store
+## Was die Eingabetaste mit dem Treffer tut – steht im Hinweis unter der Liste.
+var action := "öffnet die Aufgabe"
 
 var _query: LineEdit
 var _list: ItemList
@@ -60,7 +62,7 @@ func _update() -> void:
 	if _query.text.strip_edges() == "":
 		_hint.text = "Gesucht wird im Projekt, ohne Archiv."
 	else:
-		_hint.text = "Nichts gefunden." if tasks.is_empty() else "%d Treffer – Eingabe öffnet die Aufgabe im Dock." % tasks.size()
+		_hint.text = "Nichts gefunden." if tasks.is_empty() else "%d Treffer – Eingabe %s." % [tasks.size(), action]
 
 
 func _on_key(event: InputEvent) -> void:

@@ -20,10 +20,14 @@ const Description := preload("description.gd")
 const Model := preload("../rules/model.gd")
 const Tisch := preload("../rules/tisch.gd")
 const Progress := preload("../rules/progress.gd")
+const Links := preload("../core/links.gd")
+const Refs := preload("../rules/refs.gd")
 
 var store: Store
 var images: Images
 var task_id := ""
+## Die Verknüpfungen mit Szenen und Nodes – fehlt außerhalb des Editors.
+var links: Links
 
 var _crumb: Label
 var _ref: Label
@@ -35,6 +39,7 @@ var _prio_label: Label
 var _message: Label
 var _desc: Description
 var _kids: VBoxContainer
+var _where: HFlowContainer
 
 
 func _init() -> void:
@@ -50,6 +55,8 @@ func _ready() -> void:
 	_desc.images = images
 	if store != null:
 		store.changed.connect(refresh)
+	if links != null:
+		links.memory.changed.connect(refresh)
 	refresh()
 
 
@@ -73,6 +80,18 @@ func refresh() -> void:
 		c.visible = not ws.is_doc(t)
 	_message.visible = _message.text != ""
 	_desc.show_text(t.get("desc"), "taskId", task_id)
+
+	# Woran die Aufgabe in Godot hängt: ein Klick springt hin.
+	for c in _where.get_children():
+		c.queue_free()
+	var refs := links.of_task(task_id) if links != null else []
+	_where.visible = not refs.is_empty()
+	for ref in refs:
+		var jump := Button.new()
+		jump.text = "⌖ " + Refs.label(ref)
+		jump.tooltip_text = "Zeig mir, wo: öffnet die Szene und wählt den Node aus"
+		jump.pressed.connect(_reveal.bind(ref))
+		_where.add_child(jump)
 
 	for c in _kids.get_children():
 		c.queue_free()
@@ -152,6 +171,10 @@ func _build() -> void:
 	browser.pressed.connect(_open_in_browser)
 	_props.add_child(browser)
 
+	_where = HFlowContainer.new()
+	_where.visible = false
+	box.add_child(_where)
+
 	_message = Label.new()
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message.add_theme_color_override("font_color", Palette.P2)
@@ -195,6 +218,13 @@ func _open_in_browser() -> void:
 	var t = store.ws.task(task_id)
 	if t != null:
 		OS.shell_open(store.web_url(t))
+
+
+func _reveal(ref: Dictionary) -> void:
+	var problem: String = await links.reveal(ref)
+	if is_instance_valid(self):
+		_message.text = problem
+		_message.visible = problem != ""
 
 
 ## Escape schließt das Fenster.

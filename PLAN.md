@@ -218,7 +218,6 @@ Gebaut am 2026-10-07. Geprüft per Test (Zerlegen der Ereignisse, Anwenden auf d
 - **Planen am Tisch** und **Abhängigkeiten als Fäden:** siehe die eigenen Abschnitte unten.
 - **Aufgaben aus Godot anlegen:** offen, ob und wie. Bisher entstehen Aufgaben in der Web-App oder über MCP, das Addon arbeitet mit vorhandenen.
 - **Karten in Szenen:** Aufgaben an Szenen und Nodes hängen und im 2D- und 3D-Editor einblenden, siehe den eigenen Abschnitt unten.
-- **Hand auch in Tasker:** Würde ein eigenes Feld in Tasker brauchen. Die Umbenennung „Offen/Im Spiel“ in „Hand/Tisch“ dort ist eine offene Idee.
 
 ## Ausbau: Planen am Tisch
 
@@ -269,14 +268,14 @@ Noch nicht eingeplant. Abhängigkeiten (`deps`) werden als Fäden zwischen Karte
 
 ## Ausbau: Karten in Szenen
 
-Noch nicht eingeplant. Vorhandene Aufgaben bekommen Referenzen auf Szenen und Nodes. Der 2D- und 3D-Editor blendet die Karten an diesen Stellen ein, im Spiel ist davon nichts zu sehen.
+Vorhandene Aufgaben bekommen Referenzen auf Szenen und Nodes. Der 2D- und 3D-Editor blendet die Karten an diesen Stellen ein, im Spiel ist davon nichts zu sehen.
 
 ### Festgelegt
 
 - **Szenendateien bleiben unberührt.** Die Referenz steht an der Aufgabe, nicht in der Szene. Keine Marker-Nodes, keine Metadaten.
 - **Nur Szenen und Nodes** als Ziel. Skripte, andere Dateien und freie Positionen ohne Node sind nicht vorgesehen.
 - **Nur vorhandene Aufgaben verknüpfen.** Ob und wie Aufgaben aus Godot heraus angelegt werden, ist offen.
-- **Erst lokal, dann Tasker:** Die Referenzen liegen zunächst im lokalen Zustand des Addons. Wenn sich die Form bewährt hat, bekommt Tasker Tabelle, Routen und Token-Freigabe, und die lokalen Referenzen wandern hinüber. Ziel ist, dass die Referenz in der Tasker-Datenbank steht, auch wenn die Web-App sie nicht anzeigt.
+- **Erst lokal, dann Tasker:** Die Referenzen liegen zunächst im lokalen Zustand des Addons (unter `.godot/`, also weg nach dem Löschen des Ordners oder einem frischen Klon). Wenn sich die Form bewährt hat, bekommt Tasker Tabelle, Routen und Token-Freigabe, und die lokalen Referenzen wandern hinüber. Ziel ist, dass die Referenz in der Tasker-Datenbank steht, auch wenn die Web-App sie nicht anzeigt.
 
 ### Aufbau einer Referenz
 
@@ -296,13 +295,13 @@ Stabile Kennung für Godot und lesbare Form nebeneinander, damit die Referenz au
 
 Der Node-Pfad bricht beim Umbenennen und Umhängen. Dagegen:
 
-- **Feste Node-Nummern:** Neuere Godot-Versionen schreiben eine eindeutige Nummer je Node in die Szenendatei. Ob 4.7 das tut und das Addon daran kommt, ist zu prüfen.
+- **Feste Node-Nummern:** Godot 4.7 schreibt eine eindeutige Nummer je Node in die Szenendatei. Das Addon liest sie aus der gespeicherten Datei, siehe unten.
 - **Mitführen:** Solange das Addon läuft, zieht es Umbenennen und Umhängen im Editor in der Referenz nach.
 - **Selbstheilung:** Fehlt ein Pfad, sucht das Addon nach Name und Typ und schlägt die neue Stelle vor.
 
 ### Darstellung
 
-- **Projizierte Karten:** dieselbe Kartenszene wie im Dock und am Tisch, als Bild gerendert und eingeblendet. In 2D und bei UI-Elementen als Überlagerung am Node, in 3D als Fläche im Raum, die sich zur Kamera dreht. Reine Editor-Hilfsobjekte, keine Nodes.
+- **Projizierte Karten:** dieselbe Kartenszene wie im Dock und am Tisch, als Bild gerendert und eingeblendet. In 2D und bei UI-Elementen als Überlagerung am Node. In 3D wird die Stelle des Nodes auf den Bildschirm gerechnet und die Karte dort gezeichnet, nach Abstand verkleinert; sie liegt damit immer über der Geometrie. Keine Hilfsobjekte in der Szene.
 - **Wegschieben:** Karten lassen sich vom Node wegziehen, damit sie nichts verdecken. Ein Faden verbindet Karte und Node, der Versatz wird an der Referenz gemerkt.
 - **Lesbarkeit:** Weit herausgezoomt schrumpft die Karte zu einem Pin in Statusfarbe, mehrere nah beieinander werden zu einem Stapel.
 - **Filter in der Viewport-Leiste:** alle, nur der laufende Milestone, nur die Hand, oder aus.
@@ -310,17 +309,65 @@ Der Node-Pfad bricht beim Umbenennen und Umhängen. Dagegen:
 
 ### Bedienen
 
-- **Verknüpfen:** Kontextmenü am Node oder Karte aus dem Dock auf den Node ziehen.
+- **Verknüpfen:** Kontextmenü am Node im Szenenbaum oder Rechtsklick auf die Aufgabe im Dock. Ziehen aus dem Dock auf den Node nur, wenn der Versuch in Schritt 2 klappt.
+- **Mehrfach:** Eine Aufgabe darf an mehreren Nodes hängen, ein Node mehrere Aufgaben tragen.
 - **An der Karte:** Klick wählt aus, Doppelklick öffnet, Rechtsklick wechselt den Status.
 - **„Zeig mir, wo“:** Von der Karte in Dock oder Tisch zur Szene springen und den Node auswählen.
 - **Dock-Abschnitt „In dieser Szene“:** die Aufgaben der offenen Szene.
 
-### Vorher zu prüfen
+### Nachgeschlagen in Godot 4.7
 
-- Node-Nummern in Godot 4.7 und der Zugriff darauf
-- Einblenden in 3D (Gizmos oder ein anderer Weg) und Ziehen der Karten im Viewport
-- wie weit das Kontextmenü des Szenenbaums für Addons offen ist und ob sich Karten auf Viewport und Szenenbaum ziehen lassen
+Aus der Klassenbeschreibung des Editors (2026-10-07), noch nichts davon ausprobiert.
 
+- **Node-Nummern:** Godot schreibt je Node ein `unique_id=…` in die Szenendatei. Für Skripte gibt es keinen Zugriff darauf, weder an `Node` noch an `SceneState`. Das Addon kann die Nummern aber aus der gespeicherten `.tscn` lesen (nur lesen) und so nach dem Speichern Pfad und Nummer abgleichen. Ein Node, der noch nie gespeichert wurde, hat für das Addon keine Nummer.
+- **Mitführen:** `SceneTree.node_renamed`, `node_added` und `node_removed` melden Umbenennen und Umhängen, `EditorPlugin.scene_changed`, `scene_saved` und `scene_closed` den Wechsel der Szene.
+- **Einblenden:** Der Editor lässt Addons über den 2D- und den 3D-Viewport zeichnen (`_forward_canvas_force_draw_over_viewport`, `_forward_3d_force_draw_over_viewport`) und reicht Maus und Tastatur immer durch (`set_input_event_forwarding_always_enabled`). Damit geht beides ohne Gizmos: In 3D wird die Stelle des Nodes über die Kamera auf den Bildschirm gerechnet und die Karte dort gezeichnet, nach Abstand verkleinert.
+- **Kontextmenü:** Addons dürfen Einträge ins Kontextmenü des Szenenbaums, des 2D-Editors und der Szenen-Tabs setzen (`EditorContextMenuPlugin`). Für den 3D-Viewport gibt es keinen solchen Platz.
+- **Ziehen aus dem Dock:** Szenenbaum und Viewport nehmen nur ihre eigenen Zieh-Daten an. Ob sich eine Karte trotzdem dort ablegen lässt, zeigt erst ein Versuch.
+
+
+### Schritte
+
+An Tasker ändert sich bis einschließlich Schritt 4 nichts. Die Schritte 1 bis 4 lesen und schreiben dort nur, was das Addon heute schon tut (Stand holen, Status wechseln).
+
+#### Schritt 1: Referenzen und Verknüpfen
+
+Noch ohne Viewport.
+
+- [x] Referenzen im lokalen Zustand, Regeln dazu in `rules/` mit Tests
+- [x] Verknüpfen über das Kontextmenü im Szenenbaum (Untermenü „Tasker“, „Aufgabe anhängen …“ öffnet die Suche) und im Dock per Rechtsklick („An ausgewählten Node hängen“); Lösen auf demselben Weg
+- [x] Dock-Abschnitt „In dieser Szene“
+- [x] „Zeig mir, wo“: Szene öffnen und Node auswählen
+- [x] Mitführen beim Umbenennen und Umhängen, Abgleich über die Node-Nummern beim Speichern und Öffnen einer Szene
+- [x] „Zeig mir, wo“ und die Liste der Verknüpfungen auch im Aufgabenfenster
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
+
+#### Schritt 2: Karten im Viewport
+
+2D und 3D zusammen.
+
+- [ ] Karte als Bild am Node einblenden
+- [ ] Klick wählt aus, Doppelklick öffnet, Rechtsklick wechselt den Status
+- [ ] Erledigtes verblasst
+- [ ] Versuch: Karte aus dem Dock auf Node oder Viewport ziehen. Klappt er, wird das ein zweiter Weg zum Verknüpfen.
+
+#### Schritt 3: Wegschieben und Lesbarkeit
+
+- [ ] Karten wegziehen, Faden zum Node, Versatz merken
+- [ ] Pin beim Herauszoomen, Stapel bei Karten nah beieinander
+- [ ] Filter in der Viewport-Leiste
+
+#### Schritt 4: Selbstheilung
+
+- [ ] Für verlorene Nodes eine neue Stelle nach Name und Typ vorschlagen
+- [ ] Liste verwaister Referenzen
+
+#### Schritt 5: Umzug nach Tasker
+
+Der einzige Schritt, der Tasker ändert. Erst wenn sich die Form der Referenz bewährt hat, und als Anfrage an die Tasker-Sitzung nach Rückfrage.
+
+- [ ] Tabelle, Routen und Token-Freigabe in Tasker
+- [ ] Lokale Referenzen hinüberschieben, danach ist Tasker die Quelle
 ## Risiken und offene Punkte
 
 - **Animationen im Editor-Fenster:** Der Editor zeichnet sparsam neu. Ob Karten dort flüssig laufen, klärt der Prototyp in Schritt 1. Ausweichweg wäre ein eigener Prozess, mit den Nachteilen, dass das Token durchgereicht werden muss und die Autoloads des Spiels mitstarten.

@@ -41,6 +41,8 @@ const Z_DRAG := 500
 const Z_BROWSE := 20
 const Z_DIM := 8
 const Z_SHELF := 400
+## So klein ist die Ablage, wenn sie aus dem Erledigt-Stapel kommt.
+const SHELF_SMALL := 0.08
 ## Kippen beim Ziehen, wie `cardTilt.ts` in Tasker: stärkste Neigung in Grad,
 ## das Tempo, bei dem drei Viertel davon erreicht sind, und wie träge die
 ## Karte folgt und sich wieder aufrichtet.
@@ -101,6 +103,10 @@ var _week_bar: ProgressBar
 var _streak: Label
 var _chain: Control
 var _shelf_panel: Shelf
+## Ob die Ablage gerade zu sehen ist oder aufgeht, und ob sie noch zuklappt.
+var _shelf_shown := false
+var _shelf_closing := false
+var _shelf_tween: Tween
 ## Der Platz im Spiel, an dem die gezogene Karte landen würde – oder -1.
 var _gap := -1
 ## Tempo des Zeigers beim Ziehen in Pixeln pro Sekunde, geglättet, und die
@@ -566,15 +572,20 @@ func _place() -> void:
 	for i in deck.size():
 		_rest_at(deck[i], area.position + Vector2(8.0 + (i % cols) * (c.x + 12.0), 8.0 + (i / cols) * row_step), 0.0, Z_BROWSE + i)
 
-	# Die Ablage legt sich über den ganzen Tisch.
-	_shelf_panel.visible = _shelf
+	# Die Ablage legt sich über den ganzen Tisch. Sie wächst aus dem
+	# Erledigt-Stapel heraus und zieht sich dorthin zurück.
 	_shelf_panel.position = Vector2(20, 20)
 	_shelf_panel.size = Vector2(size) - Vector2(40, 40)
+	_shelf_panel.pivot_offset = g["pile"].get_center() - _shelf_panel.position
+	if _shelf != _shelf_shown:
+		_shelf_shown = _shelf
+		_animate_shelf(_shelf)
 
-	_dim.visible = _browse or _shelf
+	var over_all := _shelf or _shelf_closing
+	_dim.visible = _browse or over_all
 	_dim.position = Vector2.ZERO
-	_dim.size = Vector2(size.x, size.y if _shelf else g["hand"].position.y)
-	_dim.z_index = Z_SHELF - 1 if _shelf else Z_DIM
+	_dim.size = Vector2(size.x, size.y if over_all else g["hand"].position.y)
+	_dim.z_index = Z_SHELF - 1 if over_all else Z_DIM
 	_chain.position = g["locked"].position
 	_chain.size = g["locked"].size
 	_chain.queue_redraw()
@@ -1011,6 +1022,37 @@ func _set_shelf(on: bool) -> void:
 	_browse = false
 	_swap = ""
 	_sync()
+
+
+## Lässt die Ablage aus dem Erledigt-Stapel aufgehen oder dorthin zuklappen.
+func _animate_shelf(open: bool) -> void:
+	if _shelf_tween != null:
+		_shelf_tween.kill()
+	# Geht sie in den aufgedeckten Nachziehstapel über, bleibt der Schleier stehen.
+	var fade_dim := not _browse
+	_shelf_tween = _shelf_panel.create_tween().set_parallel()
+	if open:
+		if not _shelf_panel.visible:
+			_shelf_panel.scale = Vector2(SHELF_SMALL, SHELF_SMALL)
+			_shelf_panel.modulate.a = 0.0
+			if fade_dim:
+				_dim.modulate.a = 0.0
+		_shelf_panel.visible = true
+		_shelf_closing = false
+		_shelf_tween.tween_property(_shelf_panel, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_shelf_tween.tween_property(_shelf_panel, "modulate:a", 1.0, 0.16)
+		_shelf_tween.tween_property(_dim, "modulate:a", 1.0, 0.2)
+	else:
+		_shelf_closing = _shelf_panel.visible
+		_shelf_tween.tween_property(_shelf_panel, "scale", Vector2(SHELF_SMALL, SHELF_SMALL), 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		_shelf_tween.tween_property(_shelf_panel, "modulate:a", 0.0, 0.2).set_ease(Tween.EASE_IN)
+		if fade_dim:
+			_shelf_tween.tween_property(_dim, "modulate:a", 0.0, 0.2)
+		_shelf_tween.chain().tween_callback(func() -> void:
+			_shelf_panel.visible = false
+			_shelf_closing = false
+			_dim.modulate.a = 1.0
+			_place())
 
 
 func _close_overlays() -> void:

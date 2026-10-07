@@ -23,13 +23,21 @@ const Model := preload("../rules/model.gd")
 
 const MENU_OPEN := 100
 const MENU_BROWSER := 101
+const MENU_LINK := 102
+## Ab hier je Referenz der Aufgabe ein Eintrag: hinspringen und lösen.
+const MENU_SHOW := 200
+const MENU_UNLINK := 300
 
 const Hand := preload("../rules/hand.gd")
 const Memory := preload("../core/memory.gd")
+const Links := preload("../core/links.gd")
+const Refs := preload("../rules/refs.gd")
 
 var store: Store
 var images: Images
 var memory: Memory
+## Die Verknüpfungen mit Szenen und Nodes – fehlt außerhalb des Editors.
+var links: Links
 ## Die zuletzt angeklickte Karte – sie bleibt hervorgehoben.
 var selected_id := ""
 
@@ -47,13 +55,16 @@ var _sections: VBoxContainer
 var _results: ItemList
 var _message: Label
 var _menu: PopupMenu
+## Wie viele Einträge das Menü immer hat; dahinter stehen die der Referenzen.
+var _menu_fixed := 0
+var _menu_refs: Array = []
 
 
 func _init() -> void:
 	_build()
 
 
-func connect_store(new_store: Store, new_images: Images, new_memory: Memory = null) -> void:
+func connect_store(new_store: Store, new_images: Images, new_memory: Memory = null, new_links: Links = null) -> void:
 	store = new_store
 	images = new_images
 	store.changed.connect(_refresh)
@@ -61,6 +72,9 @@ func connect_store(new_store: Store, new_images: Images, new_memory: Memory = nu
 	memory = new_memory
 	if memory != null:
 		memory.changed.connect(_refresh)
+	links = new_links
+	if links != null:
+		links.scene_changed.connect(_refresh)
 	_refresh()
 
 
@@ -142,6 +156,9 @@ func _build() -> void:
 	_menu.add_separator()
 	_menu.add_item("Aufgabe öffnen", MENU_OPEN)
 	_menu.add_item("In Tasker öffnen (Browser)", MENU_BROWSER)
+	_menu.add_separator()
+	_menu.add_item("An ausgewählten Node hängen", MENU_LINK)
+	_menu_fixed = _menu.item_count
 
 
 # ------------------------------------------------------------ Anzeige
@@ -178,6 +195,8 @@ func _fill_sections() -> void:
 	for c in _sections.get_children():
 		c.queue_free()
 	_cards = []
+	_fill_scene_section()
+
 
 	var ws := store.ws
 	var m = Tisch.active_milestone(ws, store.project_id)
@@ -254,6 +273,52 @@ func _fill_sections() -> void:
 		_sections.add_child(_text("Alles erledigt – %d Karten auf dem Stapel." % layout["pile"].size() if layout["pile"].size() else "Noch keine Karten in diesem Milestone."))
 
 
+## „In dieser Szene“: was an der offenen Szene und ihren Nodes hängt, je
+## Referenz eine Karte mit dem Node darüber.
+func _fill_scene_section() -> void:
+	if links == null:
+		return
+	var here := links.here().filter(func(r: Dictionary) -> bool: return store.ws.task(r["taskId"]) != null)
+	if here.is_empty():
+		return
+	var collapsed: bool = _collapsed.get("scene", false)
+	var toggle := Button.new()
+	toggle.flat = true
+	toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	toggle.text = "%s In dieser Szene  %d" % ["▸" if collapsed else "▾", here.size()]
+	toggle.pressed.connect(func() -> void:
+		_collapsed["scene"] = not collapsed
+		_refresh())
+	_sections.add_child(toggle)
+	if not collapsed:
+		var flow := HFlowContainer.new()
+		flow.add_theme_constant_override("h_separation", 10)
+		flow.add_theme_constant_override("v_separation", 12)
+		_sections.add_child(flow)
+		for ref in here:
+			var cell := VBoxContainer.new()
+			cell.add_theme_constant_override("separation", 2)
+			var found := links.node_of(ref) != null
+			var where := Label.new()
+			where.text = "Szene" if ref["nodePath"] == Refs.ROOT else str(ref["nodePath"]).get_file()
+			where.tooltip_text = Refs.label(ref) if found else "%s\nDer Node ist in der Szene nicht mehr zu finden." % Refs.label(ref)
+			where.mouse_filter = Control.MOUSE_FILTER_STOP
+			where.custom_minimum_size.x = Card.SIZE.x
+			where.clip_text = true
+			where.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			where.add_theme_font_size_override("font_size", 12)
+			where.add_theme_color_override("font_color", Palette.MUTED if found else Palette.P1)
+			cell.add_child(where)
+			var card := Card.new()
+			cell.add_child(card)
+			card.show_task(store.ws, store.ws.task(ref["taskId"]), images, true)
+			card.selected = ref["taskId"] == selected_id
+			card.pressed.connect(_on_card)
+			_cards.append(card)
+			flow.add_child(cell)
+	_sections.add_child(HSeparator.new())
+
+
 func _text(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -270,6 +335,7 @@ func _on_card(card: Control, event: InputEventMouseButton) -> void:
 	if event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
 		task_requested.emit(card.task_id)
 	elif event.button_index == MOUSE_BUTTON_RIGHT:
+		_fill_menu()
 		_menu.position = Vector2i(DisplayServer.mouse_get_position())
 		_menu.popup()
 
@@ -292,6 +358,18 @@ func _say(text: String) -> void:
 	_message.visible = text != ""
 
 
+## Stellt die Einträge zu den Referenzen der gewählten Aufgabe ins Menü.
+func _fill_menu() -> void:
+	while _menu.item_count > _menu_fixed:
+		_menu.remove_item(_menu.item_count - 1)
+	_menu.set_item_disabled(_menu.get_item_index(MENU_LINK), links == null)
+	_menu_refs = links.of_task(selected_id) if links != null else []
+	for i in _menu_refs.size():
+		_menu.add_item("Zeig mir, wo: %s" % Refs.label(_menu_refs[i]), MENU_SHOW + i)
+	for i in _menu_refs.size():
+		_menu.add_item("Lösen von: %s" % Refs.label(_menu_refs[i]), MENU_UNLINK + i)
+
+
 func _on_menu(id: int) -> void:
 	match id:
 		MENU_OPEN:
@@ -300,8 +378,16 @@ func _on_menu(id: int) -> void:
 			var t = store.ws.task(selected_id)
 			if t != null:
 				OS.shell_open(store.web_url(t))
+		MENU_LINK:
+			if links != null:
+				_say(links.link(selected_id, links.selection()))
 		_:
-			_set_status(Model.STATUS[id])
+			if id >= MENU_UNLINK and id - MENU_UNLINK < _menu_refs.size():
+				links.unlink(_menu_refs[id - MENU_UNLINK])
+			elif id >= MENU_SHOW and id - MENU_SHOW < _menu_refs.size():
+				_say(await links.reveal(_menu_refs[id - MENU_SHOW]))
+			elif id < Model.STATUS.size():
+				_set_status(Model.STATUS[id])
 
 
 ## Zeigt am Neuladen-Knopf, ob der Änderungs-Strom steht.

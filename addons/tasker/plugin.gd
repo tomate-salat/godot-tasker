@@ -15,6 +15,8 @@ const Memory := preload("core/memory.gd")
 const TaskWindow := preload("ui/task_window.gd")
 const MilestoneWindow := preload("ui/milestone_window.gd")
 const ImageWindow := preload("ui/image_window.gd")
+const Links := preload("core/links.gd")
+const SceneMenu := preload("ui/scene_menu.gd")
 
 const MENU_SETUP := "Tasker einrichten …"
 const MENU_TABLE := "Tasker-Tisch"
@@ -34,12 +36,17 @@ var images: Images
 var store: Store
 var events: Events
 var memory: Memory
+var links: Links
 
 var _dock: EditorDock
 var _panel: Dock
 var _search: SearchPopup
 var _setup: SetupDialog
 var _table: TableWindow
+## Die Suche, die eine Aufgabe für die ausgewählten Nodes aussucht.
+var _attach: SearchPopup
+var _attach_nodes: Array = []
+var _scene_menu: SceneMenu
 var _last_reload := 0
 ## Die offenen Aufgabenfenster, je Aufgabe höchstens eines: ID → Fenster.
 var _task_windows := {}
@@ -74,6 +81,19 @@ func _enter_tree() -> void:
 	memory = Memory.new()
 	memory.persistent = true
 
+	links = Links.new()
+	links.memory = memory
+	add_child(links)
+	scene_changed.connect(func(_root: Node) -> void: links.on_scene_changed())
+	scene_saved.connect(links.on_scene_saved)
+
+	_scene_menu = SceneMenu.new()
+	_scene_menu.store = store
+	_scene_menu.links = links
+	_scene_menu.attach_requested.connect(_open_attach)
+	_scene_menu.task_requested.connect(_open_task)
+	add_context_menu_plugin(EditorContextMenuPlugin.CONTEXT_SLOT_SCENE_TREE, _scene_menu)
+
 	_panel = Dock.new()
 	_dock = EditorDock.new()
 	_dock.title = "Tasker"
@@ -85,7 +105,7 @@ func _enter_tree() -> void:
 	_panel.table_requested.connect(_open_table)
 	_panel.task_requested.connect(_open_task)
 	add_dock(_dock)
-	_panel.connect_store(store, images, memory)
+	_panel.connect_store(store, images, memory, links)
 
 	add_tool_menu_item(MENU_SETUP, _open_setup)
 	add_tool_menu_item(MENU_TABLE, _open_table)
@@ -100,6 +120,8 @@ func _exit_tree() -> void:
 	var palette := EditorInterface.get_command_palette()
 	for key in COMMANDS:
 		palette.remove_command(key)
+	if _scene_menu != null:
+		remove_context_menu_plugin(_scene_menu)
 	if _dock != null:
 		remove_dock(_dock)
 	for window in _task_windows.values():
@@ -108,7 +130,7 @@ func _exit_tree() -> void:
 	_task_windows.clear()
 	if events != null:
 		events.stop()
-	for node in [_dock, _search, _setup, _table, events, store, images, client]:
+	for node in [_dock, _search, _attach, _setup, _table, links, events, store, images, client]:
 		if node != null:
 			node.queue_free()
 
@@ -212,6 +234,7 @@ func _open_task(task_id: String) -> void:
 	window.set("store", store)
 	window.set("images", images)
 	window.set("task_id", task_id)
+	window.set("links", links)
 	window.visible = false
 	window.connect("task_requested", _open_task)
 	window.connect("image_requested", _open_image)
@@ -248,3 +271,22 @@ func _open_image(key: String, title: String) -> void:
 	_task_windows[id] = window
 	EditorInterface.get_base_control().add_child(window)
 	window.popup_centered()
+
+
+## Sucht eine Aufgabe aus und hängt sie an die Nodes (aus dem Szenenbaum).
+func _open_attach(nodes: Array) -> void:
+	if _attach == null:
+		_attach = SearchPopup.new()
+		_attach.store = store
+		_attach.action = "hängt die Aufgabe an den Node"
+		_attach.picked.connect(func(task_id: String) -> void:
+			_toast(links.link(task_id, _attach_nodes.filter(is_instance_valid))))
+		EditorInterface.get_base_control().add_child(_attach)
+	_attach_nodes = nodes
+	_attach.open()
+
+
+## Sagt unten rechts im Editor, warum etwas nicht ging.
+func _toast(problem: String) -> void:
+	if problem != "":
+		EditorInterface.get_editor_toaster().push_toast("Tasker: " + problem, EditorToaster.SEVERITY_WARNING)
