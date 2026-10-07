@@ -17,6 +17,7 @@ const MilestoneWindow := preload("ui/milestone_window.gd")
 const ImageWindow := preload("ui/image_window.gd")
 const Links := preload("core/links.gd")
 const SceneMenu := preload("ui/scene_menu.gd")
+const SceneCards := preload("ui/scene_cards.gd")
 
 const MENU_SETUP := "Tasker einrichten …"
 const MENU_TABLE := "Tasker-Tisch"
@@ -47,6 +48,7 @@ var _table: TableWindow
 var _attach: SearchPopup
 var _attach_nodes: Array = []
 var _scene_menu: SceneMenu
+var _scene_cards: SceneCards
 var _last_reload := 0
 ## Die offenen Aufgabenfenster, je Aufgabe höchstens eines: ID → Fenster.
 var _task_windows := {}
@@ -94,6 +96,20 @@ func _enter_tree() -> void:
 	_scene_menu.task_requested.connect(_open_task)
 	add_context_menu_plugin(EditorContextMenuPlugin.CONTEXT_SLOT_SCENE_TREE, _scene_menu)
 
+	# Die Karten im 2D- und 3D-Editor: immer zeichnen und immer mithören, nicht
+	# nur wenn ein bestimmter Node ausgewählt ist.
+	_scene_cards = SceneCards.new()
+	_scene_cards.store = store
+	_scene_cards.images = images
+	_scene_cards.links = links
+	_scene_cards.redraw_requested.connect(update_overlays)
+	_scene_cards.task_requested.connect(_open_task)
+	_scene_cards.task_selected.connect(func(id: String) -> void: _panel.select(id))
+	_scene_cards.problem.connect(_toast)
+	add_child(_scene_cards)
+	set_force_draw_over_forwarding_enabled()
+	set_input_event_forwarding_always_enabled()
+
 	_panel = Dock.new()
 	_dock = EditorDock.new()
 	_dock.title = "Tasker"
@@ -130,7 +146,7 @@ func _exit_tree() -> void:
 	_task_windows.clear()
 	if events != null:
 		events.stop()
-	for node in [_dock, _search, _attach, _setup, _table, links, events, store, images, client]:
+	for node in [_dock, _search, _attach, _setup, _table, _scene_cards, links, events, store, images, client]:
 		if node != null:
 			node.queue_free()
 
@@ -222,6 +238,7 @@ func _open_search() -> void:
 ## Öffnet die Aufgabe oder den Milestone im eigenen Fenster. Ist es schon offen, kommt es nach vorn.
 func _open_task(task_id: String) -> void:
 	_panel.select(task_id)
+	_scene_cards.select(task_id)
 	var open = _task_windows.get(task_id)
 	if is_instance_valid(open):
 		if open.mode == Window.MODE_MINIMIZED:
@@ -290,3 +307,25 @@ func _open_attach(nodes: Array) -> void:
 func _toast(problem: String) -> void:
 	if problem != "":
 		EditorInterface.get_editor_toaster().push_toast("Tasker: " + problem, EditorToaster.SEVERITY_WARNING)
+
+
+# ------------------------------------------------- Karten im Viewport
+
+func _forward_canvas_force_draw_over_viewport(overlay: Control) -> void:
+	if _scene_cards != null:
+		_scene_cards.draw_2d(overlay)
+
+
+func _forward_3d_force_draw_over_viewport(overlay: Control) -> void:
+	if _scene_cards != null:
+		_scene_cards.draw_3d(overlay)
+
+
+func _forward_canvas_gui_input(event: InputEvent) -> bool:
+	return _scene_cards != null and _scene_cards.input(SceneCards.VIEW_2D, event)
+
+
+func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
+	if _scene_cards != null and _scene_cards.input(camera.get_instance_id(), event):
+		return AFTER_GUI_INPUT_STOP
+	return AFTER_GUI_INPUT_PASS

@@ -309,7 +309,7 @@ Der Node-Pfad bricht beim Umbenennen und Umhängen. Dagegen:
 
 ### Bedienen
 
-- **Verknüpfen:** Kontextmenü am Node im Szenenbaum oder Rechtsklick auf die Aufgabe im Dock. Ziehen aus dem Dock auf den Node nur, wenn der Versuch in Schritt 2 klappt.
+- **Verknüpfen:** Kontextmenü am Node im Szenenbaum, Rechtsklick auf die Aufgabe im Dock oder die Karte aus dem Dock auf den Node ziehen (Szenenbaum oder Viewport).
 - **Mehrfach:** Eine Aufgabe darf an mehreren Nodes hängen, ein Node mehrere Aufgaben tragen.
 - **An der Karte:** Klick wählt aus, Doppelklick öffnet, Rechtsklick wechselt den Status.
 - **„Zeig mir, wo“:** Von der Karte in Dock oder Tisch zur Szene springen und den Node auswählen.
@@ -346,10 +346,12 @@ Noch ohne Viewport.
 
 2D und 3D zusammen.
 
-- [ ] Karte als Bild am Node einblenden
-- [ ] Klick wählt aus, Doppelklick öffnet, Rechtsklick wechselt den Status
-- [ ] Erledigtes verblasst
-- [ ] Versuch: Karte aus dem Dock auf Node oder Viewport ziehen. Klappt er, wird das ein zweiter Weg zum Verknüpfen.
+- [x] Karte als Bild am Node einblenden; was keinen Ort hat (die Szene selbst, Nodes ohne Lage), liegt in der Ecke des Viewports
+- [x] Klick wählt aus, Doppelklick öffnet, Rechtsklick wechselt den Status
+- [x] Erledigtes verblasst
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
+- [x] Karte aus dem Dock auf einen Node im Szenenbaum oder im Viewport ziehen: der zweite Weg zum Verknüpfen. Fangfelder liegen nur während des Ziehens über Szenenbaum und Viewports. Im Editor ausprobiert (Nutzer, 2026-10-07)
+- [x] Klicks im 2D-Editor über eigene Klickflächen, weil der Editor sie dort nur bei ausgewähltem Node weiterreicht
 
 #### Schritt 3: Wegschieben und Lesbarkeit
 

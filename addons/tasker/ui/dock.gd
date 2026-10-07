@@ -32,6 +32,7 @@ const Hand := preload("../rules/hand.gd")
 const Memory := preload("../core/memory.gd")
 const Links := preload("../core/links.gd")
 const Refs := preload("../rules/refs.gd")
+const DropCatcher := preload("drop_catcher.gd")
 
 var store: Store
 var images: Images
@@ -268,6 +269,7 @@ func _fill_sections() -> void:
 			card.show_task(ws, t, images, key == "play")
 			card.selected = t["id"] == selected_id
 			card.pressed.connect(_on_card)
+			_make_draggable(card)
 			_cards.append(card)
 	if not any:
 		_sections.add_child(_text("Alles erledigt – %d Karten auf dem Stapel." % layout["pile"].size() if layout["pile"].size() else "Noch keine Karten in diesem Milestone."))
@@ -314,6 +316,7 @@ func _fill_scene_section() -> void:
 			card.show_task(store.ws, store.ws.task(ref["taskId"]), images, true)
 			card.selected = ref["taskId"] == selected_id
 			card.pressed.connect(_on_card)
+			_make_draggable(card)
 			_cards.append(card)
 			flow.add_child(cell)
 	_sections.add_child(HSeparator.new())
@@ -396,3 +399,25 @@ func set_live(live: bool) -> void:
 		return
 	_reload_button.tooltip_text = "Neu laden\nÄnderungen aus Tasker kommen sofort an." if live else "Neu laden\nKeine laufende Verbindung – der Stand ist der vom letzten Laden."
 	_reload_button.add_theme_color_override("font_color", Palette.OK if live else Palette.MUTED)
+
+
+## Die Karte lässt sich auf einen Node im Szenenbaum oder im Viewport ziehen
+## und hängt sich dort an (`scene_cards.gd` fängt sie auf).
+func _make_draggable(card: Control) -> void:
+	if links != null:
+		card.set_drag_forwarding(_drag_card.bind(card), Callable(), Callable())
+
+
+func _drag_card(_at: Vector2, card: Control) -> Variant:
+	var t = store.ws.task(card.task_id)
+	if t == null:
+		return null
+	var preview := Control.new()
+	var small := Card.new()
+	preview.add_child(small)
+	small.show_task(store.ws, t, images)
+	small.scale = Vector2(0.5, 0.5)
+	small.position = -Card.SIZE * 0.25
+	small.modulate.a = 0.85
+	card.set_drag_preview(preview)
+	return {"type": DropCatcher.TYPE, "id": card.task_id}
