@@ -440,6 +440,14 @@ func _input(event: InputEvent) -> void:
 	if _pressed == null and _flying == null:
 		return
 
+	# Escape bricht das Ziehen ab: ohne Ziel fliegt die Karte zurück in ihr Fach.
+	if _flying != null and event.is_action_pressed("ui_cancel"):
+		_pressed = null
+		_over = null
+		_drop()
+		get_viewport().set_input_as_handled()
+		return
+
 	var mouse := get_local_mouse_position()
 	if event is InputEventMouseMotion:
 		if _flying == null and _pressed != null and mouse.distance_to(_press_at) > DRAG_START and _can_drag(_pressed.task_id):

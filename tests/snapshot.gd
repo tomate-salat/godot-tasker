@@ -90,6 +90,18 @@ func _process(delta: float) -> bool:
 			14:
 				# Ohne Verbindung fliegt sie zurück.
 				_table._plan._drop()
+			15:
+				# Noch einmal greifen und mit Escape abbrechen: die Karte liegt wieder im Fach.
+				var plan = _table._plan
+				plan._pressed = plan._left._sheet.get_meta("cards")[1]
+				plan._start_drag(Vector2(900, 380))
+				plan._over = plan._right
+				plan._right.hover(Vector2(1140, 720), plan._flying.task_id)
+				var esc := InputEventAction.new()
+				esc.action = "ui_cancel"
+				esc.pressed = true
+				plan._input(esc)
+				print("Nach Escape: fliegt=", plan._flying != null, " gedrückt=", plan._pressed != null)
 			_:
 				return true
 		_next()
