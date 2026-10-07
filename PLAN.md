@@ -233,7 +233,7 @@ Derselbe Tisch, nur zum Planen statt zum Spielen. Ein Umschalter wechselt zwisch
 - **Links der Vorrat.** Zwei Reiter über dem Ordner wählen „Ready“ oder „Backlog“. Jede Gruppe hat ihr Registerblatt und ihre eigenen Seiten mit Kopfzeile, genau wie ein Milestone bei den Decks. Ein Klick auf ein Registerblatt blättert nur; aufleuchten lässt ein Fach allein der Sprung aus dem Graphen. Eine Hand gibt es hier nicht: die gehört zum Spieltisch, Planen ist Deckbauen (Nutzer, 2026-10-07).
 - **Unteraufgaben** zeigt nur das Auffächern der Karte darüber, im Vorrat wie in den Decks.
 - **Abhängigkeiten ohne Linien in der Hauptansicht.** Gesperrte Karten tragen ein Schloss. Es ist gelb, wenn die Karte wartet, und rot, wenn sie auf etwas wartet, das in einem späteren Deck oder noch im Vorrat liegt.
-- **Der Graph einer Karte auf Wunsch:** Ein Klick aufs Schloss (oder der Rechtsklick, auch bei Karten ohne Sperre) zeigt über den Decks, worauf die Karte wartet und was auf sie wartet, über alle Stufen, aufgebaut wie der Graph in Tasker. Jede Karte nennt, wo sie liegt.
+- **Der Graph einer Karte auf Wunsch:** Ein Klick aufs Schloss (oder der Rechtsklick, auch bei Karten ohne Sperre) zeigt über den Decks, worauf die Karte wartet und was auf sie wartet, über alle Stufen, aufgebaut wie der Graph in Tasker. Jede Karte nennt, wo sie liegt. Gezogen wird aus dem Graphen nicht: er liegt über den Ordnern, es gäbe kein Ziel.
 - **Abhängigkeiten nur ansehen.** Anlegen und Trennen bleibt vorerst in Tasker.
 - **Karten verteilen:** in ein Deck (auch in das laufende), zwischen zwei Karten, zurück in den Vorrat.
 - **Decks umsortieren:** gewünscht. Dafür bekommt Tasker eine enge Route „setze Milestone X vor oder nach Y“, die selbst neu nummeriert. Anfrage an die Tasker-Sitzung erst nach Rückfrage, wenn der Schritt ansteht.
@@ -259,8 +259,12 @@ Derselbe Tisch, nur zum Planen statt zum Spielen. Ein Umschalter wechselt zwisch
 
 #### Schritt 3: Karten verteilen
 
-- [ ] Karte in ein Deck, zwischen zwei Karten, zurück in den Vorrat (`/api/move`)
-- [ ] Ziehen auch aus dem Graphen
+- [x] Karte ziehen: in ein Fach (sie nimmt diesen Platz ein), auf ein Registerblatt (ans Ende), auch in den anderen Ordner – in ein Deck, in eine Gruppe von „Ready“ oder „Backlog“, oder an eine andere Stelle im selben (`/api/move`)
+- [x] Auch leere Gruppen, Kategorien und „Unsortiert“ haben ihr Registerblatt, damit man etwas hineinlegen kann
+- [x] Beim Ziehen lässt sich mit dem Mausrad weiterblättern und auf einer anderen Seite ablegen
+- [x] Im Editor gegen Tasker ausprobiert (Nutzer, 2026-10-07)
+- [x] Gezogen wird wie am Spieltisch: die Karte selbst hängt am Zeiger und kippt in die Bewegungsrichtung, im Fach bleibt ein blasses Abbild, am Ziel rücken die Karten zur Seite
+- [x] Die Karte liegt sofort am neuen Platz, Tasker erfährt es gleichzeitig; geht der Zug nicht, gleitet sie zurück
 
 #### Schritt 4: Decks umsortieren
 

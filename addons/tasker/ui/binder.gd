@@ -14,7 +14,12 @@ extends Control
 ## Reihenfolge, je `{ task, child_of }` – `child_of` ist der Titel der Karte,
 ## aus der eine Unteraufgabe aufgefächert wurde, sonst leer. `header` steht
 ## über jeder Seite des Abschnitts: `{ id, title, line, late, pct, accent, tip }`;
-## ohne `pct` gibt es keinen Fortschrittsbalken, ohne `id` keinen Klick.
+## ohne `pct` gibt es keinen Fortschrittsbalken, ohne `id` keinen Klick. Mit
+## `drop: false` nimmt der Abschnitt keine Karten an.
+##
+## Karten lassen sich ablegen: in ein Fach (die Karte landet
+## an diesem Platz), auf ein Registerblatt (ans Ende des Abschnitts), auch in den
+## anderen Ordner. Gezogen wird in der Planung; der Ordner zeigt nur das Ziel.
 
 ## Die Kopfzeile einer Seite wurde angeklickt.
 signal header_pressed(id: String)
@@ -41,6 +46,10 @@ const RINGS := 3
 
 ## So lange dauert das Umblättern einer Seite.
 const FLIP_SECONDS := 0.26
+## So blass ist das Abbild einer gezogenen Karte in ihrem Fach.
+const GHOST := 0.28
+## So schnell rücken die Karten zur Seite, wenn eine dazwischen soll.
+const SHIFT_SECONDS := 0.14
 
 const COVER := Color("101614")
 const PAGE := Color("232c29")
@@ -72,6 +81,14 @@ var _flip: Tween
 var _glow_task := ""
 var _glow := 0.0: set = _set_glow
 var _glow_tween: Tween
+## Das Fach, vor dem eine gezogene Karte landen würde (-1: keins), und das
+## Registerblatt, auf dem sie schwebt.
+var _drop_pocket := -1
+var _drop_tab := -1
+## Die Karte, die gerade über dem Ordner schwebt, und die, von der im Fach nur
+## ein blasses Abbild liegt.
+var _dragged := ""
+var _ghost_id := ""
 
 var _tabs: Control
 ## Hier liegen die Seiten: die aufgeschlagene und, beim Blättern, die zweite.
@@ -83,6 +100,7 @@ var _next: Button
 var _count: Label
 var _shade: GradientTexture2D
 var _cast: GradientTexture2D
+var _landing: StyleBoxFlat
 
 
 func _init() -> void:
@@ -113,6 +131,15 @@ func _init() -> void:
 	_shade = _gradient(Color(0, 0, 0, 0.25), Color(0, 0, 0, 0.9))
 	# … und der, den sie auf die Seite darunter wirft.
 	_cast = _gradient(Color(0, 0, 0, 0.55), Color(0, 0, 0, 0.0))
+
+	# So sieht das Fach aus, in dem eine gezogene Karte landen würde.
+	_landing = StyleBoxFlat.new()
+	_landing.bg_color = Color(Palette.ACCENT, 0.14)
+	_landing.border_color = Color(Palette.ACCENT, 0.85)
+	_landing.set_border_width_all(2)
+	_landing.set_corner_radius_all(8)
+	_landing.shadow_color = Color(Palette.ACCENT, 0.22)
+	_landing.shadow_size = 7
 
 
 static func _gradient(from: Color, to: Color) -> GradientTexture2D:
@@ -220,6 +247,8 @@ func open_page(to: int) -> void:
 	if _flipping or to == from:
 		return
 	_flipping = true
+	# Eine Lücke für eine schwebende Karte gehört zur alten Seite.
+	_drop_pocket = -1
 	_pages[_key] = to
 	var forward := to > from
 
@@ -362,6 +391,7 @@ func _make_sheet(page: int) -> Control:
 	var spare := maxf(sheet.size.y - top - PAD - rows * POCKET.y - (rows - 1) * GAP, 0.0) / 2.0
 	var items: Array = leaf["items"]
 	var pockets := []
+	var cards := []
 	for k in rows * columns:
 		var rect := Rect2(Vector2(INNER + (k % columns) * (POCKET.x + GAP), top + spare + (k / columns) * (POCKET.y + GAP)), POCKET)
 		var pocket := {"rect": rect, "caption": "", "task": ""}
@@ -373,6 +403,12 @@ func _make_sheet(page: int) -> Control:
 			var card: Control = card_maker.call(item["task"])
 			card.position = rect.position + Vector2((POCKET.x - Card.SIZE.x) / 2.0, CAPTION + 6.0)
 			sheet.add_child(card)
+			card.set_meta("task", item["task"]["id"])
+			# Erledigte Karten sind von sich aus blass – das soll beim Rücken so bleiben.
+			card.set_meta("alpha", card.modulate.a)
+			if item["task"]["id"] == _ghost_id:
+				card.modulate.a *= GHOST
+			cards.append(card)
 		pockets.append(pocket)
 	if header.get("id", "") != "":
 		# Die Kopfzeile ist ein Knopf über die Breite der Fächer.
@@ -385,6 +421,9 @@ func _make_sheet(page: int) -> Control:
 		open.size = Vector2(columns * POCKET.x + (columns - 1) * GAP, HEADER - 4.0)
 		open.pressed.connect(func() -> void: header_pressed.emit(header["id"]))
 		sheet.add_child(open)
+	sheet.set_meta("pockets", pockets)
+	sheet.set_meta("cards", cards)
+	sheet.set_meta("page", page)
 	sheet.draw.connect(_draw_sheet.bind(sheet, pockets, header))
 	return sheet
 
@@ -406,7 +445,7 @@ func _show_place() -> void:
 			continue
 		tab.set_pressed_no_signal(n == current)
 		# Das Blatt des aufgeschlagenen Abschnitts steht etwas weiter heraus.
-		tab.position.x = rest + (6.0 if n == current else 0.0)
+		tab.position.x = rest + (6.0 if n == current or n == _drop_tab else 0.0)
 		n += 1
 
 
@@ -485,6 +524,9 @@ func _draw_sheet(sheet: Control, pockets: Array, header: Dictionary) -> void:
 		if _glow > 0.0 and sheet == _sheet and _glow_task != "" and pocket["task"] == _glow_task:
 			sheet.draw_rect(rect.grow(1.0), Color(Palette.ACCENT, _glow), false, 2.5)
 			sheet.draw_rect(rect, Color(Palette.ACCENT, _glow * 0.12))
+		# Hier würde die gezogene Karte landen: das Fach leuchtet.
+		if sheet == _sheet and _drop_pocket >= 0 and pockets[_drop_pocket] == pocket:
+			sheet.draw_style_box(_landing, rect)
 		if pocket["caption"] != "":
 			sheet.draw_string(font, rect.position + Vector2(8.0, 15.0), pocket["caption"], HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 14.0, 11, Palette.ACCENT)
 
@@ -500,3 +542,215 @@ func _gui_input(event: InputEvent) -> void:
 			MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_LEFT:
 				turn(-1)
 				accept_event()
+
+
+# ------------------------------------------------------------- Ablegen
+#
+# Gezogen wird in der Planung (`plan_view.gd`), über beide Ordner hinweg. Der
+# Ordner sagt nur, was unter der schwebenden Karte liegt, macht dort Platz
+# und nennt am Ende das Ziel.
+
+## Das Fach an dieser Stelle der aufgeschlagenen Seite – das nächstgelegene,
+## wenn sie zwischen zweien liegt.
+func _pocket_at(at: Vector2) -> int:
+	var pockets: Array = _sheet.get_meta("pockets", [])
+	var best := -1
+	var near := INF
+	for k in pockets.size():
+		var rect: Rect2 = pockets[k]["rect"]
+		if rect.has_point(at):
+			return k
+		var far := rect.get_center().distance_squared_to(at)
+		if far < near:
+			near = far
+			best = k
+	return best
+
+
+## Eine gezogene Karte schwebt an dieser Stelle des Fensters. Zeigt, wo sie
+## landen würde – vor einem Fach oder auf einem Registerblatt –, und macht
+## dort Platz. Wahr, wenn sie in diesem Ordner landen könnte.
+func hover(at: Vector2, task_id: String) -> bool:
+	var tab := -1
+	var pocket := -1
+	if not _flipping and is_instance_valid(_sheet):
+		var n := 0
+		for t in _tabs.get_children():
+			if t.is_queued_for_deletion():
+				continue
+			if t.get_global_rect().has_point(at) and _sections[n].get("drop", true):
+				tab = n
+			n += 1
+		var local: Vector2 = _sheets.get_global_transform().affine_inverse() * at
+		var section: int = _leaves[_pages.get(_key, 0)]["section"]
+		if tab < 0 and Rect2(Vector2.ZERO, _sheets.size).has_point(local) and _sections[section].get("drop", true):
+			# Weiter hinten als hinter die letzte Karte der Seite geht es nicht.
+			pocket = mini(_pocket_at(local), _others(task_id).size())
+	_dragged = task_id
+	if tab != _drop_tab or pocket != _drop_pocket:
+		_drop_tab = tab
+		_drop_pocket = pocket
+		_make_room(pocket, task_id)
+		_sheet.queue_redraw()
+		_show_place()
+	return tab >= 0 or pocket >= 0
+
+
+## Die Karte schwebt nicht mehr hier: alles rückt zurück.
+func end_hover() -> void:
+	if _drop_pocket == -1 and _drop_tab == -1:
+		return
+	_drop_pocket = -1
+	_drop_tab = -1
+	_make_room(-1, _dragged)
+	if is_instance_valid(_sheet):
+		_sheet.queue_redraw()
+	_show_place()
+
+
+## Wohin die schwebende Karte fiele: leer, oder `{ section, before, at, into_tab }`.
+## `before` ist die Karte, vor der sie landet (leer: ans Ende), `at` die Stelle
+## im Fenster, an die sie dafür fliegt.
+func drop_target() -> Dictionary:
+	if _drop_tab >= 0:
+		var n := 0
+		for t in _tabs.get_children():
+			if t.is_queued_for_deletion():
+				continue
+			if n == _drop_tab:
+				return {"section": _drop_tab, "before": "", "at": t.get_global_rect().get_center(), "into_tab": true}
+			n += 1
+	if _drop_pocket < 0 or not is_instance_valid(_sheet):
+		return {}
+	var page: int = _pages.get(_key, 0)
+	var leaf: Dictionary = _leaves[page]
+	# Das Fach ist der Platz, den die Karte einnimmt: sie landet vor der Karte,
+	# die – ohne sie selbst gezählt – dort liegt. Liegt dort keine, kommt sie
+	# hinter die letzte dieser Seite, also vor die erste der nächsten, wenn der
+	# Abschnitt dort weitergeht.
+	var others := _others(_dragged)
+	var before := ""
+	if _drop_pocket < others.size():
+		before = others[_drop_pocket]
+	elif page + 1 < _leaves.size() and _leaves[page + 1]["section"] == leaf["section"] and not _leaves[page + 1]["items"].is_empty():
+		before = _leaves[page + 1]["items"][0]["task"]["id"]
+	var pockets: Array = _sheet.get_meta("pockets", [])
+	var slot := mini(_drop_pocket, pockets.size() - 1)
+	return {"section": leaf["section"], "before": before, "at": _sheets.get_global_transform() * _home(pockets[slot]["rect"]), "into_tab": false}
+
+
+## Die Karten der aufgeschlagenen Seite ohne die gezogene, als IDs in Reihenfolge.
+func _others(moved_id: String) -> Array:
+	var out := []
+	for item in _leaves[_pages.get(_key, 0)]["items"]:
+		if item["task"]["id"] != moved_id:
+			out.append(item["task"]["id"])
+	return out
+
+
+## Wo die Karte dieser Aufgabe auf der aufgeschlagenen Seite liegt, im Fenster
+## gemessen – null, wenn sie dort nicht steckt.
+func place_of(task_id: String) -> Variant:
+	var card := _card_of(task_id)
+	if card == null:
+		return null
+	var pockets: Array = _sheet.get_meta("pockets", [])
+	var k: int = _sheet.get_meta("cards", []).find(card)
+	return _sheets.get_global_transform() * _home(pockets[k]["rect"])
+
+
+## Lässt von der gezogenen Karte ein blasses Abbild im Fach – oder holt sie zurück.
+func ghost(task_id: String, on: bool) -> void:
+	_ghost_id = task_id if on else ""
+	var card := _card_of(task_id)
+	if card != null:
+		var own: float = card.get_meta("alpha", 1.0)
+		card.create_tween().tween_property(card, "modulate:a", GHOST * own if on else own, 0.12)
+
+
+## Lässt die Karte dieser Aufgabe in ihrem Fach ankommen: sie setzt sich mit
+## einem kleinen Nachfedern.
+func land(task_id: String) -> void:
+	var card := _card_of(task_id)
+	if card != null:
+		card.create_tween().tween_property(card, "scale", Vector2.ONE, 0.3).from(Vector2(1.08, 1.08)).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## Ein Zug ging nicht: die Karte gleitet von dort, wo sie abgelegt wurde,
+## zurück in ihr Fach.
+func slide_back(task_id: String, from: Vector2) -> void:
+	var card := _card_of(task_id)
+	if card == null:
+		return
+	var home := card.position
+	card.z_index = 20
+	var back: Tween = card.create_tween()
+	back.tween_property(card, "position", home, 0.36).from(_sheets.get_global_transform().affine_inverse() * from).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	back.tween_callback(func() -> void: card.z_index = 0)
+
+
+func _card_of(task_id: String) -> Control:
+	if is_instance_valid(_sheet):
+		for card in _sheet.get_meta("cards", []):
+			if is_instance_valid(card) and card.get_meta("task") == task_id:
+				return card
+	return null
+
+
+## Wo die Karte in einem Fach sitzt.
+static func _home(pocket: Rect2) -> Vector2:
+	return pocket.position + Vector2((POCKET.x - Card.SIZE.x) / 2.0, CAPTION + 6.0)
+
+
+## Rückt die Karten der Seite so, dass vor dem Fach `gap` Platz für die
+## gezogene Karte ist (-1: alle zurück an ihren Platz). Steckt die gezogene
+## selbst auf der Seite, schließt sich ihre Lücke.
+func _make_room(gap: int, moved_id: String) -> void:
+	if not is_instance_valid(_sheet):
+		return
+	var pockets: Array = _sheet.get_meta("pockets", [])
+	var cards: Array = _sheet.get_meta("cards", [])
+	# Wie viele andere Karten vor der gerade betrachteten liegen.
+	var ahead := 0
+	for k in cards.size():
+		var card: Control = cards[k]
+		if not is_instance_valid(card):
+			continue
+		var at := k
+		var own: float = card.get_meta("alpha", 1.0)
+		var seen := own
+		if card.get_meta("task") == _ghost_id:
+			# Die gezogene Karte liegt am Zeiger; rücken die anderen, weicht ihr Abbild.
+			seen = 0.0 if gap >= 0 else GHOST * own
+		elif gap >= 0:
+			# Alles ab dem Fach rückt um einen Platz weiter.
+			at = ahead + (1 if ahead >= gap else 0)
+			ahead += 1
+			# Was hinten nicht mehr auf die Seite passt, rückt auf die nächste.
+			if at >= pockets.size():
+				at = pockets.size() - 1
+				seen = 0.0
+		if card.has_meta("shift"):
+			var running: Tween = card.get_meta("shift")
+			if running != null and running.is_valid():
+				running.kill()
+		var shift: Tween = card.create_tween().set_parallel().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		shift.tween_property(card, "position", _home(pockets[at]["rect"]), SHIFT_SECONDS)
+		shift.tween_property(card, "modulate:a", seen, SHIFT_SECONDS)
+		card.set_meta("shift", shift)
+
+
+## Das Ziehen ist vorbei: kein Abbild und keine Marke mehr, auch nicht auf
+## Seiten, die erst noch aufgeschlagen werden.
+func clear_drag() -> void:
+	var ghost_id := _ghost_id
+	_ghost_id = ""
+	_dragged = ""
+	_drop_pocket = -1
+	_drop_tab = -1
+	var card := _card_of(ghost_id) if ghost_id != "" else null
+	if card != null:
+		card.modulate.a = card.get_meta("alpha", 1.0)
+	if is_instance_valid(_sheet):
+		_sheet.queue_redraw()
+	_show_place()

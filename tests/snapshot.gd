@@ -74,6 +74,22 @@ func _process(delta: float) -> bool:
 				_table._plan._graph._time = 5.3
 				_table._plan._graph._hot = "q4"
 				_table._plan._graph._canvas.queue_redraw()
+			13:
+				# Eine Karte aus dem Vorrat hängt am Zeiger und schwebt über einem Deck.
+				var plan = _table._plan
+				plan._graph.visible = false
+				plan._pressed = plan._left._sheet.get_meta("cards")[1]
+				plan._start_drag(Vector2(900, 380))
+				# Beim Ziehen weiterblättern: die Karte im Fach verschwindet mit ihrer Seite.
+				plan._left.turn(1)
+				plan._flying.position = Vector2(880, 330)
+				plan._pointer_speed = Vector2(900, -200)
+				plan._last_move = Time.get_ticks_msec() + 5000
+				plan._over = plan._right
+				plan._right.hover(Vector2(1140, 720), plan._flying.task_id)
+			14:
+				# Ohne Verbindung fliegt sie zurück.
+				_table._plan._drop()
 			_:
 				return true
 		_next()

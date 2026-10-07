@@ -305,6 +305,7 @@ func _build() -> void:
 	# Die Planung deckt den Spieltisch ganz ab; nur der Umschalter bleibt darüber.
 	_plan = PlanView.new()
 	_plan.visible = false
+	_plan.store = store
 	_plan.task_requested.connect(func(id: String) -> void:
 		if store != null and store.state == "ready":
 			task_requested.emit(id))
@@ -392,6 +393,7 @@ func _sync() -> void:
 		_project = store.project_id
 
 	if planning:
+		_plan.store = store
 		_plan.show_plan(_ws, _project, 8 if demo else store.velocity, images if not demo else null,
 			Burnup.day_of(Time.get_unix_time_from_system(), Time.get_time_zone_from_system()["bias"]))
 

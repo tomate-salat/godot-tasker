@@ -125,3 +125,42 @@ func test_das_schloss_ist_gelb_wenn_die_karte_wartet_und_rot_wenn_das_ziel_spaet
 	eq(Planning.lock_of(ws, ws.task("b2"), order), Planning.MISPLACED, "wartet auf etwas im Vorrat")
 	eq(Planning.lock_of(ws, ws.task("lose"), order), Planning.WAITS, "im Vorrat wird es nie rot")
 	eq(ids(Planning.card_blockers(ws, ws.task("a2"))), ["b2"])
+
+
+func test_jeder_abschnitt_nennt_seinen_ort_fuer_das_verschieben() -> void:
+	var ws := _stock()
+	var places := func(which: String) -> Array:
+		return Planning.stock(ws, "p", which).map(func(s: Dictionary) -> Dictionary: return s["place"])
+	eq(places.call(Planning.READY), [{"ready": true, "markId": "idee"}, {"ready": true, "markId": null, "categoryId": "grafik"}, {"ready": true, "markId": null, "categoryId": null}])
+	eq(places.call(Planning.BACKLOG), [{"groupId": "gruppe"}, {"milestoneId": "entwurf"}, {"ready": false}])
+
+
+func test_zum_hineinlegen_stehen_auch_leere_ziele_da() -> void:
+	var ws: Workspace = _plan().category("ton", "p").mark("idee", "p").build()
+	eq(_shape(Planning.stock(ws, "p", Planning.READY, true)), [["ton", []], ["Ohne Kategorie", []]], "leere Markierungen bleiben weg")
+	eq(_shape(Planning.stock(ws, "p", Planning.BACKLOG, true)), [["◆ entwurf", []], ["Unsortiert", []]])
+	eq(Planning.stock(ws, "p", Planning.READY), [])
+
+
+func test_die_stelle_beim_ablegen_zaehlt_ohne_die_verschobene_karte() -> void:
+	var roots := ["a", "b", "c", "d"]
+	eq(Planning.drop_index(roots, "x", "c"), 2, "von außen vor c")
+	eq(Planning.drop_index(roots, "x", ""), 4, "von außen ans Ende")
+	eq(Planning.drop_index(roots, "a", "d"), 2, "a rückt hinter b und c")
+	eq(Planning.drop_index(roots, "d", "a"), 0)
+	eq(Planning.drop_index(roots, "b", ""), 3)
+	ok(Planning.stays(roots, "b", Planning.drop_index(roots, "b", "c")), "vor den eigenen Nachfolger gelegt ändert nichts")
+	ok(not Planning.stays(roots, "b", Planning.drop_index(roots, "b", "a")))
+	ok(not Planning.stays(roots, "x", 0))
+	eq(Planning.move_body({"milestoneId": "m"}, 3), {"milestoneId": "m", "index": 3})
+
+
+func test_der_zug_steht_sofort_im_stand_wie_der_server_ihn_schreiben_wird() -> void:
+	var local := Planning.local_move(["a", "b", "c"], "x", {"milestoneId": "m"}, 1)
+	eq(local["a"], {"order": 0})
+	eq(local["x"], {"order": 1, "parentId": null, "milestoneId": "m", "groupId": null, "ready": false})
+	eq(local["b"], {"order": 2})
+	eq(local["c"], {"order": 3})
+	var loose := Planning.local_move(["a"], "a", {"ready": true, "markId": null, "categoryId": "k"}, 0)
+	eq(loose["a"], {"order": 0, "parentId": null, "milestoneId": null, "groupId": null, "ready": true, "markId": null, "categoryId": "k"})
+	eq(Planning.local_move(["a", "b"], "a", {"groupId": "g"}, 5)["a"]["order"], 1, "eine zu große Stelle heißt ans Ende")

@@ -189,3 +189,44 @@ func _remove(kind: String, id: String) -> void:
 			list.remove_at(i)
 			_rebuild()
 			return
+
+
+## Verschiebt eine Aufgabe an einen anderen Ort oder Platz (`/api/move`).
+## `target` nennt Ziel und Stelle, siehe `Planning.move_body`. Antwort wie bei
+## `patch`: `{ ok, conflict, error }`.
+##
+## `local` (Aufgaben-ID → geänderte Felder, `Planning.local_move`) steht sofort
+## im Stand, damit die Karte nicht auf die Antwort warten muss. Geht der Zug
+## nicht, ist danach wieder alles, wie es war. Geht er, wird der ganze Stand
+## geholt: Verschieben rührt an den Geschwistern und am ganzen Teilbaum.
+func move(task_id: String, target: Dictionary, local := {}) -> Dictionary:
+	var current = _find("task", task_id)
+	if current == null:
+		return {"ok": false, "conflict": false, "error": "Nicht gefunden."}
+	var body := {"id": task_id, "version": int(current["version"])}
+	body.merge(target)
+
+	var tasks: Array = data.get("tasks", [])
+	var before := {}
+	for i in tasks.size():
+		if local.has(tasks[i]["id"]):
+			before[i] = tasks[i]
+			var next: Dictionary = tasks[i].duplicate()
+			next.merge(local[tasks[i]["id"]], true)
+			tasks[i] = next
+	if not before.is_empty():
+		_rebuild()
+
+	var res := await client.post("/api/move", body)
+	if res["ok"]:
+		await reload()
+		return {"ok": true, "conflict": false, "error": ""}
+	# Zurück auf den alten Stand – außer es wurde inzwischen ohnehin neu geladen.
+	if not before.is_empty() and is_same(data.get("tasks"), tasks):
+		for i in before:
+			tasks[i] = before[i]
+		_rebuild()
+	if res["status"] == 409:
+		await reload()
+		return {"ok": false, "conflict": true, "error": "Inzwischen woanders geändert – der neue Stand ist geladen."}
+	return {"ok": false, "conflict": false, "error": res["error"]}

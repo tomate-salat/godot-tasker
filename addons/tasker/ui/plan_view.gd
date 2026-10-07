@@ -23,6 +23,7 @@ const Model := preload("../rules/model.gd")
 const Workspace := preload("../rules/workspace.gd")
 const Binder := preload("binder.gd")
 const DepGraphView := preload("dep_graph_view.gd")
+const Store := preload("../core/store.gd")
 
 const MARGIN := 28.0
 const HEADER := 60.0
@@ -36,6 +37,20 @@ const TAB_MAX := 170.0
 const BETWEEN := 18.0
 ## Kleiner als so werden die Ordner in einem schmalen Fenster nicht.
 const MIN_SCALE := 0.6
+## Ziehen wie am Spieltisch (`table_window.gd`): ab so vielen Pixeln wird aus
+## einem Klick ein Ziehen, und so kippt die Karte in die Bewegungsrichtung.
+const DRAG_START := 6.0
+const MAX_TILT := 22.0
+const TILT_STRENGTH := 0.5
+const TILT_SPEED := 180.0
+const TILT_RESPONSE_MS := 90.0
+const TILT_STILL_MS := 60
+## So lange fliegt eine losgelassene Karte an ihr Ziel.
+const FLY_SECONDS := 0.16
+
+## Der Datenbestand, über den Karten verschoben werden – fehlt er oder steht
+## keine Verbindung, wird nur angesehen.
+var store: Store
 
 var _ws: Workspace
 var _project := ""
@@ -59,6 +74,26 @@ var _graph: DepGraphView
 var _menu: PopupMenu
 ## Die Karte, zu der das Menü offen ist.
 var _menu_task := ""
+## Was in den Ordnern steckt, je Abschnitt mit seinem Ort – für das Ablegen.
+var _stock_sections: Array = []
+var _deck_sections: Array = []
+var _note: Label
+var _note_tween: Tween
+var _moving := false
+## Die Karte, auf der die Maustaste unten ist, und – sobald gezogen wird – ihre
+## Kopie am Zeiger, der Ordner, aus dem sie kommt, und der, über dem sie schwebt.
+var _pressed: Control
+var _press_at := Vector2.ZERO
+var _flying: Control
+var _grab := Vector2.ZERO
+var _source: Binder
+var _over: Binder
+## Wie groß die Karten im Ordner gerade sind (er wird in schmalen Fenstern kleiner).
+var _size := 1.0
+## Tempo des Zeigers beim Ziehen, geglättet, und die Neigung der Karte in Grad.
+var _pointer_speed := Vector2.ZERO
+var _tilt := Vector2.ZERO
+var _last_move := 0
 
 
 func _init() -> void:
@@ -95,6 +130,19 @@ func _init() -> void:
 	add_child(_info)
 
 
+	# Hier steht, warum ein Zug nicht ging.
+	_note = Label.new()
+	_note.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_note.offset_left = -620.0
+	_note.offset_right = -MARGIN
+	_note.offset_top = HEADER + 6.0
+	_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_note.clip_text = true
+	_note.add_theme_color_override("font_color", Palette.P2)
+	_note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_note.modulate.a = 0.0
+	add_child(_note)
+
 	_menu = PopupMenu.new()
 	_menu.add_item("Abhängigkeiten zeigen", 0)
 	_menu.add_item("Aufgabe öffnen", 1)
@@ -120,7 +168,7 @@ func show_plan(ws: Workspace, project_id: String, velocity: int, images: Node, t
 	_velocity = velocity
 	_images = images
 	_today = today
-	_info.text = "Tempo: %d Karten je Woche   ·   Klick fächert auf, Doppelklick öffnet, Klick aufs Schloss zeigt die Abhängigkeiten" % velocity
+	_info.text = "Tempo: %d Karten je Woche   ·   Karten ziehen verteilt sie, Klick fächert auf, Doppelklick öffnet" % velocity
 	var stamp := hash([ws.tasks, ws.milestones, ws.groups, ws.marks, ws.categories, project_id, velocity, today, _stock, _fanned, size])
 	if stamp == _shown:
 		return
@@ -181,13 +229,14 @@ func _build_stock() -> void:
 		_tabs[which].text = "%s  %d" % ["Ready" if which == Planning.READY else "Backlog", Planning.stock_count(_ws, _project, which)]
 		_tabs[which].set_pressed_no_signal(which == _stock)
 	var sections := []
-	for section in Planning.stock(_ws, _project, _stock):
+	for section in Planning.stock(_ws, _project, _stock, true):
 		var count: int = section["cards"].size()
-		sections.append({"title": section["title"], "items": _items(section["cards"]), "header": {
+		sections.append({"title": section["title"], "items": _items(section["cards"]), "place": section["place"], "roots": _ids(section["cards"]), "header": {
 			"title": section["title"], "line": "%d %s in „%s“" % [count, "Karte" if count == 1 else "Karten", "Ready" if _stock == Planning.READY else "Backlog"]}})
 	if sections.is_empty():
-		sections.append({"title": "Leer", "items": [], "header": {"title": "Dieser Stapel ist leer", "line": ""}})
+		sections.append({"title": "Leer", "items": [], "drop": false, "header": {"title": "Dieser Stapel ist leer", "line": ""}})
 	_left.card_maker = _card.bind(Planning.deck_order(Planning.decks(_ws, _project)))
+	_stock_sections = sections
 	_left.show_sections(_stock, sections)
 
 
@@ -222,6 +271,8 @@ func _build_decks() -> void:
 			"tip": "%s\n%s" % [name, line],
 			# Ein abgeschlossenes Deck zeigt nur noch seine Kopfzeile.
 			"items": [] if done else _items(_ws.ms_roots(m)),
+			# In ein abgeschlossenes Deck wird nichts mehr gelegt.
+			"drop": not done, "place": {"milestoneId": m["id"]}, "roots": _ids(_ws.ms_roots(m)),
 			"header": {
 				"id": m["id"], "title": "%s %s" % ["✓" if done else "◆", name], "line": line, "tip": tip,
 				"late": f.get("late", false), "pct": Progress.milestone_progress_pct(_ws, m),
@@ -229,7 +280,7 @@ func _build_decks() -> void:
 			},
 		})
 	if sections.is_empty():
-		sections.append({"title": "Keine Decks", "items": [], "header": {
+		sections.append({"title": "Keine Decks", "items": [], "drop": false, "header": {
 			"id": "", "title": "Noch kein Milestone eingeplant", "line": "Eingeplant wird in Tasker – hier erscheinen die Milestones dann als Decks.", "pct": 0}})
 	# Aufgeschlagen wird zuerst das laufende Deck.
 	for i in decks.size():
@@ -237,6 +288,7 @@ func _build_decks() -> void:
 			_right.start_section = i
 			break
 	_right.card_maker = _card.bind(Planning.deck_order(decks))
+	_deck_sections = sections
 	_right.show_sections("decks", sections)
 
 
@@ -313,13 +365,12 @@ func _on_card(card: Control, event: InputEventMouseButton) -> void:
 	if event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	if event.double_click:
+		_pressed = null
 		task_requested.emit(card.task_id)
-	elif not _ws.kids(card.task_id).is_empty():
-		if _fanned.has(card.task_id):
-			_fanned.erase(card.task_id)
-		else:
-			_fanned[card.task_id] = true
-		_refan.call_deferred()
+	else:
+		# Ob daraus ein Klick oder ein Ziehen wird, zeigt sich in `_input`.
+		_pressed = card
+		_press_at = get_local_mouse_position()
 
 
 ## Baut nach dem Auf- oder Zufächern neu auf.
@@ -366,8 +417,195 @@ func _jump(id: String) -> void:
 		_left.reveal(root["id"])
 
 
-## Escape schließt den Graphen.
+
+# ------------------------------------------------------------ Verteilen
+
+static func _ids(tasks: Array) -> Array:
+	return tasks.map(func(t: Dictionary) -> String: return t["id"])
+
+
+## Gezogen wird wie am Spieltisch: die Karte selbst hängt am Zeiger und kippt
+## in die Bewegungsrichtung. Ein Klick ohne Ziehen fächert auf.
 func _input(event: InputEvent) -> void:
-	if is_visible_in_tree() and _graph.visible and event.is_action_pressed("ui_cancel"):
-		_graph.close()
-		get_viewport().set_input_as_handled()
+	if not is_visible_in_tree():
+		return
+	if _graph.visible:
+		# Escape schließt den Graphen.
+		if event.is_action_pressed("ui_cancel"):
+			_graph.close()
+			get_viewport().set_input_as_handled()
+		return
+	if _pressed != null and not is_instance_valid(_pressed):
+		_pressed = null
+	if _pressed == null and _flying == null:
+		return
+
+	var mouse := get_local_mouse_position()
+	if event is InputEventMouseMotion:
+		if _flying == null and _pressed != null and mouse.distance_to(_press_at) > DRAG_START and _can_drag(_pressed.task_id):
+			_start_drag(mouse)
+		if _flying != null:
+			_flying.position = mouse + _grab
+			# Das Tempo des Zeigers bestimmt, wie weit die Karte kippt (`_process`).
+			_pointer_speed = _pointer_speed.lerp(event.velocity, 0.5)
+			_last_move = Time.get_ticks_msec()
+			var at := get_global_mouse_position()
+			# Nur ein Ordner auf einmal zeigt ein Ziel.
+			_over = null
+			for binder in [_left, _right]:
+				if _over == null and binder.hover(at, _flying.task_id):
+					_over = binder
+				elif _over != binder:
+					binder.end_hover()
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		var card := _pressed
+		_pressed = null
+		if _flying != null:
+			_drop()
+		elif card != null and not _ws.kids(card.task_id).is_empty():
+			if _fanned.has(card.task_id):
+				_fanned.erase(card.task_id)
+			else:
+				_fanned[card.task_id] = true
+			_refan.call_deferred()
+
+
+## Gezogen werden Karten der obersten Ebene; Unteraufgaben wandern mit ihrer Karte.
+func _can_drag(id: String) -> bool:
+	var t = _ws.task(id)
+	return t != null and not t.get("parentId") and not _moving
+
+
+## Die Karte hebt sich aus ihrem Fach: eine Kopie hängt am Zeiger, im Fach
+## bleibt ein blasses Abbild.
+func _start_drag(mouse: Vector2) -> void:
+	_source = _left if _left.is_ancestor_of(_pressed) else _right
+	var from: Rect2 = _pressed.get_global_rect()
+	_flying = Card.new()
+	add_child(_flying)
+	_flying.show_task(_ws, _ws.task(_pressed.task_id), _images)
+	_flying.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flying.z_index = 300
+	_flying.lift = 1.0
+	_size = from.size.x / Card.SIZE.x
+	_flying.scale = Vector2(_size, _size)
+	# Die Karte dreht und staucht sich um ihre Mitte; greifen tut man sie, wo man sie angefasst hat.
+	_grab = from.get_center() - Card.SIZE / 2.0 - get_global_mouse_position()
+	_flying.position = mouse + _grab
+	_pointer_speed = Vector2.ZERO
+	_tilt = Vector2.ZERO
+	_source.ghost(_pressed.task_id, true)
+
+
+## Lässt die gezogene Karte in die Bewegungsrichtung kippen und richtet sie
+## wieder auf, sobald der Zeiger steht – wie am Spieltisch.
+func _process(delta: float) -> void:
+	if _flying == null:
+		return
+	var k := 1.0 - exp(-delta * 1000.0 / TILT_RESPONSE_MS)
+	if Time.get_ticks_msec() - _last_move > TILT_STILL_MS:
+		_pointer_speed -= _pointer_speed * k
+	var target := Vector2(tanh(_pointer_speed.x / TILT_SPEED), tanh(_pointer_speed.y / TILT_SPEED)) * MAX_TILT * TILT_STRENGTH
+	_tilt += (target - _tilt) * k
+	var squash := Vector2(cos(deg_to_rad(_tilt.x * 1.7)), cos(deg_to_rad(_tilt.y * 1.7)))
+	_flying.scale = squash * 1.08 * _size
+	_flying.rotation = deg_to_rad(_tilt.x) * 0.22
+	_flying.set_tilt(-_tilt / MAX_TILT)
+
+
+## Die Maustaste geht hoch: die Karte fliegt an ihr Ziel und liegt dort sofort;
+## Tasker erfährt es gleichzeitig. Ohne Ziel fliegt sie zurück in ihr Fach.
+func _drop() -> void:
+	var card := _flying
+	var id: String = card.task_id
+	var source := _source
+	var target: Dictionary = _over.drop_target() if _over != null else {}
+	var in_stock := _over == _left
+	_flying = null
+	card.set_tilt(Vector2.ZERO)
+
+	var move := {}
+	if not target.is_empty():
+		move = _move_for(id, target["section"], target["before"], in_stock)
+	# Kein Ziel, oder die Karte läge dort, wo sie schon liegt: zurück ins Fach.
+	if move.is_empty():
+		var home = source.place_of(id)
+		for binder in [_left, _right]:
+			binder.end_hover()
+		if home != null:
+			await _fly(card, home, 1.0)
+		else:
+			# Ihr Fach ist nicht aufgeschlagen: sie löst sich einfach auf.
+			await card.create_tween().tween_property(card, "modulate:a", 0.0, FLY_SECONDS).finished
+		source.ghost(id, false)
+		for binder in [_left, _right]:
+			binder.clear_drag()
+		card.queue_free()
+		return
+
+	# Erst fliegt die Karte in die Lücke, dann steht der Ordner schon im neuen Stand.
+	# In ein Registerblatt schrumpft sie hinein.
+	var small := 0.25 if target["into_tab"] else 1.0
+	await _fly(card, target["at"] - (Card.SIZE * _size * small / 2.0 if target["into_tab"] else Vector2.ZERO), small)
+	# Der Ordner wird gleich im neuen Stand aufgebaut – ohne Abbild und ohne Marke.
+	for binder in [_left, _right]:
+		binder.clear_drag()
+	_moving = true
+	var landed := func() -> void:
+		card.queue_free()
+		(_left if in_stock else _right).land(id)
+	store.changed.connect(landed, CONNECT_ONE_SHOT)
+	var res := await store.move(id, move["body"], move["local"])
+	if store.changed.is_connected(landed):
+		store.changed.disconnect(landed)
+	_moving = false
+	if is_instance_valid(card):
+		card.queue_free()
+	if not res["ok"]:
+		# Der Stand ist wieder der alte: die Karte gleitet von dort zurück, wo sie lag.
+		_say(str(res["error"]))
+		source.slide_back(id, target["at"])
+
+
+## Bewegt die fliegende Karte an eine Stelle des Fensters.
+func _fly(card: Control, to: Vector2, shrink: float) -> void:
+	for binder in [_left, _right]:
+		if binder != _over:
+			binder.end_hover()
+	var tween := card.create_tween().set_parallel().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(card, "position", to - (Card.SIZE - Card.SIZE * _size * shrink) / 2.0, FLY_SECONDS)
+	tween.tween_property(card, "scale", Vector2(_size, _size) * shrink, FLY_SECONDS)
+	tween.tween_property(card, "rotation", 0.0, FLY_SECONDS)
+	tween.tween_property(card, "lift", 0.0, FLY_SECONDS)
+	await tween.finished
+
+
+## Was aus dem Ablegen wird: `{ body, local }` für `Store.move` – leer, wenn
+## sich nichts ändern würde oder nichts verschoben werden kann.
+func _move_for(task_id: String, section: int, before_id: String, in_stock: bool) -> Dictionary:
+	var sections := _stock_sections if in_stock else _deck_sections
+	if section < 0 or section >= sections.size() or not sections[section].has("place"):
+		return {}
+	# Im Fach kann eine aufgefächerte Unteraufgabe stecken – gemeint ist dann ihre Karte.
+	var before = _ws.task(before_id) if before_id != "" else null
+	var roots: Array = sections[section]["roots"]
+	var index := Planning.drop_index(roots, task_id, _ws.root(before)["id"] if before != null else "")
+	if Planning.stays(roots, task_id, index):
+		return {}
+	if store == null or store.state != "ready":
+		_say("Das sind Beispieldaten – ohne Verbindung zu Tasker wird nichts verschoben.")
+		return {}
+	var place: Dictionary = sections[section]["place"]
+	return {"body": Planning.move_body(place, index), "local": Planning.local_move(roots, task_id, place, index)}
+
+
+## Zeigt kurz, warum etwas nicht ging.
+func _say(text: String) -> void:
+	_note.text = text
+	if _note_tween != null:
+		_note_tween.kill()
+	_note.modulate.a = 1.0
+	_note_tween = create_tween()
+	_note_tween.tween_interval(4.0)
+	_note_tween.tween_property(_note, "modulate:a", 0.0, 0.6)
