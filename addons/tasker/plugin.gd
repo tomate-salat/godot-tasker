@@ -13,6 +13,7 @@ const SetupDialog := preload("ui/setup_dialog.gd")
 const TableWindow := preload("ui/table_window.gd")
 const Memory := preload("core/memory.gd")
 const TaskWindow := preload("ui/task_window.gd")
+const DepGraphWindow := preload("ui/dep_graph_window.gd")
 const MilestoneWindow := preload("ui/milestone_window.gd")
 const ImageWindow := preload("ui/image_window.gd")
 const Links := preload("core/links.gd")
@@ -137,6 +138,7 @@ func _enter_tree() -> void:
 	_panel.setup_requested.connect(_open_setup)
 	_panel.table_requested.connect(_open_table)
 	_panel.task_requested.connect(_open_task)
+	_panel.graph_requested.connect(_open_graph)
 	_panel.orphans_requested.connect(_open_orphans)
 	add_dock(_dock)
 	_panel.connect_store(store, images, memory, links)
@@ -290,6 +292,29 @@ func _open_task(task_id: String) -> void:
 	# Neue Fenster leicht versetzt, damit sie sich nicht genau verdecken.
 	var shift := (_task_windows.size() - 1) % 8 * 28
 	window.position += Vector2i(shift, shift)
+
+
+## Zeigt die Abhängigkeiten einer Aufgabe als Graph im eigenen Fenster. Je
+## Aufgabe eines, wie bei den Aufgabenfenstern.
+func _open_graph(task_id: String) -> void:
+	var id := "graph:" + task_id
+	var open = _task_windows.get(id)
+	if is_instance_valid(open):
+		if open.mode == Window.MODE_MINIMIZED:
+			open.mode = Window.MODE_WINDOWED
+		open.grab_focus()
+		return
+	var window := DepGraphWindow.new()
+	window.store = store
+	window.task_id = task_id
+	window.visible = false
+	window.task_requested.connect(_open_task)
+	window.tree_exited.connect(func() -> void:
+		if _task_windows.get(id) == window:
+			_task_windows.erase(id))
+	_task_windows[id] = window
+	EditorInterface.get_base_control().add_child(window)
+	window.popup_centered()
 
 
 ## Zeigt ein Bild oder eine Zeichnung groß. Je Bild ein Fenster, wie bei den Aufgaben.

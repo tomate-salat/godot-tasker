@@ -10,6 +10,8 @@ signal setup_requested
 signal table_requested
 ## Die Aufgabe soll in ihrem Fenster gezeigt werden.
 signal task_requested(task_id: String)
+## Die Abhängigkeiten dieser Aufgabe sollen als Graph gezeigt werden.
+signal graph_requested(task_id: String)
 ## Das Fenster mit den verwaisten Verknüpfungen soll aufgehen.
 signal orphans_requested
 
@@ -26,6 +28,7 @@ const Model := preload("../rules/model.gd")
 const MENU_OPEN := 100
 const MENU_BROWSER := 101
 const MENU_LINK := 102
+const MENU_GRAPH := 103
 ## Ab hier je Referenz der Aufgabe ein Eintrag: hinspringen und lösen.
 const MENU_SHOW := 200
 const MENU_UNLINK := 300
@@ -158,6 +161,7 @@ func _build() -> void:
 		_menu.add_icon_item(Palette.status_icon(Model.STATUS[i]), Palette.STATUS_LABELS[Model.STATUS[i]], i)
 	_menu.add_separator()
 	_menu.add_item("Aufgabe öffnen", MENU_OPEN)
+	_menu.add_item("Abhängigkeiten zeigen", MENU_GRAPH)
 	_menu.add_item("In Tasker öffnen (Browser)", MENU_BROWSER)
 	_menu.add_separator()
 	_menu.add_item("An ausgewählten Node hängen", MENU_LINK)
@@ -380,6 +384,8 @@ func _on_menu(id: int) -> void:
 	match id:
 		MENU_OPEN:
 			task_requested.emit(selected_id)
+		MENU_GRAPH:
+			graph_requested.emit(selected_id)
 		MENU_BROWSER:
 			var t = store.ws.task(selected_id)
 			if t != null:

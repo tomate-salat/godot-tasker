@@ -290,7 +290,7 @@ Gelesen am 2026-10-07, nichts davon ausprobiert.
 
 ## Ausbau: Abhängigkeiten als Fäden
 
-Stand 2026-10-07: Am Spieltisch sind Fäden fraglich, sie würden ihn eher unruhig machen; die Kette dort sagt schon, was gesperrt ist. In der Planung zeigt stattdessen der Graph einer Karte die Abhängigkeiten (siehe „Planen am Tisch“). Die Skizze unten bleibt als Idee stehen.
+Stand 2026-10-07: Am Spieltisch sind Fäden fraglich, sie würden ihn eher unruhig machen; die Kette dort sagt schon, was gesperrt ist. Stattdessen zeigt der Graph einer Karte die Abhängigkeiten – in der Planung (siehe „Planen am Tisch“) und auch am Spieltisch und im Dock: Rechtsklick auf eine Karte, „Abhängigkeiten zeigen“. Am Tisch legt er sich über die Karten, aus dem Dock öffnet er ein eigenes Fenster (`ui/dep_graph_window.gd`), weil das Dock dafür zu schmal ist. Die Skizze unten bleibt als Idee stehen.
 
 Noch nicht eingeplant. Abhängigkeiten (`deps`) werden als Fäden zwischen Karten sichtbar und bearbeitbar, in der Spiel- wie in der Planungsansicht.
 

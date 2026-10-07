@@ -31,6 +31,7 @@ const Sounds := preload("sounds.gd")
 const Shelf := preload("shelf.gd")
 const Burnup := preload("../rules/burnup.gd")
 const PlanView := preload("plan_view.gd")
+const DepGraphView := preload("dep_graph_view.gd")
 
 const HEADER := 60.0
 const MARGIN := 28.0
@@ -132,6 +133,10 @@ var _toast: Label
 var _toast_tween: Tween
 ## „Planen“ liegt über dem Spieltisch; der Umschalter wechselt.
 var _plan: PlanView
+## Der Graph einer Karte und das Menü, das ihn öffnet.
+var _graph: DepGraphView
+var _card_menu: PopupMenu
+var _menu_task := ""
 var _mode_play: Button
 var _mode_plan: Button
 var planning := false: set = set_planning
@@ -302,6 +307,24 @@ func _build() -> void:
 	_toast.modulate.a = 0.0
 	_layer.add_child(_toast)
 
+	# Rechtsklick auf eine Karte: ihre Abhängigkeiten ansehen, wie in der Planung.
+	_card_menu = PopupMenu.new()
+	_card_menu.add_item("Abhängigkeiten zeigen", 0)
+	_card_menu.add_item("Aufgabe öffnen", 1)
+	_card_menu.id_pressed.connect(func(id: int) -> void:
+		if id == 0:
+			_open_graph(_menu_task)
+		elif store != null and store.state == "ready":
+			task_requested.emit(_menu_task))
+	add_child(_card_menu)
+	# Der Graph legt sich über den Tisch.
+	_graph = DepGraphView.new()
+	_graph.z_index = 700
+	_graph.task_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	add_child(_graph)
+
 	# Die Planung deckt den Spieltisch ganz ab; nur der Umschalter bleibt darüber.
 	_plan = PlanView.new()
 	_plan.visible = false
@@ -341,6 +364,7 @@ func set_planning(value: bool) -> void:
 	if _plan == null:
 		return
 	_close_overlays()
+	_graph.close()
 	_show_mode()
 	_sync()
 
@@ -806,6 +830,11 @@ func _draw_board() -> void:
 # --------------------------------------------------------------- Maus
 
 func _on_card_pressed(card: Control, event: InputEventMouseButton) -> void:
+	if event.button_index == MOUSE_BUTTON_RIGHT and not _shelf and not _browse:
+		_menu_task = card.task_id
+		_card_menu.position = Vector2i(DisplayServer.mouse_get_position())
+		_card_menu.popup()
+		return
 	if event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	# Unter der Ablage und dem aufgedeckten Stapel liegt der Tisch still.
@@ -822,7 +851,20 @@ func _on_card_pressed(card: Control, event: InputEventMouseButton) -> void:
 	_grab = card.position - _press_at
 
 
+## Zeigt, worauf die Karte wartet und was auf sie wartet.
+func _open_graph(id: String) -> void:
+	var item = _ws.task(id)
+	if item != null:
+		_graph.open(_ws, item, _project)
+
+
 func _input(event: InputEvent) -> void:
+	if _graph.visible and not planning:
+		# Escape schließt den Graphen; darunter liegt der Tisch still.
+		if event.is_action_pressed("ui_cancel"):
+			_graph.close()
+			set_input_as_handled()
+		return
 	if event.is_action_pressed("ui_cancel") and (_browse or _shelf or _state["open"].size() > 0):
 		set_input_as_handled()
 		if _browse or _shelf:
