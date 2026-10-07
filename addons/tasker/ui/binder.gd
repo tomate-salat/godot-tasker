@@ -69,6 +69,8 @@ var _flip: Tween
 var _picked := -1
 var _glow := 0.0: set = _set_glow
 var _glow_tween: Tween
+## Die Karte, deren Fach aufleuchten soll, weil zu ihr geblättert wurde.
+var _glow_task := ""
 
 var _tabs: Control
 ## Hier liegen die Seiten: die aufgeschlagene und, beim Blättern, die zweite.
@@ -339,12 +341,37 @@ func _pick(section: int) -> void:
 			open_page(i)
 			break
 	_show_place()
+	_glow_task = ""
+	_start_glow()
+
+
+## Blättert zur Karte dieser Aufgabe und lässt ihr Fach aufleuchten. Falsch,
+## wenn sie in diesem Ordner nicht steckt.
+func reveal(task_id: String) -> bool:
+	for i in _leaves.size():
+		for item in _leaves[i]["items"]:
+			if item["task"]["id"] == task_id:
+				_picked = -1
+				_glow_task = task_id
+				open_page(i)
+				_show_place()
+				_start_glow()
+				return true
+	return false
+
+
+## Blättert zur ersten Seite dieses Abschnitts.
+func reveal_section(section: int) -> void:
+	_pick(section)
+
+
+func _start_glow() -> void:
 	if _glow_tween != null:
 		_glow_tween.kill()
 	_glow = 1.0
 	_glow_tween = create_tween()
 	_glow_tween.tween_interval(FLIP_SECONDS if _flipping else 0.01)
-	_glow_tween.tween_property(self, "_glow", 0.0, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_glow_tween.tween_property(self, "_glow", 0.0, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 
 func _set_glow(value: float) -> void:
@@ -369,10 +396,11 @@ func _make_sheet(page: int) -> Control:
 	var pockets := []
 	for k in rows * columns:
 		var rect := Rect2(Vector2(left + (k % columns) * (POCKET.x + GAP), top + spare + (k / columns) * (POCKET.y + GAP)), POCKET)
-		var pocket := {"rect": rect, "caption": "", "color": Palette.MUTED, "section": -1}
+		var pocket := {"rect": rect, "caption": "", "color": Palette.MUTED, "section": -1, "task": ""}
 		if k < items.size():
 			var item: Dictionary = items[k]
 			pocket["section"] = item["section"]
+			pocket["task"] = item["task"]["id"]
 			if item["child_of"] != "":
 				pocket["caption"] = "↳ " + item["child_of"]
 				pocket["color"] = Palette.ACCENT
@@ -454,7 +482,7 @@ func _draw_sheet(sheet: Control, pockets: Array, header: Dictionary, left: float
 	for pocket in pockets:
 		var rect: Rect2 = pocket["rect"]
 		sheet.draw_style_box(sleeve, rect)
-		if _glow > 0.0 and pocket["section"] == _picked and sheet == _sheet:
+		if _glow > 0.0 and sheet == _sheet and (pocket["section"] == _picked or (_glow_task != "" and pocket["task"] == _glow_task)):
 			sheet.draw_rect(rect.grow(1.0), Color(Palette.ACCENT, _glow), false, 2.5)
 			sheet.draw_rect(rect, Color(Palette.ACCENT, _glow * 0.12))
 		if pocket["caption"] != "":

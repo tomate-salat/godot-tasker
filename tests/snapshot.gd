@@ -61,6 +61,19 @@ func _process(delta: float) -> bool:
 				_table._plan._left.turn(1)
 				_table._plan._left._flip.custom_step(0.3)
 				_table._plan._left._flip.pause()
+			10:
+				_table._plan._open_graph("q5")
+			11:
+				# Mitten im Aufbau und mit dem Zeiger auf einem Knoten.
+				_table._plan._graph.close()
+				_table._plan._graph.visible = false
+				_table._plan._open_graph("q5")
+				_table._plan._graph.set_process(false)
+				_table._plan._graph._time = 0.42
+			12:
+				_table._plan._graph._time = 5.3
+				_table._plan._graph._hot = "q4"
+				_table._plan._graph._canvas.queue_redraw()
 			_:
 				return true
 		_next()

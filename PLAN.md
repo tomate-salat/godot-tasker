@@ -252,8 +252,10 @@ Derselbe Tisch, nur zum Planen statt zum Spielen. Ein Umschalter wechselt zwisch
 
 #### Schritt 2: Der Graph einer Karte
 
-- [ ] Graph über alle Stufen mit Ortsangabe je Karte
-- [ ] Klick im Graphen springt zur Karte
+- [x] Graph über alle Stufen mit Ortsangabe je Karte: Klick aufs Schloss, oder Rechtsklick auf eine Karte und „Abhängigkeiten zeigen“
+- [x] Klick im Graphen blättert zur Karte und lässt ihr Fach aufleuchten, Doppelklick öffnet sie
+- [x] Stufen nach dem längsten Weg, Pfeile als Bögen mit eigenen Anschlüssen und um Knoten herum; Aufbau animiert, über die Pfeile des Knotens unter dem Zeiger wandern Punkte
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
 #### Schritt 3: Karten verteilen
 
