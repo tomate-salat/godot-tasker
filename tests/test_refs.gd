@@ -105,3 +105,35 @@ func test_die_karte_merkt_sich_wohin_sie_geschoben_wurde() -> void:
 	eq(out[0]["offset"], Vector2.ZERO)
 	eq(out[1]["offset"], Vector2(40, -12))
 	eq(Refs.sanitize(out)[1]["offset"], Vector2(40, -12), "übersteht das Speichern")
+
+
+func test_die_szenendatei_nennt_auch_typ_und_nodes_ohne_nummer() -> void:
+	var nodes := Refs.scene_nodes(TSCN)
+	eq(nodes["Enemies"], {"id": 200, "type": "Node3D"})
+	eq(nodes["Enemies/Boss"], {"id": 300, "type": ""}, "eine eingebettete Szene hat hier keinen Typ")
+	eq(nodes["Enemies/Boss/Body/Hut"], {"id": 0, "type": "MeshInstance3D"})
+
+
+func test_der_vorschlag_folgt_erst_der_nummer_dann_dem_namen() -> void:
+	var nodes := {
+		".": {"id": 1, "type": "Node3D"},
+		"Gegner": {"id": 2, "type": "Node3D"},
+		"Gegner/Boss": {"id": 3, "type": "CharacterBody3D"},
+		"Deko/Boss": {"id": 4, "type": "Sprite3D"},
+		"Gegner/Endgegner": {"id": 9, "type": "Area3D"},
+	}
+	var lost := Refs.make("a", UID, LEVEL, "Enemies/Boss", "CharacterBody3D")
+	eq(Refs.suggest(lost, nodes), "Gegner/Boss", "gleicher Name und gleicher Typ schlägt gleichen Namen")
+	lost["nodeId"] = 9
+	eq(Refs.suggest(lost, nodes), "Gegner/Endgegner", "die Nummer geht vor")
+
+
+func test_der_vorschlag_nimmt_den_gleichen_typ_am_gleichen_ort() -> void:
+	var nodes := {"Enemies/Endgegner": {"type": "CharacterBody3D"}, "Enemies/Licht": {"type": "OmniLight3D"}, "Woanders/Held": {"type": "CharacterBody3D"}}
+	eq(Refs.suggest(Refs.make("a", UID, LEVEL, "Enemies/Boss", "CharacterBody3D"), nodes), "Enemies/Endgegner")
+
+
+func test_bei_gleich_guten_kandidaten_wird_nicht_geraten() -> void:
+	var nodes := {"A/Boss": {"type": "Node3D"}, "B/Boss": {"type": "Node3D"}, "Enemies/Licht": {"type": "OmniLight3D"}}
+	eq(Refs.suggest(Refs.make("a", UID, LEVEL, "Enemies/Boss", "Node3D"), nodes), "")
+	eq(Refs.suggest(Refs.make("a", UID, LEVEL, "Enemies/Boss", "Node3D"), {"Enemies/Licht": {"type": "OmniLight3D"}}), "", "nichts Ähnliches")

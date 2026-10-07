@@ -362,8 +362,9 @@ Noch ohne Viewport.
 
 #### Schritt 4: Selbstheilung
 
-- [ ] Für verlorene Nodes eine neue Stelle nach Name und Typ vorschlagen
-- [ ] Liste verwaister Referenzen
+- [x] Für verlorene Nodes eine neue Stelle vorschlagen: erst nach Node-Nummer, dann nach Name, Typ und Ort; bei gleich guten Kandidaten kein Vorschlag
+- [x] Liste verwaister Referenzen als eigenes Fenster (Hinweis im Dock, Werkzeug-Menü, Befehlspalette): Vorschlag übernehmen, an ausgewählten Node hängen, lösen
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
 #### Schritt 5: Umzug nach Tasker
 

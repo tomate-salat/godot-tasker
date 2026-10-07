@@ -19,15 +19,18 @@ const Links := preload("core/links.gd")
 const SceneMenu := preload("ui/scene_menu.gd")
 const SceneCards := preload("ui/scene_cards.gd")
 const SceneView := preload("rules/scene_view.gd")
+const OrphansWindow := preload("ui/orphans_window.gd")
 
 const MENU_SETUP := "Tasker einrichten …"
 const MENU_TABLE := "Tasker-Tisch"
+const MENU_ORPHANS := "Tasker: Verknüpfungen prüfen …"
 
 const SHORTCUT_SEARCH := "tasker/search"
 const COMMANDS := {
 	"tasker/search": "Tasker: Aufgabe suchen",
 	"tasker/table": "Tasker: Tisch öffnen",
 	"tasker/reload": "Tasker: Neu laden",
+	"tasker/orphans": "Tasker: Verknüpfungen prüfen",
 }
 
 ## Beim Zurückkehren in den Editor wird neu geladen – aber nicht öfter als so.
@@ -52,6 +55,7 @@ var _scene_menu: SceneMenu
 var _scene_cards: SceneCards
 ## Der Filter der Karten in den Leisten des 2D- und des 3D-Editors: Leiste → Knopf.
 var _filters := {}
+var _orphans: OrphansWindow
 var _last_reload := 0
 ## Die offenen Aufgabenfenster, je Aufgabe höchstens eines: ID → Fenster.
 var _task_windows := {}
@@ -125,11 +129,13 @@ func _enter_tree() -> void:
 	_panel.setup_requested.connect(_open_setup)
 	_panel.table_requested.connect(_open_table)
 	_panel.task_requested.connect(_open_task)
+	_panel.orphans_requested.connect(_open_orphans)
 	add_dock(_dock)
 	_panel.connect_store(store, images, memory, links)
 
 	add_tool_menu_item(MENU_SETUP, _open_setup)
 	add_tool_menu_item(MENU_TABLE, _open_table)
+	add_tool_menu_item(MENU_ORPHANS, _open_orphans)
 	_register_commands()
 
 	_connect_to_server()
@@ -138,6 +144,7 @@ func _enter_tree() -> void:
 func _exit_tree() -> void:
 	remove_tool_menu_item(MENU_SETUP)
 	remove_tool_menu_item(MENU_TABLE)
+	remove_tool_menu_item(MENU_ORPHANS)
 	var palette := EditorInterface.get_command_palette()
 	for key in COMMANDS:
 		palette.remove_command(key)
@@ -155,8 +162,8 @@ func _exit_tree() -> void:
 	_task_windows.clear()
 	if events != null:
 		events.stop()
-	for node in [_dock, _search, _attach, _setup, _table, _scene_cards, links, events, store, images, client]:
-		if node != null:
+	for node in [_dock, _search, _attach, _setup, _table, _orphans, _scene_cards, links, events, store, images, client]:
+		if is_instance_valid(node):
 			node.queue_free()
 
 
@@ -189,6 +196,7 @@ func _register_commands() -> void:
 	palette.add_command(COMMANDS["tasker/search"], "tasker/search", _open_search, es.get_shortcut(SHORTCUT_SEARCH).get_as_text())
 	palette.add_command(COMMANDS["tasker/table"], "tasker/table", _open_table)
 	palette.add_command(COMMANDS["tasker/reload"], "tasker/reload", _reload)
+	palette.add_command(COMMANDS["tasker/orphans"], "tasker/orphans", _open_orphans)
 
 
 ## Übernimmt die Einstellungen und lädt den Stand, sobald alles beisammen ist.
@@ -355,3 +363,19 @@ func _add_filter(bar: int) -> void:
 			other.select(i))
 	add_control_to_container(bar, button)
 	_filters[bar] = button
+
+
+## Zeigt die Verknüpfungen, die ins Leere zeigen, zum Aufräumen.
+func _open_orphans() -> void:
+	if is_instance_valid(_orphans):
+		if _orphans.mode == Window.MODE_MINIMIZED:
+			_orphans.mode = Window.MODE_WINDOWED
+		_orphans.grab_focus()
+		return
+	_orphans = OrphansWindow.new()
+	_orphans.store = store
+	_orphans.links = links
+	_orphans.visible = false
+	_orphans.task_requested.connect(_open_task)
+	EditorInterface.get_base_control().add_child(_orphans)
+	_orphans.popup_centered()

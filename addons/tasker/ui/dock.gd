@@ -10,6 +10,8 @@ signal setup_requested
 signal table_requested
 ## Die Aufgabe soll in ihrem Fenster gezeigt werden.
 signal task_requested(task_id: String)
+## Das Fenster mit den verwaisten Verknüpfungen soll aufgehen.
+signal orphans_requested
 
 const Store := preload("../core/store.gd")
 const Images := preload("../core/images.gd")
@@ -197,6 +199,7 @@ func _fill_sections() -> void:
 		c.queue_free()
 	_cards = []
 	_fill_scene_section()
+	_fill_orphans_hint()
 
 
 	var ws := store.ws
@@ -421,3 +424,20 @@ func _drag_card(_at: Vector2, card: Control) -> Variant:
 	small.modulate.a = 0.85
 	card.set_drag_preview(preview)
 	return {"type": DropCatcher.TYPE, "id": card.task_id}
+
+
+## Zeigen Verknüpfungen ins Leere, sagt das Dock es und führt zum Aufräumen.
+func _fill_orphans_hint() -> void:
+	if links == null:
+		return
+	var count := links.orphans(store.ws).size()
+	if count == 0:
+		return
+	var hint := Button.new()
+	hint.flat = true
+	hint.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hint.text = "⚠ %d verwaiste %s" % [count, "Verknüpfung" if count == 1 else "Verknüpfungen"]
+	hint.tooltip_text = "Aufgaben, deren Node oder Szene nicht mehr zu finden ist – ansehen und aufräumen"
+	hint.add_theme_color_override("font_color", Palette.P2)
+	hint.pressed.connect(func() -> void: orphans_requested.emit())
+	_sections.add_child(hint)

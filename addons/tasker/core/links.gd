@@ -13,6 +13,12 @@ signal scene_changed
 
 const Refs := preload("../rules/refs.gd")
 const Memory := preload("memory.gd")
+const Workspace := preload("../rules/workspace.gd")
+
+## Warum eine Referenz ins Leere zeigt (`orphans`).
+const NODE_GONE := "node"
+const SCENE_GONE := "scene"
+const TASK_GONE := "task"
 
 var memory: Memory
 
@@ -20,11 +26,16 @@ var memory: Memory
 ## Instanz-ID und dem Pfad, unter dem die Referenz sie kennt.
 var _tracked: Array = []
 var _sync_queued := false
+## Die gelesenen Szenendateien: Pfad → `{ stamp, nodes }`.
+var _files := {}
+## Ob an der offenen Szene überhaupt etwas hängt – nur dann wird mitgehört.
+var _watching := false
 
 
 func _ready() -> void:
 	get_tree().node_renamed.connect(_on_node_moved)
 	get_tree().node_added.connect(_on_node_moved)
+	get_tree().node_removed.connect(_on_node_removed)
 	memory.changed.connect(_track)
 	on_scene_changed()
 
@@ -151,13 +162,26 @@ func on_scene_saved(path: String) -> void:
 
 
 func _on_node_moved(node: Node) -> void:
-	if _tracked.is_empty() or _sync_queued:
+	if not _watching or _sync_queued:
 		return
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null or not _inside(root, node):
 		return
 	_sync_queued = true
 	_sync.call_deferred()
+
+
+## Verschwindet ein Node mit Referenzen (oder einer über ihm), sollen Dock und
+## Karten das zeigen.
+func _on_node_removed(node: Node) -> void:
+	if _sync_queued:
+		return
+	for entry in _tracked:
+		var tracked := instance_from_id(entry["node"]) as Node
+		if tracked != null and (tracked == node or node.is_ancestor_of(tracked)):
+			_sync_queued = true
+			_sync.call_deferred()
+			return
 
 
 ## Sieht nach, ob die Nodes mit Referenzen noch dort sind, wo die Referenz sie
@@ -177,16 +201,20 @@ func _sync() -> void:
 		if path != entry["path"]:
 			refs = Refs.move(refs, scene["uid"], scene["path"], entry["path"], path, node.get_class())
 	_write_if_changed(refs)
+	# Auch ohne neue Pfade kann ein Node verschwunden oder zurückgekehrt sein.
+	scene_changed.emit()
 
 
 ## Merkt sich, welche Nodes der offenen Szene Referenzen tragen.
 func _track() -> void:
 	_tracked = []
+	_watching = false
 	var scene := _scene()
 	if scene.is_empty():
 		return
 	var seen := {}
 	for r in Refs.of_scene(all(), scene["uid"], scene["path"]):
+		_watching = true
 		var node: Node = scene["root"].get_node_or_null(NodePath(r["nodePath"]))
 		if node != null and not seen.has(r["nodePath"]):
 			seen[r["nodePath"]] = true
@@ -196,6 +224,84 @@ func _track() -> void:
 func _write_if_changed(refs: Array) -> void:
 	if refs != all():
 		memory.write(Refs.KEY, refs)
+
+
+# --------------------------------------------------------- Verwaistes
+
+## Die Referenzen, die ins Leere zeigen: `{ ref, reason, suggestion }`.
+## `reason` ist `SCENE_GONE`, `NODE_GONE` oder `TASK_GONE`; `suggestion` der
+## Pfad, an dem der Node jetzt vermutlich steht (leer, wenn keiner überzeugt).
+##
+## In der offenen Szene zählt, was der Editor zeigt. Bei allen anderen wird
+## die Datei gelesen; dort lässt sich nur prüfen, was eine Node-Nummer hat.
+## `ws` ist der Stand aus Tasker – fehlt er, wird nach Aufgaben nicht gesehen.
+func orphans(ws: Workspace = null) -> Array:
+	var out := []
+	var scene := _scene()
+	for ref in all():
+		if ws != null and ws.task(ref["taskId"]) == null:
+			out.append({"ref": ref, "reason": TASK_GONE, "suggestion": ""})
+			continue
+		var path := _current_path(ref)
+		if not ResourceLoader.exists(path):
+			out.append({"ref": ref, "reason": SCENE_GONE, "suggestion": ""})
+			continue
+		if ref["nodePath"] == Refs.ROOT:
+			continue
+		if not scene.is_empty() and Refs.in_scene(ref, scene["uid"], scene["path"]):
+			if scene["root"].get_node_or_null(NodePath(ref["nodePath"])) == null:
+				out.append({"ref": ref, "reason": NODE_GONE, "suggestion": Refs.suggest(ref, _live_nodes(scene["root"]))})
+			continue
+		if ref["nodeId"] == 0:
+			continue
+		var nodes := _file_nodes(path)
+		if not nodes.is_empty() and not nodes.has(ref["nodePath"]):
+			out.append({"ref": ref, "reason": NODE_GONE, "suggestion": Refs.suggest(ref, nodes)})
+	return out
+
+
+## Übernimmt einen Vorschlag: die Referenzen des verlorenen Nodes zeigen
+## jetzt auf diesen Pfad.
+func heal(ref: Dictionary, node_path: String) -> void:
+	var type := ""
+	var node := node_of(Refs.make(ref["taskId"], ref["sceneUid"], ref["scenePath"], node_path, ""))
+	if node != null:
+		type = node.get_class()
+	_write_if_changed(Refs.move(all(), ref["sceneUid"], ref["scenePath"], ref["nodePath"], node_path, type))
+
+
+## Hängt die Referenz an einen anderen Node der offenen Szene um.
+func rehang(ref: Dictionary, node: Node) -> String:
+	var scene := _scene()
+	if scene.is_empty() or not _inside(scene["root"], node):
+		return "Erst einen Node im Szenenbaum auswählen."
+	if not Refs.in_scene(ref, scene["uid"], scene["path"]):
+		return "Der ausgewählte Node gehört zu einer anderen Szene als die Verknüpfung."
+	heal(ref, str(scene["root"].get_path_to(node)))
+	return ""
+
+
+## Die Nodes der offenen Szene, wie `Refs.scene_nodes` sie aus einer Datei liest.
+static func _live_nodes(root: Node) -> Dictionary:
+	var out := {}
+	var todo := [root]
+	while not todo.is_empty():
+		var node: Node = todo.pop_back()
+		out[str(root.get_path_to(node))] = {"id": 0, "type": node.get_class()}
+		todo.append_array(node.get_children())
+	return out
+
+
+## Die Nodes aus der Szenendatei. Gemerkt, solange die Datei sich nicht ändert.
+func _file_nodes(path: String) -> Dictionary:
+	if path.get_extension() != "tscn":
+		return {}
+	var stamp := FileAccess.get_modified_time(path)
+	var known = _files.get(path)
+	if known == null or known["stamp"] != stamp:
+		known = {"stamp": stamp, "nodes": Refs.scene_nodes(FileAccess.get_file_as_string(path))}
+		_files[path] = known
+	return known["nodes"]
 
 
 # --------------------------------------------------------------- Szene

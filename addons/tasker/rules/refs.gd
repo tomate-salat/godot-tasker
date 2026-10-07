@@ -121,27 +121,79 @@ static func rename_scene(refs: Array, scene_uid: String, scene_path: String) -> 
 	return out
 
 
-## Liest Godots feste Node-Nummern aus dem Text einer `.tscn`: Pfad → Nummer.
-## Nodes ohne Nummer (etwa aus einer eingebetteten Szene) fehlen.
-static func scene_ids(tscn: String) -> Dictionary:
+## Liest die Nodes aus dem Text einer `.tscn`: Pfad → `{ id, type }`. `id` ist
+## Godots feste Node-Nummer (0, wenn die Zeile keine hat), `type` die Klasse
+## (leer bei eingebetteten Szenen). Was in einer eingebetteten Szene steckt
+## und hier nicht überschrieben wird, fehlt.
+static func scene_nodes(tscn: String) -> Dictionary:
 	var out := {}
 	var name_re := RegEx.create_from_string(" name=\"((?:[^\"\\\\]|\\\\.)*)\"")
 	var parent_re := RegEx.create_from_string(" parent=\"((?:[^\"\\\\]|\\\\.)*)\"")
+	var type_re := RegEx.create_from_string(" type=\"([^\"]*)\"")
 	var id_re := RegEx.create_from_string(" unique_id=(\\d+)")
 	for line in tscn.split("\n"):
 		if not line.begins_with("[node "):
 			continue
 		var name := name_re.search(line)
-		var id := id_re.search(line)
-		if name == null or id == null:
+		if name == null:
 			continue
 		var parent := parent_re.search(line)
 		var path := ROOT
 		if parent != null:
 			var base := parent.get_string(1).c_unescape()
 			path = name.get_string(1).c_unescape() if base == ROOT else base + "/" + name.get_string(1).c_unescape()
-		out[path] = id.get_string(1).to_int()
+		var type := type_re.search(line)
+		var id := id_re.search(line)
+		out[path] = {"id": id.get_string(1).to_int() if id != null else 0, "type": type.get_string(1) if type != null else ""}
 	return out
+
+
+## Godots feste Node-Nummern aus dem Text einer `.tscn`: Pfad → Nummer. Nodes
+## ohne Nummer fehlen.
+static func scene_ids(tscn: String) -> Dictionary:
+	var nodes := scene_nodes(tscn)
+	var out := {}
+	for path in nodes:
+		if nodes[path]["id"] != 0:
+			out[path] = nodes[path]["id"]
+	return out
+
+
+## Selbstheilung: der Node der Referenz ist weg – wo könnte er jetzt sein?
+## `nodes` sind die Nodes der Szene (Pfad → `{ type, … }`). Gibt den Pfad des
+## besten Kandidaten zurück, leer wenn keiner überzeugt.
+##
+## Am meisten zählt die Node-Nummer, dann derselbe Name, dann Typ und Ort. Ein
+## Kandidat braucht denselben Namen oder denselben Typ am selben Ort; stehen
+## mehrere gleich gut da, wird nicht geraten.
+static func suggest(ref: Dictionary, nodes: Dictionary) -> String:
+	var name: String = ref["nodePath"].get_file()
+	var parent: String = ref["nodePath"].get_base_dir()
+	var best := ""
+	var best_score := 0
+	var tied := false
+	for path in nodes:
+		if path == ROOT or path == ref["nodePath"]:
+			continue
+		var node: Dictionary = nodes[path]
+		if ref["nodeId"] != 0 and node.get("id", 0) == ref["nodeId"]:
+			return path
+		var score := 0
+		if path.get_file() == name:
+			score += 4
+		if ref["nodeType"] != "" and node.get("type", "") == ref["nodeType"]:
+			score += 2
+		if path.get_base_dir() == parent:
+			score += 1
+		if score < 3:
+			continue
+		if score > best_score:
+			best = path
+			best_score = score
+			tied = false
+		elif score == best_score:
+			tied = true
+	return "" if tied else best
 
 
 ## Gleicht die Referenzen einer Szene mit ihren Node-Nummern ab (`scene_ids`).
