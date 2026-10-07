@@ -227,10 +227,10 @@ Derselbe Tisch, nur zum Planen statt zum Spielen. Ein Umschalter wechselt zwisch
 ### Festgelegt
 
 - **Nichts anlegen.** Aus Godot heraus entstehen weder Aufgaben noch Milestones. Verteilt wird, was es gibt.
-- **Ein aufgeschlagener Sammelordner.** Die Planung sieht aus wie ein Ordner für Sammelkarten: links und rechts je eine Seite mit Fächern (drei Spalten, in schmalen Fenstern zwei), in jedem Fach eine Karte in voller Größe, in der Mitte die Ringe. Jede Seite wird für sich umgeblättert, ohne Ton.
-- **Rechts die Decks.** Jeder eingeplante Milestone hat sein Registerblatt und seine eigenen Seiten: auf einer Seite stecken nur Karten eines Milestones, der nächste beginnt auf einer neuen Seite. Über der Seite stehen Titel, Fortschritt und Prognose. Aufgeschlagen wird zuerst der laufende Milestone.
+- **Zwei Sammelordner nebeneinander,** einer für den Vorrat, einer für die Decks, jeder nach hinten umgeschlagen: zu sehen ist eine Seite mit drei Spalten Fächern, in jedem Fach eine Karte in voller Größe. Die Ringe greifen um die linke Kante, dahinter schauen Deckel und umgeblätterte Seiten hervor, rechts stehen die Registerblätter. Eine umgeblätterte Seite schwenkt um die Ringe nach hinten, ohne Ton. Verworfen: ein gemeinsamer Ordner für beides (eine umgeblätterte linke Seite wäre rechts gelandet, wo etwas anderes liegt). Ausprobiert und verworfen: zwei aufgeschlagene Ordner mit Doppelseiten. In einem schmalen Fenster werden beide Ordner im Ganzen kleiner.
+- **Rechts die Decks.** Jeder eingeplante Milestone hat sein Registerblatt und seine eigenen Seiten: auf einer Seite stecken nur Karten eines Milestones, der nächste beginnt auf einer neuen. Über der Seite stehen Titel, Fortschritt und Prognose. Aufgeschlagen wird zuerst der laufende Milestone.
 - **Abgeschlossenes** behält sein Registerblatt und eine Seite mit Kopfzeile, ohne Karten, und verschwindet, sobald der Milestone in Tasker archiviert ist.
-- **Links der Vorrat.** Zwei Reiter über der Seite wählen „Ready“ oder „Backlog“. Die Karten laufen über die Seiten durch, die Registerblätter am Rand springen zu den Gruppen. Eine Hand gibt es hier nicht: die gehört zum Spieltisch, Planen ist Deckbauen (Nutzer, 2026-10-07).
+- **Links der Vorrat.** Zwei Reiter über dem Ordner wählen „Ready“ oder „Backlog“. Jede Gruppe hat ihr Registerblatt und ihre eigenen Seiten mit Kopfzeile, genau wie ein Milestone bei den Decks. Ein Klick auf ein Registerblatt blättert nur; aufleuchten lässt ein Fach allein der Sprung aus dem Graphen. Eine Hand gibt es hier nicht: die gehört zum Spieltisch, Planen ist Deckbauen (Nutzer, 2026-10-07).
 - **Unteraufgaben** zeigt nur das Auffächern der Karte darüber, im Vorrat wie in den Decks.
 - **Abhängigkeiten ohne Linien in der Hauptansicht.** Gesperrte Karten tragen ein Schloss. Es ist gelb, wenn die Karte wartet, und rot, wenn sie auf etwas wartet, das in einem späteren Deck oder noch im Vorrat liegt.
 - **Der Graph einer Karte auf Wunsch:** Ein Klick aufs Schloss (oder der Rechtsklick, auch bei Karten ohne Sperre) zeigt über den Decks, worauf die Karte wartet und was auf sie wartet, über alle Stufen, aufgebaut wie der Graph in Tasker. Jede Karte nennt, wo sie liegt.
@@ -426,5 +426,6 @@ Grobe Skizzen der Aufteilung, nicht des Aussehens. Die Titel auf den Karten sind
 |---|---|
 | Spielen: Hand, Tisch, Nachziehstapel, Erledigt-Stapel | [docs/mockups/tisch-spielen.svg](docs/mockups/tisch-spielen.svg) |
 | Planen, verworfener erster Entwurf: Milestones als Matten | [docs/mockups/tisch-planen.svg](docs/mockups/tisch-planen.svg) |
-| Planen: Decks als Spalten, Vorrat unten, Graph einer Karte | [docs/mockups/planen-vorrat-unten.svg](docs/mockups/planen-vorrat-unten.svg) |
+| Planen, überholte Aufteilung; der Graph einer Karte gilt weiter | [docs/mockups/planen-vorrat-unten.svg](docs/mockups/planen-vorrat-unten.svg) |
+| Planen: Ordner-Varianten, gewählt ist die obere | [docs/mockups/planen-ordner-varianten.svg](docs/mockups/planen-ordner-varianten.svg) |
 | Abhängigkeiten als Fäden | [docs/mockups/tisch-faeden.svg](docs/mockups/tisch-faeden.svg) |

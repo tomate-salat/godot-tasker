@@ -1,17 +1,20 @@
 @tool
 extends Control
-## Eine Seite des aufgeschlagenen Ordners: Karten in Fächern, zum
-## Durchblättern – wie ein Sammelordner für Kartenspiele.
+## Ein Sammelordner für Karten, nach hinten umgeschlagen: zu sehen ist eine
+## Seite mit Fächern, die Ringe greifen um ihre linke Kante, dahinter schauen
+## Deckel und umgeblätterte Seiten hervor. Rechts stehen die Registerblätter.
 ##
-## Die Planung (`plan_view.gd`) legt zwei davon nebeneinander: links den
-## Vorrat, rechts die Decks, dazwischen die Ringe. Am äußeren Rand stehen die
-## Registerblätter; sie springen zur ersten Seite ihres Abschnitts. Geblättert
-## wird mit dem Mausrad, den Knöpfen unter der Seite oder einem Registerblatt.
+## Die Planung (`plan_view.gd`) legt zwei davon nebeneinander: einen für den
+## Vorrat, einen für die Decks. Jeder Abschnitt hat sein Registerblatt und
+## seine eigenen Seiten – auf einer Seite stecken nur Karten eines Abschnitts.
+## Geblättert wird mit dem Mausrad, den Knöpfen unter dem Ordner oder einem
+## Registerblatt; die Seite schwenkt dabei um die Ringe nach hinten.
 ##
 ## Ein Abschnitt: `{ title, items, tip, header }`. `items` sind die Karten in
 ## Reihenfolge, je `{ task, child_of }` – `child_of` ist der Titel der Karte,
-## aus der eine Unteraufgabe aufgefächert wurde, sonst leer. `header` ist leer
-## oder `{ id, title, line, late, pct, accent, tip }` und steht dann über der Seite.
+## aus der eine Unteraufgabe aufgefächert wurde, sonst leer. `header` steht
+## über jeder Seite des Abschnitts: `{ id, title, line, late, pct, accent, tip }`;
+## ohne `pct` gibt es keinen Fortschrittsbalken, ohne `id` keinen Klick.
 
 ## Die Kopfzeile einer Seite wurde angeklickt.
 signal header_pressed(id: String)
@@ -19,63 +22,62 @@ signal header_pressed(id: String)
 const Card := preload("card.gd")
 const Palette := preload("palette.gd")
 
-## Über jeder Karte steht in ihrem Fach, wozu sie gehört.
+## Über einer aufgefächerten Unteraufgabe steht in ihrem Fach, wozu sie gehört.
 const CAPTION := 18.0
 const POCKET := Vector2(Card.SIZE.x + 12.0, Card.SIZE.y + CAPTION + 12.0)
 const GAP := 6.0
-const PAD := 14.0
-## Am Rand zur Ordnermitte bleibt Platz für die Löcher der Ringe.
-const INNER := 30.0
+const PAD := 12.0
+## An der linken Kante bleibt Platz für die Löcher der Ringe.
+const INNER := 26.0
+## So weit steht die Seite vom linken Rand, damit die Ringe um ihre Kante
+## greifen können.
+const EDGE := 16.0
 const FOOT := 36.0
 const HEADER := 62.0
 ## So weit ragen die Registerblätter mindestens über die Seite hinaus.
-const TAB_OUT := 104.0
+const TAB_OUT := 84.0
 const TAB_HEIGHT := 30.0
 const RINGS := 3
 
 ## So lange dauert das Umblättern einer Seite.
 const FLIP_SECONDS := 0.26
 
+const COVER := Color("101614")
 const PAGE := Color("232c29")
 const SLEEVE := Color("1a211f")
 const HOLE := Color("0c1110")
+const METAL := Color("59645f")
+const SHINE := Color("c3cdc8")
 ## Die Farben der Registerblätter, der Reihe nach.
 const TAB_COLORS := [Palette.ACCENT, Palette.INFO, Palette.P2, Palette.UNCLEAR, Palette.P1, Palette.OK, Palette.P3]
 
 ## Macht aus einer Aufgabe ihre Karte.
 var card_maker := Callable()
-## Auf welcher Seite des Ordners dieses Blatt liegt: links ist die Ordnermitte
-## rechts und die Registerblätter stehen links heraus, rechts umgekehrt.
-var left_side := false
 var columns := 3
 ## So weit ragen die Registerblätter über die Seite hinaus – mehr, wenn Platz ist.
 var tab_out := TAB_OUT
 ## Mit welchem Abschnitt ein Ordner aufgeschlagen wird, den es noch nicht gab.
 var start_section := 0
-## Ob jeder Abschnitt auf einer neuen Seite beginnt und eine Seite nur Karten
-## eines Abschnitts trägt – sonst laufen die Karten durch.
-var break_pages := false
 
 var _sections: Array = []
-## Die Seiten: je `{ section, items }` – `items` mit `{ task, child_of, section }`.
+## Die Seiten: je `{ section, items }` – `items` mit `{ task, child_of }`.
 var _leaves: Array = []
 ## Welcher Ordner gezeigt wird, und je Ordner die aufgeschlagene Seite.
 var _key := ""
 var _pages := {}
 var _flipping := false
 var _flip: Tween
-## Der Abschnitt, dessen Registerblatt zuletzt angeklickt wurde (-1: keiner),
-## und wie stark seine Fächer gerade aufleuchten (1 bis 0).
-var _picked := -1
+## Die Karte, zu der geblättert wurde, und wie stark ihr Fach gerade
+## aufleuchtet (1 bis 0).
+var _glow_task := ""
 var _glow := 0.0: set = _set_glow
 var _glow_tween: Tween
-## Die Karte, deren Fach aufleuchten soll, weil zu ihr geblättert wurde.
-var _glow_task := ""
 
 var _tabs: Control
 ## Hier liegen die Seiten: die aufgeschlagene und, beim Blättern, die zweite.
 var _sheets: Control
 var _sheet: Control
+var _rings: Control
 var _prev: Button
 var _next: Button
 var _count: Label
@@ -85,7 +87,7 @@ var _cast: GradientTexture2D
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	# Die Registerblätter stecken unter dem Seitenrand.
+	# Die Registerblätter stecken unter dem Rand der Seite.
 	_tabs = Control.new()
 	_tabs.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(_tabs)
@@ -93,6 +95,11 @@ func _init() -> void:
 	_sheets.mouse_filter = Control.MOUSE_FILTER_PASS
 	_sheets.clip_contents = true
 	add_child(_sheets)
+	# Die Ringe gehen durch die Seite und liegen deshalb über ihr.
+	_rings = Control.new()
+	_rings.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rings.draw.connect(_draw_rings)
+	add_child(_rings)
 
 	_prev = _flip_button("‹", "Zurückblättern", -1)
 	_next = _flip_button("›", "Weiterblättern", 1)
@@ -131,38 +138,36 @@ func _flip_button(text: String, tip: String, by: int) -> Button:
 	return b
 
 
-## Wie breit ein Blatt mit so vielen Spalten ist, ohne die Registerblätter.
-static func sheet_width(column_count: int) -> float:
+## Wie breit eine Seite mit so vielen Spalten ist.
+static func page_width(column_count: int) -> float:
 	return INNER + PAD + column_count * POCKET.x + (column_count - 1) * GAP
 
 
-## Auf welcher Höhe die Ringe durch ein Blatt dieser Höhe gehen.
-static func ring_heights(height: float) -> Array:
-	var out := []
-	for r in RINGS:
-		out.append((height - FOOT) * (r + 0.5) / RINGS)
-	return out
+## Wie breit der Ordner ist, ohne die Registerblätter.
+static func binder_width(column_count: int) -> float:
+	return EDGE + page_width(column_count)
 
 
-## Wo das Blatt liegt, vom linken Rand dieses Bausteins aus.
-func sheet_left() -> float:
-	return tab_out if left_side else 0.0
-
-
-## Zeigt diese Abschnitte im Ordner `key`. Jeder Ordner merkt sich seine Seite.
+## Zeigt diese Abschnitte im Ordner `key`. Jeder Ordner merkt sich, wo er aufgeschlagen ist.
 func show_sections(key: String, sections: Array) -> void:
 	if _flip != null:
 		_flip.kill()
 	_flipping = false
 	_key = key
 	_sections = sections
-	var wide := sheet_width(columns)
-	_sheets.position = Vector2(sheet_left(), 0.0)
-	_sheets.size = Vector2(wide, size.y - FOOT)
-	_prev.position = Vector2(sheet_left() + 6.0, size.y - FOOT + 2.0)
-	_next.position = Vector2(sheet_left() + wide - 40.0, size.y - FOOT + 2.0)
-	_count.position = Vector2(sheet_left() + 44.0, size.y - FOOT + 8.0)
-	_count.size = Vector2(wide - 88.0, 20.0)
+	var wide := page_width(columns)
+	var tall := size.y - FOOT
+	_sheets.position = Vector2(EDGE, 0.0)
+	_sheets.size = Vector2(wide, tall)
+	_rings.position = Vector2(-EDGE, 0.0)
+	_rings.size = Vector2(EDGE * 2.0 + 30.0, tall)
+	_rings.queue_redraw()
+	var middle := binder_width(columns) / 2.0
+	_prev.position = Vector2(middle - 150.0, tall + 2.0)
+	_next.position = Vector2(middle + 120.0, tall + 2.0)
+	_count.position = Vector2(middle - 115.0, tall + 8.0)
+	_count.size = Vector2(230.0, 20.0)
+
 	_paginate()
 	if not _pages.has(_key):
 		for i in _leaves.size():
@@ -176,36 +181,25 @@ func show_sections(key: String, sections: Array) -> void:
 	_sheet = _make_sheet(_pages[_key])
 	_sheets.add_child(_sheet)
 	_show_place()
+	queue_redraw()
 
 
-## Wie viele Reihen Fächer auf ein Blatt passen, mit oder ohne Kopfzeile.
-func _rows(with_header: bool) -> int:
-	var room := size.y - FOOT - PAD * 2.0 - (HEADER if with_header else 0.0)
-	return maxi(int((room + GAP) / (POCKET.y + GAP)), 1)
+## Wie viele Reihen Fächer auf eine Seite passen.
+func _rows() -> int:
+	return maxi(int((size.y - FOOT - PAD * 2.0 - HEADER + GAP) / (POCKET.y + GAP)), 1)
 
 
-## Teilt die Abschnitte auf Seiten auf.
+## Teilt die Abschnitte auf Seiten auf: jeder beginnt auf einer neuen.
 func _paginate() -> void:
 	_leaves = []
-	if break_pages:
-		for s in _sections.size():
-			var per_page := _rows(not _sections[s].get("header", {}).is_empty()) * columns
-			var items: Array = _sections[s]["items"]
-			# Auch ein leerer Abschnitt hat seine Seite.
-			for from in range(0, maxi(items.size(), 1), per_page):
-				_leaves.append({"section": s, "items": items.slice(from, from + per_page).map(func(item: Dictionary) -> Dictionary:
-					return {"task": item["task"], "child_of": item.get("child_of", ""), "section": s})})
-		if _leaves.is_empty():
-			_leaves.append({"section": 0, "items": []})
-		return
-	var all := []
+	var per_page := _rows() * columns
 	for s in _sections.size():
-		for item in _sections[s]["items"]:
-			all.append({"task": item["task"], "child_of": item.get("child_of", ""), "section": s})
-	var per_page := _rows(false) * columns
-	for from in range(0, maxi(all.size(), 1), per_page):
-		var items := all.slice(from, from + per_page)
-		_leaves.append({"section": items[0]["section"] if not items.is_empty() else 0, "items": items})
+		var items: Array = _sections[s]["items"]
+		# Auch ein leerer Abschnitt hat seine Seite.
+		for from in range(0, maxi(items.size(), 1), per_page):
+			_leaves.append({"section": s, "items": items.slice(from, from + per_page)})
+	if _leaves.is_empty():
+		_leaves.append({"section": 0, "items": []})
 
 
 func page_count() -> int:
@@ -214,12 +208,12 @@ func page_count() -> int:
 
 ## Blättert um `by` Seiten weiter oder zurück.
 func turn(by: int) -> void:
-	_picked = -1
 	open_page(_pages.get(_key, 0) + by)
 
 
-## Schlägt die Seite auf. Vorwärts hebt sich die alte Seite am freien Rand und
-## schwenkt um die Ordnermitte weg; rückwärts schwenkt die neue herein.
+## Schlägt die Seite auf. Vorwärts richtet sich die alte Seite auf und
+## schwenkt um die Ringe nach hinten weg, darunter liegt schon die nächste;
+## rückwärts kommt die Seite von hinten um die Ringe und legt sich obenauf.
 func open_page(to: int) -> void:
 	to = clampi(to, 0, page_count() - 1)
 	var from: int = _pages.get(_key, 0)
@@ -227,21 +221,20 @@ func open_page(to: int) -> void:
 		return
 	_flipping = true
 	_pages[_key] = to
+	var forward := to > from
 
 	var old := _sheet
 	_sheet = _make_sheet(to)
-	var forward := to > from
-	# Die Seite, die sich bewegt, liegt oben; darunter die andere, dazwischen der Schatten.
-	var moving := old if forward else _sheet
 	_sheets.add_child(_sheet)
 	if forward:
 		_sheets.move_child(_sheet, 0)
+	# Die Seite, die sich bewegt, liegt oben; darunter die andere, dazwischen der Schatten.
+	var moving := old if forward else _sheet
 	var wide := _sheets.size.x
 
 	var cast := TextureRect.new()
 	cast.texture = _cast
 	cast.stretch_mode = TextureRect.STRETCH_SCALE
-	cast.flip_h = left_side
 	cast.size = Vector2(110.0, _sheets.size.y)
 	cast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sheets.add_child(cast)
@@ -250,17 +243,16 @@ func open_page(to: int) -> void:
 	var shade := TextureRect.new()
 	shade.texture = _shade
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
-	shade.flip_h = left_side
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	moving.add_child(shade)
-	# Gedreht wird um den Rand zur Ordnermitte.
-	moving.pivot_offset = Vector2(wide if left_side else 0.0, moving.size.y / 2.0)
+	# Gedreht wird um die linke Kante, an der die Ringe sitzen.
+	moving.pivot_offset = Vector2(0.0, moving.size.y / 2.0)
 
 	# Aufgerichtet ist die Seite nur noch eine Kante, etwas höher, weil näher, und im
 	# Schatten. Der geworfene Schatten liegt jenseits ihres freien Rands.
-	var flat := {"scale": Vector2.ONE, "shade": 0.0, "cast": -110.0 if left_side else wide, "cast_a": 0.0}
-	var upright := {"scale": Vector2(0.0, 1.07), "shade": 1.0, "cast": wide - 110.0 if left_side else 0.0, "cast_a": 1.0}
+	var flat := {"scale": Vector2.ONE, "shade": 0.0, "cast": wide, "cast_a": 0.0}
+	var upright := {"scale": Vector2(0.0, 1.06), "shade": 1.0, "cast": 0.0, "cast_a": 1.0}
 	var start := flat if forward else upright
 	var end := upright if forward else flat
 	moving.scale = start["scale"]
@@ -274,17 +266,16 @@ func open_page(to: int) -> void:
 	_flip.tween_property(cast, "position:x", end["cast"], FLIP_SECONDS)
 	_flip.tween_property(cast, "modulate:a", end["cast_a"], FLIP_SECONDS)
 	_flip.chain().tween_callback(func() -> void:
-		old.queue_free()
-		cast.queue_free()
-		if is_instance_valid(shade):
-			shade.queue_free()
+		for x in [old, cast, shade]:
+			if is_instance_valid(x):
+				x.queue_free()
 		_flipping = false)
 	_show_place()
 
 
 # -------------------------------------------------------------- Aufbau
 
-## Die Registerblätter am äußeren Rand: je Abschnitt eines, in eigener Farbe,
+## Die Registerblätter am rechten Rand: je Abschnitt eines, in eigener Farbe,
 ## das zu seiner ersten Seite springt.
 func _build_tabs() -> void:
 	for c in _tabs.get_children():
@@ -311,38 +302,26 @@ func _build_tabs() -> void:
 			box.border_color = color.darkened(0.25)
 			box.border_width_top = 1
 			box.border_width_bottom = 1
-			if left_side:
-				box.border_width_left = 1
-				box.corner_radius_top_left = 9
-				box.corner_radius_bottom_left = 9
-				box.content_margin_left = 10.0
-				box.content_margin_right = 18.0
-			else:
-				box.border_width_right = 1
-				box.corner_radius_top_right = 9
-				box.corner_radius_bottom_right = 9
-				box.content_margin_left = 20.0
-				box.content_margin_right = 8.0
+			box.border_width_right = 1
+			box.corner_radius_top_right = 9
+			box.corner_radius_bottom_right = 9
+			box.content_margin_left = 20.0
+			box.content_margin_right = 8.0
 			tab.add_theme_stylebox_override(state, box)
 		tab.tooltip_text = section.get("tip", "Zu „%s“ blättern" % section["title"])
-		tab.pressed.connect(_pick.bind(s))
+		tab.pressed.connect(reveal_section.bind(s))
 		tab.position.y = 16.0 + s * step
 		tab.size = Vector2(tab_out + 8.0, minf(TAB_HEIGHT, step - 2.0))
 		_tabs.add_child(tab)
 
 
-## Ein Registerblatt wurde angeklickt: zur ersten Seite des Abschnitts
-## blättern – oder, liegt er schon aufgeschlagen da, seine Fächer aufleuchten
-## lassen.
-func _pick(section: int) -> void:
-	_picked = section
+## Blättert zur ersten Seite dieses Abschnitts.
+func reveal_section(section: int) -> void:
 	for i in _leaves.size():
-		if _leaves[i]["section"] == section or _leaves[i]["items"].any(func(item: Dictionary) -> bool: return item["section"] == section):
+		if _leaves[i]["section"] == section:
 			open_page(i)
 			break
 	_show_place()
-	_glow_task = ""
-	_start_glow()
 
 
 ## Blättert zur Karte dieser Aufgabe und lässt ihr Fach aufleuchten. Falsch,
@@ -351,27 +330,17 @@ func reveal(task_id: String) -> bool:
 	for i in _leaves.size():
 		for item in _leaves[i]["items"]:
 			if item["task"]["id"] == task_id:
-				_picked = -1
 				_glow_task = task_id
 				open_page(i)
 				_show_place()
-				_start_glow()
+				if _glow_tween != null:
+					_glow_tween.kill()
+				_glow = 1.0
+				_glow_tween = create_tween()
+				_glow_tween.tween_interval(FLIP_SECONDS if _flipping else 0.01)
+				_glow_tween.tween_property(self, "_glow", 0.0, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 				return true
 	return false
-
-
-## Blättert zur ersten Seite dieses Abschnitts.
-func reveal_section(section: int) -> void:
-	_pick(section)
-
-
-func _start_glow() -> void:
-	if _glow_tween != null:
-		_glow_tween.kill()
-	_glow = 1.0
-	_glow_tween = create_tween()
-	_glow_tween.tween_interval(FLIP_SECONDS if _flipping else 0.01)
-	_glow_tween.tween_property(self, "_glow", 0.0, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 
 func _set_glow(value: float) -> void:
@@ -380,48 +349,43 @@ func _set_glow(value: float) -> void:
 		_sheet.queue_redraw()
 
 
-## Eine Seite des Ordners: das Blatt mit seinen Fächern und den Karten darin.
+## Eine Seite des Ordners: das Blatt mit Kopfzeile, Fächern und den Karten darin.
 func _make_sheet(page: int) -> Control:
 	var sheet := Control.new()
 	sheet.size = _sheets.size
 	sheet.mouse_filter = Control.MOUSE_FILTER_PASS
 	var leaf: Dictionary = _leaves[page]
-	var header: Dictionary = _sections[leaf["section"]].get("header", {}) if break_pages and not _sections.is_empty() else {}
-	var top := PAD + (HEADER if not header.is_empty() else 0.0)
-	var rows := _rows(not header.is_empty())
+	var header: Dictionary = _sections[leaf["section"]].get("header", {}) if not _sections.is_empty() else {}
+	var top := PAD + HEADER
+	var rows := _rows()
 	# Was in der Höhe übrig bleibt, verteilt sich über und unter den Fächern.
 	var spare := maxf(sheet.size.y - top - PAD - rows * POCKET.y - (rows - 1) * GAP, 0.0) / 2.0
-	var left := PAD if left_side else INNER
 	var items: Array = leaf["items"]
 	var pockets := []
 	for k in rows * columns:
-		var rect := Rect2(Vector2(left + (k % columns) * (POCKET.x + GAP), top + spare + (k / columns) * (POCKET.y + GAP)), POCKET)
-		var pocket := {"rect": rect, "caption": "", "color": Palette.MUTED, "section": -1, "task": ""}
+		var rect := Rect2(Vector2(INNER + (k % columns) * (POCKET.x + GAP), top + spare + (k / columns) * (POCKET.y + GAP)), POCKET)
+		var pocket := {"rect": rect, "caption": "", "task": ""}
 		if k < items.size():
 			var item: Dictionary = items[k]
-			pocket["section"] = item["section"]
 			pocket["task"] = item["task"]["id"]
-			if item["child_of"] != "":
+			if item.get("child_of", "") != "":
 				pocket["caption"] = "↳ " + item["child_of"]
-				pocket["color"] = Palette.ACCENT
-			elif not break_pages and (k == 0 or item["section"] != items[k - 1]["section"] or items[k - 1]["child_of"] != ""):
-				pocket["caption"] = _sections[item["section"]]["title"]
 			var card: Control = card_maker.call(item["task"])
 			card.position = rect.position + Vector2((POCKET.x - Card.SIZE.x) / 2.0, CAPTION + 6.0)
 			sheet.add_child(card)
 		pockets.append(pocket)
-	if not header.is_empty():
+	if header.get("id", "") != "":
 		# Die Kopfzeile ist ein Knopf über die Breite der Fächer.
 		var open := Button.new()
 		open.flat = true
 		open.focus_mode = Control.FOCUS_NONE
 		open.mouse_filter = Control.MOUSE_FILTER_PASS
 		open.tooltip_text = header.get("tip", "")
-		open.position = Vector2(left, PAD - 4.0)
+		open.position = Vector2(INNER, PAD - 4.0)
 		open.size = Vector2(columns * POCKET.x + (columns - 1) * GAP, HEADER - 4.0)
 		open.pressed.connect(func() -> void: header_pressed.emit(header["id"]))
 		sheet.add_child(open)
-	sheet.draw.connect(_draw_sheet.bind(sheet, pockets, header, left))
+	sheet.draw.connect(_draw_sheet.bind(sheet, pockets, header))
 	return sheet
 
 
@@ -434,45 +398,80 @@ func _show_place() -> void:
 	for section in _sections:
 		cards += section["items"].size()
 	_count.text = "Seite %d von %d  ·  %d %s" % [page + 1, page_count(), cards, "Karte" if cards == 1 else "Karten"]
-	# Hervorgehoben ist der Abschnitt, mit dem die Seite beginnt – oder der
-	# zuletzt angeklickte, solange Karten von ihm auf der Seite liegen.
 	var current: int = _leaves[page]["section"]
-	if _picked >= 0 and _leaves[page]["items"].any(func(item: Dictionary) -> bool: return item["section"] == _picked):
-		current = _picked
-	var rest := 6.0 if left_side else sheet_width(columns) - 14.0
+	var rest := binder_width(columns) - 14.0
 	var n := 0
 	for tab in _tabs.get_children():
 		if tab.is_queued_for_deletion():
 			continue
 		tab.set_pressed_no_signal(n == current)
 		# Das Blatt des aufgeschlagenen Abschnitts steht etwas weiter heraus.
-		tab.position.x = rest + ((-6.0 if left_side else 6.0) if n == current else 0.0)
+		tab.position.x = rest + (6.0 if n == current else 0.0)
 		n += 1
 
 
 # ------------------------------------------------------------ Zeichnen
 
-## Das Blatt und seine Fächer: eine Hülle je Platz, darüber der Name des
-## Abschnitts, wo einer beginnt.
-func _draw_sheet(sheet: Control, pockets: Array, header: Dictionary, left: float) -> void:
+## Hinter der Seite liegen der Deckel und der Stapel der schon umgeblätterten
+## Seiten und schauen unten und rechts hervor.
+func _draw() -> void:
+	var cover := StyleBoxFlat.new()
+	cover.bg_color = COVER
+	cover.border_color = Color(1, 1, 1, 0.06)
+	cover.set_border_width_all(1)
+	cover.set_corner_radius_all(14)
+	cover.shadow_color = Color(0, 0, 0, 0.4)
+	cover.shadow_size = 10
+	cover.shadow_offset = Vector2(0, 4)
+	var wide := page_width(columns)
+	var tall := size.y - FOOT
+	draw_style_box(cover, Rect2(-6.0, 4.0, EDGE + wide + 20.0, tall + 10.0))
+	var back := StyleBoxFlat.new()
+	back.bg_color = PAGE.darkened(0.22)
+	back.border_color = Palette.LINE_STRONG
+	back.set_border_width_all(1)
+	back.set_corner_radius_all(8)
+	for k in [3, 2, 1]:
+		draw_style_box(back, Rect2(EDGE + k * 3.0, 2.0 + k * 3.0, wide - 2.0, tall - 4.0))
+
+
+## Jeder Ring greift aus seinem Loch im Bogen um die linke Kante der Seite
+## herum nach hinten.
+func _draw_rings() -> void:
+	var edge := EDGE * 2.0
+	for r in RINGS:
+		var y := _rings.size.y * (r + 0.5) / RINGS
+		var arc := PackedVector2Array()
+		for i in 17:
+			var a := PI * i / 16.0
+			arc.append(Vector2(edge + cos(a) * 14.0, y - sin(a) * 10.0))
+		_rings.draw_polyline(arc, Color(0, 0, 0, 0.45), 8.0, true)
+		_rings.draw_polyline(arc, METAL, 5.0, true)
+		_rings.draw_polyline(arc.slice(3, 10), SHINE, 1.5, true)
+
+
+## Das Blatt: Kopfzeile, und je Platz eine Hülle.
+func _draw_sheet(sheet: Control, pockets: Array, header: Dictionary) -> void:
 	var paper := StyleBoxFlat.new()
 	paper.bg_color = PAGE
 	paper.border_color = Palette.LINE_STRONG
 	paper.set_border_width_all(1)
 	paper.set_corner_radius_all(8)
-	sheet.draw_style_box(paper, Rect2(1.0, 4.0, sheet.size.x - 2.0, sheet.size.y - 8.0))
-	# Die Löcher für die Ringe, am Rand zur Ordnermitte.
-	for y in ring_heights(size.y):
-		sheet.draw_circle(Vector2(sheet.size.x - 14.0 if left_side else 14.0, y), 5.0, HOLE)
+	sheet.draw_style_box(paper, Rect2(1.0, 2.0, sheet.size.x - 2.0, sheet.size.y - 4.0))
+	# Die Löcher für die Ringe.
+	for r in RINGS:
+		sheet.draw_circle(Vector2(14.0, sheet.size.y * (r + 0.5) / RINGS), 5.0, HOLE)
 
 	var font := sheet.get_theme_default_font()
 	if not header.is_empty():
 		var wide := columns * POCKET.x + (columns - 1) * GAP
-		var accent: Color = header.get("accent", Palette.INK)
-		sheet.draw_string(Palette.title_font(), Vector2(left + 4.0, PAD + 16.0), header["title"], HORIZONTAL_ALIGNMENT_LEFT, wide - 8.0, 16, accent)
-		sheet.draw_string(font, Vector2(left + 4.0, PAD + 36.0), header["line"], HORIZONTAL_ALIGNMENT_LEFT, wide - 8.0, 12, Palette.P1 if header.get("late", false) else Palette.MUTED)
-		sheet.draw_rect(Rect2(left + 4.0, PAD + 44.0, wide - 8.0, 5.0), Color(1, 1, 1, 0.08))
-		sheet.draw_rect(Rect2(left + 4.0, PAD + 44.0, (wide - 8.0) * clampf(header.get("pct", 0) / 100.0, 0.0, 1.0), 5.0), Palette.ACCENT)
+		sheet.draw_string(Palette.title_font(), Vector2(INNER + 4.0, PAD + 16.0), header["title"], HORIZONTAL_ALIGNMENT_LEFT, wide - 8.0, 16, header.get("accent", Palette.INK))
+		sheet.draw_string(font, Vector2(INNER + 4.0, PAD + 36.0), header.get("line", ""), HORIZONTAL_ALIGNMENT_LEFT, wide - 8.0, 12, Palette.P1 if header.get("late", false) else Palette.MUTED)
+		if header.has("pct"):
+			sheet.draw_rect(Rect2(INNER + 4.0, PAD + 44.0, wide - 8.0, 5.0), Color(1, 1, 1, 0.08))
+			sheet.draw_rect(Rect2(INNER + 4.0, PAD + 44.0, (wide - 8.0) * clampf(header["pct"] / 100.0, 0.0, 1.0), 5.0), Palette.ACCENT)
+		else:
+			sheet.draw_line(Vector2(INNER + 4.0, PAD + 46.0), Vector2(INNER + wide - 4.0, PAD + 46.0), Color(1, 1, 1, 0.08), 1.0)
 
 	var sleeve := StyleBoxFlat.new()
 	sleeve.bg_color = SLEEVE
@@ -482,11 +481,12 @@ func _draw_sheet(sheet: Control, pockets: Array, header: Dictionary, left: float
 	for pocket in pockets:
 		var rect: Rect2 = pocket["rect"]
 		sheet.draw_style_box(sleeve, rect)
-		if _glow > 0.0 and sheet == _sheet and (pocket["section"] == _picked or (_glow_task != "" and pocket["task"] == _glow_task)):
+		# Wurde zu einer Karte geblättert, leuchtet ihr Fach kurz auf.
+		if _glow > 0.0 and sheet == _sheet and _glow_task != "" and pocket["task"] == _glow_task:
 			sheet.draw_rect(rect.grow(1.0), Color(Palette.ACCENT, _glow), false, 2.5)
 			sheet.draw_rect(rect, Color(Palette.ACCENT, _glow * 0.12))
 		if pocket["caption"] != "":
-			sheet.draw_string(font, rect.position + Vector2(8.0, 15.0), pocket["caption"], HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 14.0, 11, pocket["color"])
+			sheet.draw_string(font, rect.position + Vector2(8.0, 15.0), pocket["caption"], HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 14.0, 11, Palette.ACCENT)
 
 
 # ------------------------------------------------------------ Blättern

@@ -1,9 +1,10 @@
 @tool
 extends Control
-## Planen am Tisch: ein aufgeschlagener Sammelordner. Auf der linken Seite
-## steckt der Vorrat – „Ready“ oder „Backlog“ –, auf der rechten die Decks,
-## die eingeplanten Milestones, je Milestone eigene Seiten. Dazwischen die
-## Ringe. Geblättert wird auf jeder Seite für sich (`binder.gd`).
+## Planen am Tisch: zwei Sammelordner nebeneinander. Im linken
+## steckt der Vorrat – „Ready“ oder „Backlog“ –, im rechten die Decks,
+## die eingeplanten Milestones. Jede Gruppe und jeder Milestone hat sein
+## Registerblatt und eigene Seiten. Geblättert
+## wird in jedem Ordner für sich (`binder.gd`).
 ##
 ## Liegt über dem Spieltisch, solange im Tisch-Fenster „Planen“ gewählt ist.
 ## Vorerst wird nur angesehen: ein Klick fächert die Unteraufgaben einer Karte
@@ -27,13 +28,14 @@ const MARGIN := 28.0
 const HEADER := 60.0
 ## Über dem Ordner stehen die Reiter, die den Vorrat wählen.
 const TOP := 44.0
-## Zwischen den beiden Seiten liegt die Mechanik mit den Ringen.
-const SPINE := 22.0
+## Spalten je Seite.
+const COLUMNS := 3
 ## Breiter als so werden die Registerblätter auch in einem breiten Fenster nicht.
-const TAB_MAX := 190.0
-const COVER := Color("101614")
-const METAL := Color("59645f")
-const SHINE := Color("c3cdc8")
+const TAB_MAX := 170.0
+## Zwischen den beiden Ordnern.
+const BETWEEN := 18.0
+## Kleiner als so werden die Ordner in einem schmalen Fenster nicht.
+const MIN_SCALE := 0.6
 
 var _ws: Workspace
 var _project := ""
@@ -48,12 +50,10 @@ var _fanned := {}
 var _shown := 0
 var _resize_queued := false
 
-var _cover: Control
 var _tabs := {}
 var _tab_box: HBoxContainer
 var _left: Binder
 var _right: Binder
-var _rings: Control
 var _info: Label
 var _graph: DepGraphView
 var _menu: PopupMenu
@@ -71,25 +71,11 @@ func _init() -> void:
 	felt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(felt)
 
-	# Der Deckel liegt unter beiden Seiten.
-	_cover = Control.new()
-	_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_cover.draw.connect(_draw_cover)
-	add_child(_cover)
-
 	_left = Binder.new()
-	_left.left_side = true
 	add_child(_left)
 	_right = Binder.new()
-	_right.break_pages = true
 	_right.header_pressed.connect(func(id: String) -> void: task_requested.emit(id))
 	add_child(_right)
-
-	# Die Ringe gehen durch beide Seiten und liegen deshalb über ihnen.
-	_rings = Control.new()
-	_rings.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_rings.draw.connect(_draw_rings)
-	add_child(_rings)
 
 	_tab_box = HBoxContainer.new()
 	_tab_box.add_theme_constant_override("separation", 6)
@@ -151,29 +137,26 @@ func _show_stock(which: String) -> void:
 func _rebuild() -> void:
 	if _ws == null:
 		return
-	# Beide Seiten sind gleich breit; in ein schmales Fenster passen nur zwei Spalten.
-	var room := size.x - MARGIN * 2.0 - SPINE
-	var columns := 3 if room >= (Binder.sheet_width(3) + Binder.TAB_OUT) * 2.0 else 2
-	var sheet := Binder.sheet_width(columns)
+	# Zwei Ordner nebeneinander, einer für den Vorrat, einer für die Decks.
+	var spread := Binder.binder_width(COLUMNS)
+	var room := size.x - MARGIN * 2.0 - BETWEEN
+	# Passt das nicht in die Breite, werden beide Ordner im Ganzen kleiner.
+	var shrink := clampf(room / ((spread + Binder.TAB_OUT) * 2.0), MIN_SCALE, 1.0)
 	# Was an Breite übrig ist, bekommen die Registerblätter, damit ihre Namen passen.
-	var tab_out := clampf((room - sheet * 2.0) / 2.0, Binder.TAB_OUT, TAB_MAX)
-	var tall := size.y - HEADER - TOP - 14.0
-	var left_x := roundf((size.x - (sheet * 2.0 + SPINE + tab_out * 2.0)) / 2.0)
+	var tab_out := clampf((room / shrink - spread * 2.0) / 2.0, Binder.TAB_OUT, TAB_MAX)
+	var wide := spread + tab_out
 	var top := HEADER + TOP
+	var tall := (size.y - top - 14.0) / shrink
+	var left_x := roundf(maxf((size.x - (wide * 2.0 * shrink + BETWEEN)) / 2.0, MARGIN - 12.0))
 
 	for binder in [_left, _right]:
-		binder.columns = columns
+		binder.columns = COLUMNS
 		binder.tab_out = tab_out
-		binder.size = Vector2(sheet + tab_out, tall)
+		binder.scale = Vector2(shrink, shrink)
+		binder.size = Vector2(wide, tall)
 	_left.position = Vector2(left_x, top)
-	_right.position = Vector2(left_x + tab_out + sheet + SPINE, top)
-	_cover.position = Vector2(_left.position.x + tab_out - 10.0, top - 8.0)
-	_cover.size = Vector2(sheet * 2.0 + SPINE + 20.0, tall - Binder.FOOT + 16.0)
-	_cover.queue_redraw()
-	_rings.position = Vector2(_left.position.x + tab_out + sheet, top)
-	_rings.size = Vector2(SPINE, tall)
-	_rings.queue_redraw()
-	_tab_box.position = Vector2(_left.position.x + tab_out, HEADER + 2.0)
+	_right.position = Vector2(left_x + wide * shrink + BETWEEN, top)
+	_tab_box.position = Vector2(_left.position.x, HEADER + 2.0)
 
 	_build_stock()
 	_build_decks()
@@ -191,19 +174,24 @@ func _on_resized() -> void:
 
 # -------------------------------------------------------------- Seiten
 
-## Die linke Seite: der gewählte Stapel des Vorrats, die Karten laufen durch.
+## Der linke Ordner: der gewählte Stapel des Vorrats. Jede Gruppe hat ihr
+## Registerblatt und ihre eigenen Seiten, wie ein Deck.
 func _build_stock() -> void:
 	for which in _tabs:
 		_tabs[which].text = "%s  %d" % ["Ready" if which == Planning.READY else "Backlog", Planning.stock_count(_ws, _project, which)]
 		_tabs[which].set_pressed_no_signal(which == _stock)
 	var sections := []
 	for section in Planning.stock(_ws, _project, _stock):
-		sections.append({"title": section["title"], "items": _items(section["cards"])})
+		var count: int = section["cards"].size()
+		sections.append({"title": section["title"], "items": _items(section["cards"]), "header": {
+			"title": section["title"], "line": "%d %s in „%s“" % [count, "Karte" if count == 1 else "Karten", "Ready" if _stock == Planning.READY else "Backlog"]}})
+	if sections.is_empty():
+		sections.append({"title": "Leer", "items": [], "header": {"title": "Dieser Stapel ist leer", "line": ""}})
 	_left.card_maker = _card.bind(Planning.deck_order(Planning.decks(_ws, _project)))
 	_left.show_sections(_stock, sections)
 
 
-## Die rechte Seite: die Decks. Jeder Milestone hat sein Registerblatt und
+## Der rechte Ordner: die Decks. Jeder Milestone hat sein Registerblatt und
 ## seine eigenen Seiten, mit Fortschritt und Prognose darüber.
 func _build_decks() -> void:
 	var decks := Planning.decks(_ws, _project)
@@ -263,43 +251,6 @@ func _items(roots: Array) -> Array:
 			var above = _ws.task(row["task"].get("parentId")) if row["depth"] > 0 else null
 			out.append({"task": row["task"], "child_of": (str(above["title"]) if above.get("title") else "Ohne Titel") if above != null else ""})
 	return out
-
-
-# ------------------------------------------------------------ Zeichnen
-
-## Der Deckel des Ordners, unter beiden Seiten.
-func _draw_cover() -> void:
-	var cover := StyleBoxFlat.new()
-	cover.bg_color = COVER
-	cover.border_color = Color(1, 1, 1, 0.06)
-	cover.set_border_width_all(1)
-	cover.set_corner_radius_all(14)
-	cover.shadow_color = Color(0, 0, 0, 0.4)
-	cover.shadow_size = 10
-	cover.shadow_offset = Vector2(0, 4)
-	_cover.draw_style_box(cover, Rect2(Vector2.ZERO, _cover.size))
-
-
-## Die Mechanik in der Mitte: eine Schiene, und die Ringe, die im Bogen von
-## einer Seite durch die Löcher der anderen gehen.
-func _draw_rings() -> void:
-	var middle := SPINE / 2.0
-	var bottom := _rings.size.y - Binder.FOOT
-	_rings.draw_rect(Rect2(middle - 6.0, 10.0, 12.0, bottom - 20.0), Color("2b3431"))
-	_rings.draw_rect(Rect2(middle - 6.0, 10.0, 3.0, bottom - 20.0), Color(1, 1, 1, 0.08))
-	_rings.draw_rect(Rect2(middle + 4.0, 10.0, 2.0, bottom - 20.0), Color(0, 0, 0, 0.35))
-	for y in Binder.ring_heights(_rings.size.y):
-		# Ein Ring von oben gesehen: ein flacher Bogen über die Mitte, bis in die Löcher.
-		var reach := middle + 14.0
-		var arc := PackedVector2Array()
-		for i in 17:
-			var a := PI * i / 16.0
-			arc.append(Vector2(middle - cos(a) * reach, y - sin(a) * 9.0))
-		_rings.draw_polyline(arc, Color(0, 0, 0, 0.45), 8.0, true)
-		_rings.draw_polyline(arc, METAL, 5.0, true)
-		_rings.draw_polyline(arc.slice(3, 10), SHINE, 1.5, true)
-		for rivet in [-18.0, 18.0]:
-			_rings.draw_circle(Vector2(middle, y + rivet), 2.5, Color("8d9a95"))
 
 
 ## Die Karte und, ist sie aufgefächert, ihre Unteraufgaben danach.

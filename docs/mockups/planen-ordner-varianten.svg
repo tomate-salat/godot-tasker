@@ -1,0 +1,273 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1310" width="100%" font-family="Segoe UI, Noto Sans, sans-serif">
+<defs><marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#e6ae58"/></marker></defs>
+<rect width="1280" height="1310" fill="#0f1513"/>
+<rect x="0" y="0" width="1280" height="640" fill="#1f3a31"/>
+<text x="32" y="36" font-size="18" fill="#e3e8e4" font-weight="700" text-anchor="start">1  Zwei umgeschlagene Ordner</text>
+<text x="32" y="58" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Jede Sammlung ist ein eigener Ordner, nach hinten umgeschlagen: man sieht eine Seite, die umgeblätterte schwenkt um die Ringe nach hinten.</text>
+<text x="150" y="96" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Vorrat  ·  Ready 10 | Backlog 28</text>
+<rect x="118" y="122" width="352" height="406" rx="10" fill="#101614" stroke="#ffffff" stroke-opacity="0.06"/>
+<rect x="135" y="125" width="336" height="396" rx="7" fill="#1b2220" stroke="#3c4643"/>
+<rect x="132" y="122" width="336" height="396" rx="7" fill="#1b2220" stroke="#3c4643"/>
+<rect x="129" y="119" width="336" height="396" rx="7" fill="#1b2220" stroke="#3c4643"/>
+<rect x="140" y="110" width="336" height="394" rx="7" fill="#232c29" stroke="#3c4643"/>
+<circle cx="152" cy="175.66666666666669" r="4.5" fill="#0c1110"/>
+<circle cx="152" cy="307" r="4.5" fill="#0c1110"/>
+<circle cx="152" cy="438.3333333333333" r="4.5" fill="#0c1110"/>
+<rect x="170" y="124" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="175" y="138" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="182" y="146" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="185" cy="228" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="268" y="124" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="273" y="138" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="280" y="146" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="283" cy="228" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="366" y="124" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="371" y="138" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="378" y="146" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="381" cy="228" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="170" y="248" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="175" y="262" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="182" y="270" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="185" cy="352" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="268" y="248" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="273" y="262" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="280" y="270" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="283" cy="352" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="366" y="248" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="371" y="262" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="378" y="270" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="381" cy="352" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="170" y="372" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="175" y="386" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="182" y="394" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="185" cy="476" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="268" y="372" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="273" y="386" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="280" y="394" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="283" cy="476" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="366" y="372" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="371" y="386" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="378" y="394" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="381" cy="476" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<path d="M152 175.66666666666669 C 140 159.66666666666669, 114 163.66666666666669, 122 181.66666666666669" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M152 175.66666666666669 C 140 159.66666666666669, 114 163.66666666666669, 122 181.66666666666669" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M152 307 C 140 291, 114 295, 122 313" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M152 307 C 140 291, 114 295, 122 313" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M152 438.3333333333333 C 140 422.3333333333333, 114 426.3333333333333, 122 444.3333333333333" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M152 438.3333333333333 C 140 422.3333333333333, 114 426.3333333333333, 122 444.3333333333333" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M470 124 h96 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-96 z" fill="#63b69d" fill-opacity="1" stroke="#63b69d" stroke-opacity="0.7"/>
+<text x="484" y="140" font-size="10.5" fill="#101614" font-weight="400" text-anchor="start">High Value</text>
+<path d="M470 154 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#6fa8dc" fill-opacity="0.32" stroke="#6fa8dc" stroke-opacity="0.7"/>
+<text x="484" y="170" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Normal Value</text>
+<path d="M470 184 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#e6ae58" fill-opacity="0.32" stroke="#e6ae58" stroke-opacity="0.7"/>
+<text x="484" y="200" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Low Value</text>
+<path d="M470 214 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#ae9be0" fill-opacity="0.32" stroke="#ae9be0" stroke-opacity="0.7"/>
+<text x="484" y="230" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Crafting</text>
+<text x="308" y="538" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="middle">‹   Seite 1 von 4   ›</text>
+<text x="720" y="96" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Decks</text>
+<rect x="688" y="122" width="352" height="440" rx="10" fill="#101614" stroke="#ffffff" stroke-opacity="0.06"/>
+<rect x="705" y="125" width="336" height="430" rx="7" fill="#1b2220" stroke="#3c4643"/>
+<rect x="702" y="122" width="336" height="430" rx="7" fill="#1b2220" stroke="#3c4643"/>
+<rect x="699" y="119" width="336" height="430" rx="7" fill="#1b2220" stroke="#3c4643"/>
+<rect x="710" y="110" width="336" height="428" rx="7" fill="#232c29" stroke="#3c4643"/>
+<circle cx="722" cy="181.33333333333331" r="4.5" fill="#0c1110"/>
+<circle cx="722" cy="324" r="4.5" fill="#0c1110"/>
+<circle cx="722" cy="466.6666666666667" r="4.5" fill="#0c1110"/>
+<text x="742" y="136" font-size="12" fill="#63b69d" font-weight="700" text-anchor="start">◆ Quests   7/15 · läuft · bis KW 41</text>
+<rect x="742" y="144" width="284" height="4" fill="#ffffff" fill-opacity="0.08"/>
+<rect x="742" y="144" width="110.4" height="4" fill="#63b69d"/>
+<rect x="740" y="158" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="745" y="172" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="752" y="180" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="755" cy="262" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="838" y="158" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="843" y="172" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="850" y="180" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="853" cy="262" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="936" y="158" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="941" y="172" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="948" y="180" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="951" cy="262" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="740" y="282" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="745" y="296" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="752" y="304" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="755" cy="386" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="838" y="282" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="843" y="296" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="850" y="304" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="853" cy="386" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="936" y="282" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="941" y="296" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="948" y="304" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="951" cy="386" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="740" y="406" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="745" y="420" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="752" y="428" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="755" cy="510" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="838" y="406" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="936" y="406" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<path d="M722 181.33333333333331 C 710 165.33333333333331, 684 169.33333333333331, 692 187.33333333333331" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M722 181.33333333333331 C 710 165.33333333333331, 684 169.33333333333331, 692 187.33333333333331" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M722 324 C 710 308, 684 312, 692 330" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M722 324 C 710 308, 684 312, 692 330" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M722 466.6666666666667 C 710 450.6666666666667, 684 454.6666666666667, 692 472.6666666666667" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M722 466.6666666666667 C 710 450.6666666666667, 684 454.6666666666667, 692 472.6666666666667" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M1040 124 h96 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-96 z" fill="#63b69d" fill-opacity="1" stroke="#63b69d" stroke-opacity="0.7"/>
+<text x="1054" y="140" font-size="10.5" fill="#101614" font-weight="400" text-anchor="start">▶ Quests</text>
+<path d="M1040 154 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#6fa8dc" fill-opacity="0.32" stroke="#6fa8dc" stroke-opacity="0.7"/>
+<text x="1054" y="170" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">◆ Gear Support</text>
+<path d="M1040 184 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#e6ae58" fill-opacity="0.32" stroke="#e6ae58" stroke-opacity="0.7"/>
+<text x="1054" y="200" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">◆ Replace Place…</text>
+<text x="878" y="572" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="middle">‹   Seite 1 von 5   ›</text>
+<path d="M270 104 C 190 64, 90 80, 106 150" fill="none" stroke="#e6ae58" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#a)"/>
+<path d="M840 104 C 760 64, 660 80, 676 150" fill="none" stroke="#e6ae58" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#a)"/>
+<text x="14" y="176" font-size="11.5" fill="#e6ae58" font-weight="400" text-anchor="start">um die Ringe</text>
+<text x="14" y="192" font-size="11.5" fill="#e6ae58" font-weight="400" text-anchor="start">nach hinten</text>
+<text x="520" y="600" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="middle">Dahinter deutet sich der Stapel der schon umgeblätterten Seiten an.</text>
+<text x="520" y="618" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="middle">Drei Spalten je Seite wie jetzt, das Blättern bleibt wie es ist.</text>
+<rect x="0" y="670" width="1280" height="640" fill="#1f3a31"/>
+<text x="32" y="706" font-size="18" fill="#e3e8e4" font-weight="700" text-anchor="start">3  Zwei aufgeschlagene Ordner mit Doppelseiten</text>
+<text x="32" y="728" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Jede Sammlung ist ein echter aufgeschlagener Ordner: beim Blättern wandert die rechte Seite über die Ringe nach links. Zwei Spalten je Seite.</text>
+<text x="50" y="766" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Vorrat  ·  Ready 10 | Backlog 28</text>
+<rect x="32" y="772" width="510" height="416" rx="12" fill="#101614" stroke="#ffffff" stroke-opacity="0.06"/>
+<rect x="40" y="780" width="238" height="394" rx="7" fill="#232c29" stroke="#3c4643"/>
+<circle cx="266" cy="845.6666666666666" r="4.5" fill="#0c1110"/>
+<circle cx="266" cy="977" r="4.5" fill="#0c1110"/>
+<circle cx="266" cy="1108.3333333333333" r="4.5" fill="#0c1110"/>
+<rect x="52" y="794" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="57" y="808" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="64" y="816" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="67" cy="898" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="150" y="794" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="155" y="808" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="162" y="816" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="165" cy="898" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="52" y="918" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="57" y="932" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="64" y="940" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="67" cy="1022" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="150" y="918" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="155" y="932" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="162" y="940" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="165" cy="1022" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="52" y="1042" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="57" y="1056" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="64" y="1064" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="67" cy="1146" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="150" y="1042" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="155" y="1056" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="162" y="1064" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="165" cy="1146" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="296" y="780" width="238" height="394" rx="7" fill="#232c29" stroke="#3c4643"/>
+<circle cx="308" cy="845.6666666666666" r="4.5" fill="#0c1110"/>
+<circle cx="308" cy="977" r="4.5" fill="#0c1110"/>
+<circle cx="308" cy="1108.3333333333333" r="4.5" fill="#0c1110"/>
+<rect x="326" y="794" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="331" y="808" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="338" y="816" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="341" cy="898" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="424" y="794" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="429" y="808" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="436" y="816" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="439" cy="898" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="326" y="918" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="331" y="932" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="338" y="940" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="341" cy="1022" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="424" y="918" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="429" y="932" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="436" y="940" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="439" cy="1022" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="326" y="1042" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="424" y="1042" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="282" y="788" width="10" height="378" fill="#2b3431"/>
+<path d="M266 845.6666666666666 Q 287 829.6666666666666 308 845.6666666666666" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M266 845.6666666666666 Q 287 829.6666666666666 308 845.6666666666666" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M266 977 Q 287 961 308 977" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M266 977 Q 287 961 308 977" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M266 1108.3333333333333 Q 287 1092.3333333333333 308 1108.3333333333333" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M266 1108.3333333333333 Q 287 1092.3333333333333 308 1108.3333333333333" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M528 794 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#63b69d" fill-opacity="0.32" stroke="#63b69d" stroke-opacity="0.7"/>
+<text x="542" y="810" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">High Value</text>
+<path d="M528 824 h96 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-96 z" fill="#6fa8dc" fill-opacity="1" stroke="#6fa8dc" stroke-opacity="0.7"/>
+<text x="542" y="840" font-size="10.5" fill="#101614" font-weight="400" text-anchor="start">Normal Value</text>
+<path d="M528 854 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#e6ae58" fill-opacity="0.32" stroke="#e6ae58" stroke-opacity="0.7"/>
+<text x="542" y="870" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Low Value</text>
+<path d="M528 884 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#ae9be0" fill-opacity="0.32" stroke="#ae9be0" stroke-opacity="0.7"/>
+<text x="542" y="900" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Crafting</text>
+<text x="287" y="1208" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="middle">‹   Seiten 3 und 4 von 6   ›</text>
+<path d="M437 776 C 377 728, 197 728, 137 776" fill="none" stroke="#e6ae58" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#a)"/>
+<text x="682" y="766" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Decks</text>
+<rect x="664" y="772" width="510" height="450" rx="12" fill="#101614" stroke="#ffffff" stroke-opacity="0.06"/>
+<rect x="672" y="780" width="238" height="428" rx="7" fill="#232c29" stroke="#3c4643"/>
+<circle cx="898" cy="851.3333333333334" r="4.5" fill="#0c1110"/>
+<circle cx="898" cy="994" r="4.5" fill="#0c1110"/>
+<circle cx="898" cy="1136.6666666666667" r="4.5" fill="#0c1110"/>
+<text x="686" y="806" font-size="12" fill="#63b69d" font-weight="700" text-anchor="start">◆ Quests   7/15 · läuft</text>
+<rect x="686" y="814" width="186" height="4" fill="#ffffff" fill-opacity="0.08"/>
+<rect x="686" y="814" width="73.60000000000001" height="4" fill="#63b69d"/>
+<rect x="684" y="828" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="689" y="842" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="696" y="850" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="699" cy="932" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="782" y="828" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="787" y="842" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="794" y="850" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="797" cy="932" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="684" y="952" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="689" y="966" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="696" y="974" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="699" cy="1056" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="782" y="952" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="787" y="966" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="794" y="974" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="797" cy="1056" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="684" y="1076" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="689" y="1090" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="696" y="1098" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="699" cy="1180" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="782" y="1076" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="787" y="1090" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="794" y="1098" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="797" cy="1180" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="928" y="780" width="238" height="428" rx="7" fill="#232c29" stroke="#3c4643"/>
+<circle cx="940" cy="851.3333333333334" r="4.5" fill="#0c1110"/>
+<circle cx="940" cy="994" r="4.5" fill="#0c1110"/>
+<circle cx="940" cy="1136.6666666666667" r="4.5" fill="#0c1110"/>
+<text x="960" y="806" font-size="12" fill="#63b69d" font-weight="700" text-anchor="start">◆ Quests   (Fortsetzung)</text>
+<rect x="960" y="814" width="186" height="4" fill="#ffffff" fill-opacity="0.08"/>
+<rect x="960" y="814" width="73.60000000000001" height="4" fill="#63b69d"/>
+<rect x="958" y="828" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="963" y="842" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="970" y="850" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="973" cy="932" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="1056" y="828" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="1061" y="842" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="1068" y="850" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="1071" cy="932" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="958" y="952" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="963" y="966" width="82" height="99" rx="6" fill="#2d3936"/>
+<rect x="970" y="974" width="58" height="6" rx="3" fill="#e3e8e4" fill-opacity="0.75"/>
+<circle cx="973" cy="1056" r="3.5" fill="none" stroke="#9ba49f" stroke-width="1.4"/>
+<rect x="1056" y="952" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="958" y="1076" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="1056" y="1076" width="92" height="118" rx="7" fill="#1a211f" stroke="#ffffff" stroke-opacity="0.07"/>
+<rect x="914" y="788" width="10" height="412" fill="#2b3431"/>
+<path d="M898 851.3333333333334 Q 919 835.3333333333334 940 851.3333333333334" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M898 851.3333333333334 Q 919 835.3333333333334 940 851.3333333333334" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M898 994 Q 919 978 940 994" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M898 994 Q 919 978 940 994" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M898 1136.6666666666667 Q 919 1120.6666666666667 940 1136.6666666666667" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+<path d="M898 1136.6666666666667 Q 919 1120.6666666666667 940 1136.6666666666667" fill="none" stroke="#8d9a95" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M1160 794 h96 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-96 z" fill="#63b69d" fill-opacity="1" stroke="#63b69d" stroke-opacity="0.7"/>
+<text x="1174" y="810" font-size="10.5" fill="#101614" font-weight="400" text-anchor="start">▶ Quests</text>
+<path d="M1160 824 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#6fa8dc" fill-opacity="0.32" stroke="#6fa8dc" stroke-opacity="0.7"/>
+<text x="1174" y="840" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">◆ Gear Support</text>
+<path d="M1160 854 h88 a8 8 0 0 1 8 8 v8 a8 8 0 0 1 -8 8 h-88 z" fill="#e6ae58" fill-opacity="0.32" stroke="#e6ae58" stroke-opacity="0.7"/>
+<text x="1174" y="870" font-size="10.5" fill="#e3e8e4" font-weight="400" text-anchor="start">◆ Replace Pl…</text>
+<text x="919" y="1242" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="middle">‹   Seiten 1 und 2 von 8   ›</text>
+<path d="M1069 776 C 1009 728, 829 728, 769 776" fill="none" stroke="#e6ae58" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#a)"/>
+<text x="287" y="732" font-size="11.5" fill="#e6ae58" font-weight="400" text-anchor="middle">wandert nach links</text>
+<text x="640" y="1270" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="middle">Zwölf Karten je Doppelseite statt neun. Dafür vier Seiten nebeneinander: bei schmalem Fenster wird es eng.</text>
+<text x="640" y="1288" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="middle">Offen: Beginnt ein Milestone immer auf einer rechten Seite, bleibt links daneben oft eine Seite des vorigen stehen.</text>
+</svg>
