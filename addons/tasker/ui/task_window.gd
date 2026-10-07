@@ -278,12 +278,13 @@ func _close() -> void:
 	queue_free()
 
 
-## Escape übernimmt beim Bearbeiten den Text – wie in Tasker – und schließt
+## Escape übernimmt beim Bearbeiten den Text (oder schließt dort nur die
+## Auswahlliste) – wie in Tasker – und schließt
 ## sonst das Fenster.
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		set_input_as_handled()
 		if _editor.is_open():
-			_editor.commit()
+			_editor.escape()
 		else:
 			queue_free()

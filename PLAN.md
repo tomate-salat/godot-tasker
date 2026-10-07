@@ -449,8 +449,9 @@ Stand 2026-10-07: Es beginnt mit der Beschreibung. Sie soll sich bedienen lassen
 
 #### Schritt 4: Befehle und Verweise
 
-- [ ] `/`-Menü unter der Schreibmarke mit den Befehlen aus Tasker: „TodoListe“ und „Liste“.
-- [ ] `$`-Suche nach Aufgaben und Milestones für einen Verweis, mit derselben Mechanik.
+- [x] `/`-Menü unter der Schreibmarke mit den Befehlen aus Tasker: „TodoListe“ und „Liste“. Am Zeilenanfang oder in einem leeren Listenpunkt beginnt der Befehl diese Zeile, hinter Text eine neue darunter.
+- [x] `$`-Suche nach Aufgaben und Milestones für einen Verweis, mit derselben Mechanik: das eigene Projekt zuerst, Erledigtes zuletzt, Ziffern suchen nach der Nummer. Eingefügt wird `$142 `.
+- [x] ↑/↓ wählen, Enter oder Tab übernehmen, ein Klick auch. Escape schließt nur die Liste; an derselben Stelle öffnet sie sich dann nicht wieder. Regeln in `rules/caret_menu.gd`, die Liste in `ui/content_editor.gd`.
 
 #### Später
 
