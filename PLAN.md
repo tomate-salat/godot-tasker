@@ -215,45 +215,76 @@ Gebaut am 2026-10-07. Geprüft per Test (Zerlegen der Ereignisse, Anwenden auf d
 
 ### Später
 
-- **Planen am Tisch** und **Abhängigkeiten als Fäden:** siehe die eigenen Abschnitte unten.
+- **Planen am Tisch:** eingeplant, siehe den eigenen Abschnitt unten.
+- **Abhängigkeiten als Fäden:** am Spieltisch fraglich, siehe unten.
 - **Aufgaben aus Godot anlegen:** offen, ob und wie. Bisher entstehen Aufgaben in der Web-App oder über MCP, das Addon arbeitet mit vorhandenen.
 - **Karten in Szenen:** Aufgaben an Szenen und Nodes hängen und im 2D- und 3D-Editor einblenden, siehe den eigenen Abschnitt unten.
 
 ## Ausbau: Planen am Tisch
 
-Noch nicht eingeplant, hier als Skizze festgehalten. Derselbe Tisch, nur herausgezoomt. Ein Umschalter wechselt zwischen „Spielen“ und „Planen“.
+Derselbe Tisch, nur zum Planen statt zum Spielen. Ein Umschalter wechselt zwischen „Spielen“ und „Planen“. Das Bild dahinter: Planen ist Decks bauen, Spielen ist das Deck ausspielen. Skizze: `docs/mockups/planen-vorrat-unten.svg`.
 
-### Aufteilung
+### Festgelegt
 
-- **Matten:** Jeder Milestone ist eine Spielmatte, in Plan-Reihenfolge von links nach rechts. Die aktive ist hervorgehoben und zeigt Fortschritt und Restzeit, geplante zeigen die Prognose aus dem Tempo.
-- **Decks:** „Ready“ und „Backlog“ liegen als Stapel am Rand. Ein Klick fächert ein Deck auf, im Backlog nach Gruppen.
-- **Leere Matte am Ende:** Eine Karte dort abgelegt legt einen neuen Milestone an.
+- **Nichts anlegen.** Aus Godot heraus entstehen weder Aufgaben noch Milestones. Verteilt wird, was es gibt.
+- **Ein aufgeschlagener Sammelordner.** Die Planung sieht aus wie ein Ordner für Sammelkarten: links und rechts je eine Seite mit Fächern (drei Spalten, in schmalen Fenstern zwei), in jedem Fach eine Karte in voller Größe, in der Mitte die Ringe. Jede Seite wird für sich umgeblättert, ohne Ton.
+- **Rechts die Decks.** Jeder eingeplante Milestone hat sein Registerblatt und seine eigenen Seiten: auf einer Seite stecken nur Karten eines Milestones, der nächste beginnt auf einer neuen Seite. Über der Seite stehen Titel, Fortschritt und Prognose. Aufgeschlagen wird zuerst der laufende Milestone.
+- **Abgeschlossenes** behält sein Registerblatt und eine Seite mit Kopfzeile, ohne Karten, und verschwindet, sobald der Milestone in Tasker archiviert ist.
+- **Links der Vorrat.** Zwei Reiter über der Seite wählen „Ready“ oder „Backlog“. Die Karten laufen über die Seiten durch, die Registerblätter am Rand springen zu den Gruppen. Eine Hand gibt es hier nicht: die gehört zum Spieltisch, Planen ist Deckbauen (Nutzer, 2026-10-07).
+- **Unteraufgaben** zeigt nur das Auffächern der Karte darüber, im Vorrat wie in den Decks.
+- **Abhängigkeiten ohne Linien in der Hauptansicht.** Gesperrte Karten tragen ein Schloss. Es ist gelb, wenn die Karte wartet, und rot, wenn sie auf etwas wartet, das in einem späteren Deck oder noch im Vorrat liegt.
+- **Der Graph einer Karte auf Wunsch:** Ein Klick aufs Schloss (oder der Rechtsklick, auch bei Karten ohne Sperre) zeigt über den Decks, worauf die Karte wartet und was auf sie wartet, über alle Stufen, aufgebaut wie der Graph in Tasker. Jede Karte nennt, wo sie liegt.
+- **Abhängigkeiten nur ansehen.** Anlegen und Trennen bleibt vorerst in Tasker.
+- **Karten verteilen:** in ein Deck (auch in das laufende), zwischen zwei Karten, zurück in den Vorrat.
+- **Decks umsortieren:** gewünscht. Dafür bekommt Tasker eine enge Route „setze Milestone X vor oder nach Y“, die selbst neu nummeriert. Anfrage an die Tasker-Sitzung erst nach Rückfrage, wenn der Schritt ansteht.
 
-### Züge
+### Schritte
 
-| Zug | Wirkung in Tasker |
-|---|---|
-| Karte auf eine Matte | Verschieben in den Milestone (`/api/move`) |
-| Karte zurück aufs Deck | Verschieben ins Backlog oder nach „Ready“ |
-| Karte zwischen zwei Karten | Reihenfolge |
-| Matten umsortieren | Plan-Reihenfolge der Milestones |
-| Karte auf die leere Matte | Milestone anlegen, dann verschieben |
+#### Schritt 1: Ansehen
 
-Die Routen dafür sind per Token schon freigegeben, an der Datenhaltung ändert sich nichts.
+- [x] Prognose aus Tasker (`schedule.ts`) als Regel mit Tests
+- [x] Umschalter „Spielen / Planen“ im Tisch-Fenster
+- [x] Decks als Ordnerseiten rechts, je Milestone ein Registerblatt und eigene Seiten
+- [x] Vorrat als Ordnerseite links, mit den Reitern „Ready“ und „Backlog“ und Registerblättern für die Gruppen
+- [x] Unteraufgaben auffächern
+- [x] Schloss an der Karte, gelb und rot
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07)
 
-### Ideen dazu
+#### Schritt 2: Der Graph einer Karte
 
-- **Milestone starten als Ritual:** Die Matte des nächsten Milestones rückt in die Mitte, die Karten werden gemischt und der Nachziehstapel gebildet.
-- **Überfüllte Matte:** Liegen mehr Karten auf einer Matte, als das Tempo bis zum Enddatum hergibt, ragen die überzähligen heraus.
-- **Backlog durchsehen als Spiel:** Karten einzeln aufdecken und wegwischen: bleibt im Backlog, geht nach „Ready“ oder in einen Milestone.
-- **Trophäen:** Abgeschlossene Milestones bleiben als zugeklappte Decks mit ihrer besten Woche am Rand liegen.
+- [ ] Graph über alle Stufen mit Ortsangabe je Karte
+- [ ] Klick im Graphen springt zur Karte
 
-### Vorher nachzusehen
+#### Schritt 3: Karten verteilen
 
-- wie Tasker die Prognose rechnet (`src/shared/schedule.ts`)
-- ob das Umsortieren von Milestones Nebenwirkungen auf Start- und Enddaten hat
+- [ ] Karte in ein Deck, zwischen zwei Karten, zurück in den Vorrat (`/api/move`)
+- [ ] Ziehen auch aus dem Graphen
+
+#### Schritt 4: Decks umsortieren
+
+- [ ] Anfrage an die Tasker-Sitzung: Route „Milestone X vor oder nach Y“
+- [ ] Kopfkarten ziehen
+
+### Ideen für später
+
+- **Milestone starten als Ritual:** Das nächste Deck rückt in die Mitte, die Karten werden gemischt und der Nachziehstapel gebildet.
+- **Überfülltes Deck:** Liegen mehr Karten in einem Deck, als das Tempo bis zum Enddatum hergibt, ragen die überzähligen heraus.
+- **Backlog durchsehen als Spiel:** Karten einzeln aufdecken und wegwischen: bleibt im Backlog, geht nach „Ready“ oder in ein Deck.
+- **Trophäen:** Abgeschlossene Decks zeigen ihre beste Woche.
+
+### Nachgesehen in Tasker
+
+Gelesen am 2026-10-07, nichts davon ausprobiert.
+
+- **Prognose** (`src/shared/schedule.ts`): Die eingeplanten Milestones eines Projekts stehen in Plan-Reihenfolge (`qorder`) hintereinander. Ein Milestone beginnt an seinem Startdatum, sonst nach dem vorherigen und nach allem, worauf er wartet. Sein Ende ist das gesetzte Enddatum, sonst Start plus offene Aufgaben durch Tempo. Läuft die Rechnung über ein gesetztes Enddatum hinaus, gilt er als verspätet. Abhängigkeiten zählen von Milestone zu Milestone und über Aufgaben, die auf Aufgaben eines anderen Milestones warten.
+- **Karte verschieben** (`POST /api/move`): Ziel ist ein Milestone (`milestoneId`), das Backlog oder „Ready“ (`ready` an losen Wurzeln), dazu der Platz unter den Geschwistern (`index`). Der Server nummeriert neu.
+- **Milestones umsortieren:** Start- und Enddaten bleiben unberührt, es ändert sich nur `qorder`, eine ganze Zahl je Milestone. Die Web-App schreibt die Reihenfolge aller betroffenen Milestones in einem Zug über `/api/steps`; diese Route ist per Token gesperrt und kann zu viel, um sie freizugeben.
+- **Backlog und Ready** (`src/shared/outline.ts`): „Ready“ sind lose Wurzeln mit `ready`, gegliedert nach Markierung, sonst nach Kategorie. Alles andere Uneingeplante ist Backlog: Gruppen, nicht eingeplante Milestones und „Unsortiert“.
+- **Milestone anlegen** (`POST /api/kind/milestone`): per Token möglich, `planned` lässt sich beim Anlegen mitgeben. Was ohne Angabe gilt, ist noch nachzusehen.
 
 ## Ausbau: Abhängigkeiten als Fäden
+
+Stand 2026-10-07: Am Spieltisch sind Fäden fraglich, sie würden ihn eher unruhig machen; die Kette dort sagt schon, was gesperrt ist. In der Planung zeigt stattdessen der Graph einer Karte die Abhängigkeiten (siehe „Planen am Tisch“). Die Skizze unten bleibt als Idee stehen.
 
 Noch nicht eingeplant. Abhängigkeiten (`deps`) werden als Fäden zwischen Karten sichtbar und bearbeitbar, in der Spiel- wie in der Planungsansicht.
 
@@ -392,5 +423,6 @@ Grobe Skizzen der Aufteilung, nicht des Aussehens. Die Titel auf den Karten sind
 | Ansicht | Datei |
 |---|---|
 | Spielen: Hand, Tisch, Nachziehstapel, Erledigt-Stapel | [docs/mockups/tisch-spielen.svg](docs/mockups/tisch-spielen.svg) |
-| Planen: Milestones als Matten, Ready und Backlog als Decks | [docs/mockups/tisch-planen.svg](docs/mockups/tisch-planen.svg) |
+| Planen, verworfener erster Entwurf: Milestones als Matten | [docs/mockups/tisch-planen.svg](docs/mockups/tisch-planen.svg) |
+| Planen: Decks als Spalten, Vorrat unten, Graph einer Karte | [docs/mockups/planen-vorrat-unten.svg](docs/mockups/planen-vorrat-unten.svg) |
 | Abhängigkeiten als Fäden | [docs/mockups/tisch-faeden.svg](docs/mockups/tisch-faeden.svg) |

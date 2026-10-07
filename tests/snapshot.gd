@@ -48,6 +48,19 @@ func _process(delta: float) -> bool:
 				_table._cards["b"].set_tilt(Vector2(-0.8, 0.3))
 				_table._cards["b"].scale = Vector2(0.86, 1.04)
 				_table._place()
+			7:
+				_table._pressed = null
+				_table.planning = true
+				_table._plan._fanned["r2"] = true
+			8:
+				_table._plan._fanned["n3"] = true
+				_table._plan._show_stock("backlog")
+				_table._plan._refan()
+			9:
+				# Mitten im Umblättern anhalten.
+				_table._plan._left.turn(1)
+				_table._plan._left._flip.custom_step(0.3)
+				_table._plan._left._flip.pause()
 			_:
 				return true
 		_next()

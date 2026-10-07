@@ -1,0 +1,272 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1560" width="100%" font-family="Segoe UI, Noto Sans, sans-serif">
+<defs><marker id="g" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#9ba49f"/></marker></defs>
+<rect width="1280" height="1560" fill="#0f1513"/>
+<rect x="0" y="0" width="1280" height="760" fill="#1f3a31"/>
+<text x="32" y="40" font-size="18" fill="#e3e8e4" font-weight="700" text-anchor="start">Tasker-Tisch</text>
+<rect x="170" y="20" width="170" height="30" rx="15" fill="#181d1b" stroke="#3c4643"/>
+<rect x="255" y="22" width="83" height="26" rx="13" fill="#63b69d"/>
+<text x="212" y="40" font-size="13" fill="#9ba49f" font-weight="400" text-anchor="middle">Spielen</text>
+<text x="296" y="40" font-size="13" fill="#181d1b" font-weight="700" text-anchor="middle">Planen</text>
+<text x="1248" y="40" font-size="13" fill="#9ba49f" font-weight="400" text-anchor="end">1  Planen: Decks oben, der Vorrat liegt vor dir</text>
+<rect x="48" y="62" width="170" height="84" rx="10" fill="#181d1b" stroke="#6cc08c" stroke-opacity="0.6"/>
+<rect x="44" y="66" width="170" height="84" rx="10" fill="#181d1b" stroke="#6cc08c" stroke-opacity="0.6"/>
+<rect x="40" y="70" width="170" height="84" rx="10" fill="#181d1b" stroke="#6cc08c" stroke-opacity="0.6"/>
+<text x="52" y="96" font-size="13" fill="#6cc08c" font-weight="700" text-anchor="start">✓ Prototyp</text>
+<text x="52" y="116" font-size="11" fill="#9ba49f" font-weight="400" text-anchor="start">abgeschlossen · 12/12</text>
+<text x="40" y="182" font-size="11" fill="#687170" font-weight="400" text-anchor="start">zugeklappt – verschwindet,</text>
+<text x="40" y="197" font-size="11" fill="#687170" font-weight="400" text-anchor="start">sobald archiviert</text>
+<rect x="270" y="70" width="190" height="84" rx="10" fill="#181d1b" stroke="#63b69d" stroke-width="2"/>
+<text x="282" y="94" font-size="12" fill="#e3e8e4" font-weight="700" text-anchor="start">◆ Erster spielbarer Stand</text>
+<text x="282" y="114" font-size="10.5" fill="#9ba49f" font-weight="400" text-anchor="start">läuft · 4/13 · bis KW 43</text>
+<rect x="282" y="130" width="166" height="6" rx="3" fill="#3c4643"/>
+<rect x="282" y="130" width="51.46" height="6" rx="3" fill="#63b69d"/>
+<rect x="270" y="172" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="0.6"/>
+<circle cx="284" cy="187" r="4.5" fill="#6cc08c"/>
+<text x="296" y="191" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="start">Quest Model</text>
+<rect x="270" y="202" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="0.6"/>
+<circle cx="284" cy="217" r="4.5" fill="#6cc08c"/>
+<text x="296" y="221" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="start">Player Quest Support</text>
+<rect x="270" y="232" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="0.6"/>
+<circle cx="284" cy="247" r="4.5" fill="#6cc08c"/>
+<text x="296" y="251" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="start">Quest Generator</text>
+<rect x="270" y="262" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="284" cy="277" r="4.5" fill="#9ba49f"/>
+<text x="296" y="281" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Update Enter Arena Dialog</text>
+<path d="M439 273 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e6ae58" stroke-width="1.8"/>
+<rect x="436" y="273" width="14" height="10" rx="2" fill="#e6ae58"/>
+<rect x="270" y="292" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="284" cy="307" r="4.5" fill="#6fa8dc"/>
+<text x="296" y="311" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Quest Board</text>
+<rect x="270" y="322" width="190" height="84" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="284" cy="337" r="4.5" fill="#9ba49f"/>
+<text x="296" y="341" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Sprungphysik</text>
+<rect x="560" y="70" width="190" height="84" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="572" y="94" font-size="12" fill="#e3e8e4" font-weight="700" text-anchor="start">◆ Level 2</text>
+<text x="572" y="114" font-size="10.5" fill="#9ba49f" font-weight="400" text-anchor="start">geplant · 0/9 · KW 43 bis KW 45</text>
+<rect x="572" y="130" width="166" height="6" rx="3" fill="#3c4643"/>
+<rect x="560" y="172" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="574" cy="187" r="4.5" fill="#9ba49f"/>
+<text x="586" y="191" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Grundriss</text>
+<rect x="560" y="202" width="190" height="56" rx="9" fill="#181d1b" stroke="#e57a66" opacity="1"/>
+<circle cx="574" cy="217" r="4.5" fill="#9ba49f"/>
+<text x="586" y="221" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Gegner platzieren</text>
+<path d="M729 213 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e57a66" stroke-width="1.8"/>
+<rect x="726" y="213" width="14" height="10" rx="2" fill="#e57a66"/>
+<rect x="560" y="232" width="190" height="56" rx="9" fill="#181d1b" stroke="#e57a66" opacity="1"/>
+<circle cx="574" cy="247" r="4.5" fill="#9ba49f"/>
+<text x="586" y="251" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Beleuchtung</text>
+<path d="M729 243 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e57a66" stroke-width="1.8"/>
+<rect x="726" y="243" width="14" height="10" rx="2" fill="#e57a66"/>
+<rect x="560" y="262" width="190" height="84" rx="9" fill="#181d1b" stroke="#e57a66" opacity="1"/>
+<circle cx="574" cy="277" r="4.5" fill="#9ba49f"/>
+<text x="586" y="281" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Bossraum</text>
+<path d="M729 273 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e57a66" stroke-width="1.8"/>
+<rect x="726" y="273" width="14" height="10" rx="2" fill="#e57a66"/>
+<rect x="850" y="70" width="190" height="84" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="862" y="94" font-size="12" fill="#e3e8e4" font-weight="700" text-anchor="start">◆ Menüs</text>
+<text x="862" y="114" font-size="10.5" fill="#9ba49f" font-weight="400" text-anchor="start">geplant · 0/5 · KW 45 bis KW 46</text>
+<rect x="862" y="130" width="166" height="6" rx="3" fill="#3c4643"/>
+<rect x="850" y="172" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="864" cy="187" r="4.5" fill="#9ba49f"/>
+<text x="876" y="191" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Hauptmenü</text>
+<rect x="850" y="202" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="864" cy="217" r="4.5" fill="#9ba49f"/>
+<text x="876" y="221" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Optionen</text>
+<path d="M1019 213 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e6ae58" stroke-width="1.8"/>
+<rect x="1016" y="213" width="14" height="10" rx="2" fill="#e6ae58"/>
+<rect x="850" y="232" width="190" height="84" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="864" cy="247" r="4.5" fill="#9ba49f"/>
+<text x="876" y="251" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Speicherstände</text>
+<rect x="20" y="470" width="1240" height="270" rx="14" fill="#16281f" stroke="#3c4643"/>
+<rect x="40" y="484" width="92" height="28" rx="14" fill="#63b69d"/>
+<text x="86" y="503" font-size="12" fill="#181d1b" font-weight="700" text-anchor="middle">Ready  5</text>
+<rect x="140" y="484" width="104" height="28" rx="14" fill="#181d1b" stroke="#3c4643"/>
+<text x="192" y="503" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="middle">Backlog  23</text>
+<text x="262" y="503" font-size="11" fill="#687170" font-weight="400" text-anchor="start">Der gewählte Stapel liegt ausgebreitet da, nach Gruppen sortiert; bei vielen Karten rücken sie zusammen und die Reihe scrollt.</text>
+<rect x="60" y="528" width="120" height="160" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1" />
+<text x="72" y="554" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Lichtkonzept</text>
+<rect x="60" y="652" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="76" cy="670" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<rect x="201" y="523" width="120" height="160" rx="10" fill="#181d1b" stroke="#3c4643"/>
+<rect x="196" y="528" width="120" height="160" rx="10" fill="#181d1b" stroke="#e6ae58" stroke-width="1" stroke-dasharray="5 4"/>
+<text x="208" y="554" font-size="12.5" fill="#9ba49f" font-weight="700" text-anchor="start">Gegner-KI</text>
+<rect x="196" y="652" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="212" cy="670" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<text x="304" y="674" font-size="10.5" fill="#9ba49f" font-weight="400" text-anchor="end">▸ 0/4</text>
+<line x1="196" y1="610" x2="316" y2="610" stroke="#e6ae58" stroke-width="5" stroke-dasharray="9 5" stroke-opacity="0.75"/>
+<circle cx="256" cy="610" r="15" fill="#181d1b" stroke="#e6ae58" stroke-width="1.5"/>
+<path d="M252 606 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e6ae58" stroke-width="1.8"/>
+<rect x="249" y="606" width="14" height="10" rx="2" fill="#e6ae58"/>
+<rect x="332" y="528" width="120" height="160" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1" />
+<text x="344" y="554" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Tutorial-Text</text>
+<rect x="332" y="652" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="348" cy="670" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<rect x="468" y="528" width="120" height="160" rx="10" fill="#181d1b" stroke="#e6ae58" stroke-width="1" stroke-dasharray="5 4"/>
+<text x="480" y="554" font-size="12.5" fill="#9ba49f" font-weight="700" text-anchor="start">Soundkulisse</text>
+<rect x="468" y="652" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="484" cy="670" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<line x1="468" y1="610" x2="588" y2="610" stroke="#e6ae58" stroke-width="5" stroke-dasharray="9 5" stroke-opacity="0.75"/>
+<circle cx="528" cy="610" r="15" fill="#181d1b" stroke="#e6ae58" stroke-width="1.5"/>
+<path d="M524 606 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e6ae58" stroke-width="1.8"/>
+<rect x="521" y="606" width="14" height="10" rx="2" fill="#e6ae58"/>
+<rect x="604" y="528" width="120" height="160" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1" />
+<text x="616" y="554" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Kamerafahrt</text>
+<rect x="604" y="652" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="620" cy="670" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<text x="760" y="580" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Gesperrte Karten tragen Kette und Schloss.</text>
+<text x="760" y="600" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Ein Klick aufs Schloss zeigt, woran es hängt.</text>
+<text x="760" y="632" font-size="12" fill="#e6ae58" font-weight="400" text-anchor="start">In den Decks: gelbes Schloss = wartet,</text>
+<text x="760" y="652" font-size="12" fill="#e57a66" font-weight="400" text-anchor="start">rotes Schloss = wartet auf etwas, das später</text>
+<text x="760" y="672" font-size="12" fill="#e57a66" font-weight="400" text-anchor="start">oder noch gar nicht eingeplant ist.</text>
+<rect x="0" y="800" width="1280" height="760" fill="#1f3a31"/>
+<text x="32" y="840" font-size="18" fill="#e3e8e4" font-weight="700" text-anchor="start">Tasker-Tisch</text>
+<rect x="170" y="820" width="170" height="30" rx="15" fill="#181d1b" stroke="#3c4643"/>
+<rect x="255" y="822" width="83" height="26" rx="13" fill="#63b69d"/>
+<text x="212" y="840" font-size="13" fill="#9ba49f" font-weight="400" text-anchor="middle">Spielen</text>
+<text x="296" y="840" font-size="13" fill="#181d1b" font-weight="700" text-anchor="middle">Planen</text>
+<text x="1248" y="840" font-size="13" fill="#9ba49f" font-weight="400" text-anchor="end">2  Abhängigkeiten einer Karte, auf Wunsch</text>
+<rect x="48" y="862" width="170" height="84" rx="10" fill="#181d1b" stroke="#6cc08c" stroke-opacity="0.6"/>
+<rect x="44" y="866" width="170" height="84" rx="10" fill="#181d1b" stroke="#6cc08c" stroke-opacity="0.6"/>
+<rect x="40" y="870" width="170" height="84" rx="10" fill="#181d1b" stroke="#6cc08c" stroke-opacity="0.6"/>
+<text x="52" y="896" font-size="13" fill="#6cc08c" font-weight="700" text-anchor="start">✓ Prototyp</text>
+<text x="52" y="916" font-size="11" fill="#9ba49f" font-weight="400" text-anchor="start">abgeschlossen · 12/12</text>
+<text x="40" y="982" font-size="11" fill="#687170" font-weight="400" text-anchor="start">zugeklappt – verschwindet,</text>
+<text x="40" y="997" font-size="11" fill="#687170" font-weight="400" text-anchor="start">sobald archiviert</text>
+<rect x="270" y="870" width="190" height="84" rx="10" fill="#181d1b" stroke="#63b69d" stroke-width="2"/>
+<text x="282" y="894" font-size="12" fill="#e3e8e4" font-weight="700" text-anchor="start">◆ Erster spielbarer Stand</text>
+<text x="282" y="914" font-size="10.5" fill="#9ba49f" font-weight="400" text-anchor="start">läuft · 4/13 · bis KW 43</text>
+<rect x="282" y="930" width="166" height="6" rx="3" fill="#3c4643"/>
+<rect x="282" y="930" width="51.46" height="6" rx="3" fill="#63b69d"/>
+<rect x="270" y="972" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="0.6"/>
+<circle cx="284" cy="987" r="4.5" fill="#6cc08c"/>
+<text x="296" y="991" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="start">Quest Model</text>
+<rect x="270" y="1002" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="0.6"/>
+<circle cx="284" cy="1017" r="4.5" fill="#6cc08c"/>
+<text x="296" y="1021" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="start">Player Quest Support</text>
+<rect x="270" y="1032" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="0.6"/>
+<circle cx="284" cy="1047" r="4.5" fill="#6cc08c"/>
+<text x="296" y="1051" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="start">Quest Generator</text>
+<rect x="270" y="1062" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="284" cy="1077" r="4.5" fill="#9ba49f"/>
+<text x="296" y="1081" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Update Enter Arena Dialog</text>
+<path d="M439 1073 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e6ae58" stroke-width="1.8"/>
+<rect x="436" y="1073" width="14" height="10" rx="2" fill="#e6ae58"/>
+<rect x="270" y="1092" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="284" cy="1107" r="4.5" fill="#6fa8dc"/>
+<text x="296" y="1111" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Quest Board</text>
+<rect x="270" y="1122" width="190" height="84" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="284" cy="1137" r="4.5" fill="#9ba49f"/>
+<text x="296" y="1141" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Sprungphysik</text>
+<rect x="560" y="870" width="190" height="84" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="572" y="894" font-size="12" fill="#e3e8e4" font-weight="700" text-anchor="start">◆ Level 2</text>
+<text x="572" y="914" font-size="10.5" fill="#9ba49f" font-weight="400" text-anchor="start">geplant · 0/9 · KW 43 bis KW 45</text>
+<rect x="572" y="930" width="166" height="6" rx="3" fill="#3c4643"/>
+<rect x="560" y="972" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="574" cy="987" r="4.5" fill="#9ba49f"/>
+<text x="586" y="991" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Grundriss</text>
+<rect x="560" y="1002" width="190" height="56" rx="9" fill="#181d1b" stroke="#e57a66" opacity="1"/>
+<circle cx="574" cy="1017" r="4.5" fill="#9ba49f"/>
+<text x="586" y="1021" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Gegner platzieren</text>
+<path d="M729 1013 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e57a66" stroke-width="1.8"/>
+<rect x="726" y="1013" width="14" height="10" rx="2" fill="#e57a66"/>
+<rect x="560" y="1032" width="190" height="56" rx="9" fill="#181d1b" stroke="#e57a66" opacity="1"/>
+<circle cx="574" cy="1047" r="4.5" fill="#9ba49f"/>
+<text x="586" y="1051" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Beleuchtung</text>
+<path d="M729 1043 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e57a66" stroke-width="1.8"/>
+<rect x="726" y="1043" width="14" height="10" rx="2" fill="#e57a66"/>
+<rect x="560" y="1062" width="190" height="84" rx="9" fill="#181d1b" stroke="#e57a66" opacity="1"/>
+<circle cx="574" cy="1077" r="4.5" fill="#9ba49f"/>
+<text x="586" y="1081" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Bossraum</text>
+<path d="M729 1073 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e57a66" stroke-width="1.8"/>
+<rect x="726" y="1073" width="14" height="10" rx="2" fill="#e57a66"/>
+<rect x="850" y="870" width="190" height="84" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="862" y="894" font-size="12" fill="#e3e8e4" font-weight="700" text-anchor="start">◆ Menüs</text>
+<text x="862" y="914" font-size="10.5" fill="#9ba49f" font-weight="400" text-anchor="start">geplant · 0/5 · KW 45 bis KW 46</text>
+<rect x="862" y="930" width="166" height="6" rx="3" fill="#3c4643"/>
+<rect x="850" y="972" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="864" cy="987" r="4.5" fill="#9ba49f"/>
+<text x="876" y="991" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Hauptmenü</text>
+<rect x="850" y="1002" width="190" height="56" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="864" cy="1017" r="4.5" fill="#9ba49f"/>
+<text x="876" y="1021" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Optionen</text>
+<path d="M1019 1013 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e6ae58" stroke-width="1.8"/>
+<rect x="1016" y="1013" width="14" height="10" rx="2" fill="#e6ae58"/>
+<rect x="850" y="1032" width="190" height="84" rx="9" fill="#181d1b" stroke="#3c4643" opacity="1"/>
+<circle cx="864" cy="1047" r="4.5" fill="#9ba49f"/>
+<text x="876" y="1051" font-size="11.5" fill="#e3e8e4" font-weight="400" text-anchor="start">Speicherstände</text>
+<rect x="20" y="1270" width="1240" height="270" rx="14" fill="#16281f" stroke="#3c4643"/>
+<rect x="40" y="1284" width="92" height="28" rx="14" fill="#63b69d"/>
+<text x="86" y="1303" font-size="12" fill="#181d1b" font-weight="700" text-anchor="middle">Ready  5</text>
+<rect x="140" y="1284" width="104" height="28" rx="14" fill="#181d1b" stroke="#3c4643"/>
+<text x="192" y="1303" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="middle">Backlog  23</text>
+<text x="262" y="1303" font-size="11" fill="#687170" font-weight="400" text-anchor="start">Der gewählte Stapel liegt ausgebreitet da, nach Gruppen sortiert; bei vielen Karten rücken sie zusammen und die Reihe scrollt.</text>
+<rect x="60" y="1328" width="120" height="160" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1" />
+<text x="72" y="1354" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Lichtkonzept</text>
+<rect x="60" y="1452" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="76" cy="1470" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<rect x="201" y="1323" width="120" height="160" rx="10" fill="#181d1b" stroke="#3c4643"/>
+<rect x="196" y="1328" width="120" height="160" rx="10" fill="#181d1b" stroke="#63b69d" stroke-width="2.5" />
+<text x="208" y="1354" font-size="12.5" fill="#9ba49f" font-weight="700" text-anchor="start">Gegner-KI</text>
+<rect x="196" y="1452" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="212" cy="1470" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<text x="304" y="1474" font-size="10.5" fill="#9ba49f" font-weight="400" text-anchor="end">▸ 0/4</text>
+<line x1="196" y1="1410" x2="316" y2="1410" stroke="#e6ae58" stroke-width="5" stroke-dasharray="9 5" stroke-opacity="0.75"/>
+<circle cx="256" cy="1410" r="15" fill="#181d1b" stroke="#e6ae58" stroke-width="1.5"/>
+<path d="M252 1406 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e6ae58" stroke-width="1.8"/>
+<rect x="249" y="1406" width="14" height="10" rx="2" fill="#e6ae58"/>
+<rect x="332" y="1328" width="120" height="160" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1" />
+<text x="344" y="1354" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Tutorial-Text</text>
+<rect x="332" y="1452" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="348" cy="1470" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<rect x="468" y="1328" width="120" height="160" rx="10" fill="#181d1b" stroke="#e6ae58" stroke-width="1" stroke-dasharray="5 4"/>
+<text x="480" y="1354" font-size="12.5" fill="#9ba49f" font-weight="700" text-anchor="start">Soundkulisse</text>
+<rect x="468" y="1452" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="484" cy="1470" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<line x1="468" y1="1410" x2="588" y2="1410" stroke="#e6ae58" stroke-width="5" stroke-dasharray="9 5" stroke-opacity="0.75"/>
+<circle cx="528" cy="1410" r="15" fill="#181d1b" stroke="#e6ae58" stroke-width="1.5"/>
+<path d="M524 1406 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke="#e6ae58" stroke-width="1.8"/>
+<rect x="521" y="1406" width="14" height="10" rx="2" fill="#e6ae58"/>
+<rect x="604" y="1328" width="120" height="160" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1" />
+<text x="616" y="1354" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Kamerafahrt</text>
+<rect x="604" y="1452" width="120" height="36" rx="0" fill="#000" fill-opacity="0.18"/>
+<circle cx="620" cy="1470" r="5" fill="none" stroke="#9ba49f" stroke-width="1.6"/>
+<text x="760" y="1380" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Gesperrte Karten tragen Kette und Schloss.</text>
+<text x="760" y="1400" font-size="12" fill="#9ba49f" font-weight="400" text-anchor="start">Ein Klick aufs Schloss zeigt, woran es hängt.</text>
+<text x="760" y="1432" font-size="12" fill="#e6ae58" font-weight="400" text-anchor="start">In den Decks: gelbes Schloss = wartet,</text>
+<text x="760" y="1452" font-size="12" fill="#e57a66" font-weight="400" text-anchor="start">rotes Schloss = wartet auf etwas, das später</text>
+<text x="760" y="1472" font-size="12" fill="#e57a66" font-weight="400" text-anchor="start">oder noch gar nicht eingeplant ist.</text>
+<rect x="0" y="860" width="1280" height="400" fill="#0b1210" fill-opacity="0.6"/>
+<line x1="256" y1="1328" x2="256" y2="1250" stroke="#63b69d" stroke-width="2"/>
+<rect x="120" y="878" width="1040" height="372" rx="14" fill="#141a18" stroke="#63b69d" stroke-opacity="0.7"/>
+<text x="142" y="910" font-size="16" fill="#e3e8e4" font-weight="700" text-anchor="start">Abhängigkeiten: Gegner-KI</text>
+<text x="1138" y="910" font-size="16" fill="#9ba49f" font-weight="400" text-anchor="end">✕</text>
+<text x="142" y="932" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="start">links, worauf die Karte wartet – rechts, was auf sie wartet. Über alle Stufen.</text>
+<path d="M330 1005 H368 V1055 H406" fill="none" stroke="#9ba49f" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#g)"/>
+<path d="M330 1105 H368 V1055 H406" fill="none" stroke="#9ba49f" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#g)"/>
+<path d="M580 1055 H618 V1105 H656" fill="none" stroke="#9ba49f" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#g)"/>
+<path d="M580 1175 H618 V1105 H656" fill="none" stroke="#9ba49f" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#g)"/>
+<path d="M830 1105 H868 V1055 H906" fill="none" stroke="#9ba49f" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#g)"/>
+<path d="M830 995 H868 V1055 H906" fill="none" stroke="#e57a66" stroke-width="1.6"  marker-end="url(#g)"/>
+<rect x="160" y="974" width="170" height="62" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="172" y="999" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Pfadfindung</text>
+<text x="172" y="1020" font-size="11" fill="#e6ae58" font-weight="400" text-anchor="start">Backlog</text>
+<rect x="160" y="1074" width="170" height="62" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="172" y="1099" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Lichtkonzept</text>
+<text x="172" y="1120" font-size="11" fill="#e6ae58" font-weight="400" text-anchor="start">Ready</text>
+<rect x="410" y="1024" width="170" height="62" rx="10" fill="#181d1b" stroke="#63b69d" stroke-width="2.5"/>
+<text x="422" y="1049" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Gegner-KI</text>
+<text x="422" y="1070" font-size="11" fill="#e6ae58" font-weight="400" text-anchor="start">Ready</text>
+<rect x="410" y="1144" width="170" height="62" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="422" y="1169" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Grundriss</text>
+<text x="422" y="1190" font-size="11" fill="#9ba49f" font-weight="400" text-anchor="start">◆ Level 2</text>
+<rect x="660" y="1074" width="170" height="62" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="672" y="1099" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Gegner platzieren</text>
+<text x="672" y="1120" font-size="11" fill="#9ba49f" font-weight="400" text-anchor="start">◆ Level 2</text>
+<rect x="910" y="1024" width="170" height="62" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="922" y="1049" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Bossraum</text>
+<text x="922" y="1070" font-size="11" fill="#9ba49f" font-weight="400" text-anchor="start">◆ Level 2</text>
+<rect x="660" y="964" width="170" height="62" rx="10" fill="#181d1b" stroke="#3c4643" stroke-width="1"/>
+<text x="672" y="989" font-size="12.5" fill="#e3e8e4" font-weight="700" text-anchor="start">Speicherstände</text>
+<text x="672" y="1010" font-size="11" fill="#e57a66" font-weight="400" text-anchor="start">◆ Menüs – später!</text>
+<text x="142" y="1232" font-size="11.5" fill="#9ba49f" font-weight="400" text-anchor="start">Jede Karte nennt, wo sie liegt. Ein Klick auf eine Karte im Graphen springt zu ihr; ziehen lässt sie sich von hier aus in ein Deck.</text>
+</svg>

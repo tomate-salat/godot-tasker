@@ -30,9 +30,12 @@ const Memory := preload("../core/memory.gd")
 const Sounds := preload("sounds.gd")
 const Shelf := preload("shelf.gd")
 const Burnup := preload("../rules/burnup.gd")
+const PlanView := preload("plan_view.gd")
 
 const HEADER := 60.0
 const MARGIN := 28.0
+## So breit ist der Umschalter „Spielen / Planen“ links oben.
+const MODES_WIDTH := 188.0
 ## Plätze im Spiel, die leer angezeigt werden – ein Richtwert, begrenzt wird nicht.
 const SLOTS := 7
 ## Ab so vielen Pixeln wird aus einem Klick ein Ziehen.
@@ -127,6 +130,11 @@ var _deck_area: Button
 var _browse_button: Button
 var _toast: Label
 var _toast_tween: Tween
+## „Planen“ liegt über dem Spieltisch; der Umschalter wechselt.
+var _plan: PlanView
+var _mode_play: Button
+var _mode_plan: Button
+var planning := false: set = set_planning
 
 
 func _init() -> void:
@@ -294,6 +302,56 @@ func _build() -> void:
 	_toast.modulate.a = 0.0
 	_layer.add_child(_toast)
 
+	# Die Planung deckt den Spieltisch ganz ab; nur der Umschalter bleibt darüber.
+	_plan = PlanView.new()
+	_plan.visible = false
+	_plan.task_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	add_child(_plan)
+
+	var modes := HBoxContainer.new()
+	modes.position = Vector2(MARGIN, 14)
+	modes.add_theme_constant_override("separation", 0)
+	add_child(modes)
+	_mode_play = _mode_button("Spielen", "Der laufende Milestone als Kartenspiel")
+	_mode_play.pressed.connect(func() -> void: planning = false)
+	modes.add_child(_mode_play)
+	_mode_plan = _mode_button("Planen", "Die Decks ansehen: was in welchem Milestone liegt und was im Vorrat")
+	_mode_plan.pressed.connect(func() -> void: planning = true)
+	modes.add_child(_mode_plan)
+	bar.offset_left = MARGIN + MODES_WIDTH
+	_show_mode()
+
+
+func _mode_button(text: String, tip: String) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.tooltip_text = tip
+	b.toggle_mode = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size.x = MODES_WIDTH / 2.0 - 8.0
+	return b
+
+
+## Wechselt zwischen Spielen und Planen.
+func set_planning(value: bool) -> void:
+	planning = value
+	if _plan == null:
+		return
+	_close_overlays()
+	_show_mode()
+	_sync()
+
+
+func _show_mode() -> void:
+	_plan.visible = planning
+	# Die Karten des Spieltischs liegen auf eigenen Ebenen und würden sonst durchscheinen.
+	_board.visible = not planning
+	_layer.visible = not planning
+	_mode_play.set_pressed_no_signal(not planning)
+	_mode_plan.set_pressed_no_signal(planning)
+
 
 # --------------------------------------------------------------- Maße
 
@@ -332,6 +390,10 @@ func _sync() -> void:
 	else:
 		_ws = store.ws
 		_project = store.project_id
+
+	if planning:
+		_plan.show_plan(_ws, _project, 8 if demo else store.velocity, images if not demo else null,
+			Burnup.day_of(Time.get_unix_time_from_system(), Time.get_time_zone_from_system()["bias"]))
 
 	_milestone = Tisch.active_milestone(_ws, _project)
 	if _milestone == null:
