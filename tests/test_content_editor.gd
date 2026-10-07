@@ -18,3 +18,14 @@ func test_die_erste_zeile_ist_der_titel() -> void:
 func test_hin_und_zurueck_aendert_nichts() -> void:
 	for pair in [["A", "b\n\nc"], ["A", ""], ["", "nur Text"], ["A", "  eingerückt"]]:
 		eq(ContentEditor.split(ContentEditor.join(pair[0], pair[1])), {"title": pair[0], "desc": pair[1]})
+
+
+func test_stellen_im_text_und_zeile_mit_spalte_sind_dasselbe() -> void:
+	var text := "ab\n\ncde\n"
+	eq(ContentEditor.offset_of(text, 0, 0), 0)
+	eq(ContentEditor.offset_of(text, 1, 0), 3)
+	eq(ContentEditor.offset_of(text, 2, 2), 6)
+	eq(ContentEditor.offset_of(text, 3, 0), 8)
+	for at in text.length() + 1:
+		var place := ContentEditor.place_of(text, at)
+		eq(ContentEditor.offset_of(text, place.x, place.y), at)

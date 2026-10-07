@@ -437,15 +437,15 @@ Stand 2026-10-07: Es beginnt mit der Beschreibung. Sie soll sich bedienen lassen
 - [x] Nachgesehen in Tasker (`client/ui/Inspector.tsx`, `Content`): Titel und Beschreibung sind ein Feld, die erste Zeile ist der Titel. Ein Klick in den Inhalt öffnet es – außer er trifft einen Verweis oder ein Kästchen oder es ist Text markiert. Die Schreibmarke steht am Ende. „Fertig“, Escape oder Strg+Enter übernehmen, „Abbrechen“ verwirft.
 - [x] Genauso im Aufgaben- und im Milestone-Fenster (`ui/content_editor.gd`). Damit ist auch der Titel bearbeitbar. Escape schließt beim Bearbeiten nicht das Fenster, sondern übernimmt; wer das Fenster schließt, übernimmt vorher ebenfalls.
 - [x] Konfliktfall, anders als in Tasker: Hat sich der Stand geändert, während getippt wurde (über den Änderungs-Strom oder als 409 beim Speichern), bleibt das Feld mit dem eigenen Text offen und sagt es. Erst ein zweites „Fertig“ überschreibt den neuen Stand. Auch bei einem Serverfehler bleibt der Text stehen.
-- Tab setzt vorerst noch ein Tabulatorzeichen; das wird in Schritt 3 zum Einrücken.
 
 #### Schritt 3: Listen
 
-- [ ] `rules/list_edit.gd` aus `shared/listEdit.ts`, mit den Tests von dort.
-- [ ] Enter setzt die Liste fort (auch nummeriert und mit leerem Kästchen); in einem leeren Punkt beendet es sie oder geht eine Ebene hinauf.
-- [ ] Umschalt+Enter bricht im Punkt um, eingerückt unter seinen Inhalt.
-- [ ] Tab und Umschalt+Tab rücken Listenpunkte ein und aus, auch mehrere markierte, mit passender Nummer.
-- [ ] Alt und Pfeil hoch/runter verschieben Zeilen.
+- [x] `rules/list_edit.gd` aus `shared/listEdit.ts`, mit den 22 Tests von dort.
+- [x] Enter setzt die Liste fort (auch nummeriert und mit leerem Kästchen); in einem leeren Punkt beendet es sie oder geht eine Ebene hinauf.
+- [x] Umschalt+Enter bricht im Punkt um, eingerückt unter seinen Inhalt; im Fließtext ist es ein gewöhnlicher Umbruch.
+- [x] Tab und Umschalt+Tab rücken Listenpunkte ein und aus, auch mehrere markierte, mit passender Nummer. Ein Tabulatorzeichen schreibt Tab nie: außerhalb von Listen geht es zum nächsten Bedienelement, wie im Browser.
+- [x] Alt und Pfeil hoch/runter verschieben Zeilen, eine Markierung als Block.
+- [x] Jede dieser Änderungen ist ein Schritt zum Rückgängigmachen.
 
 #### Schritt 4: Befehle und Verweise
 

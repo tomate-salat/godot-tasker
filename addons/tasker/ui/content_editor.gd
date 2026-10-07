@@ -15,6 +15,7 @@ signal closed
 
 const Store := preload("../core/store.gd")
 const Palette := preload("palette.gd")
+const ListEdit := preload("../rules/list_edit.gd")
 
 var store: Store
 ## "task" oder "milestone".
@@ -167,13 +168,100 @@ func _say(text: String) -> void:
 	_message.visible = text != ""
 
 
+## Die Tasten des Feldes: übernehmen, Listen weiterschreiben, Zeilen schieben
+## – wie Taskers `useSmartEditor`.
 func _on_key(event: InputEvent) -> void:
-	if not (event is InputEventKey and event.pressed and not event.echo):
+	if not (event is InputEventKey and event.pressed):
 		return
-	var enter: bool = event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER
-	if event.keycode == KEY_ESCAPE or (enter and event.is_command_or_control_pressed()):
+	var key: int = event.keycode
+	var enter := key == KEY_ENTER or key == KEY_KP_ENTER
+	var ctrl: bool = event.is_command_or_control_pressed()
+	if key == KEY_ESCAPE or (enter and ctrl):
 		_text.accept_event()
-		commit()
+		if not event.echo:
+			commit()
+		return
+
+	var sel := _selection()
+	var value := _text.text
+	# Alt und Pfeil hoch/runter verschieben die Zeile. Auch am Rand bleibt die
+	# Taste hier, sonst spränge die Schreibmarke doch noch weg.
+	if event.alt_pressed and not ctrl and (key == KEY_UP or key == KEY_DOWN):
+		_text.accept_event()
+		var moved = ListEdit.move_lines(value, sel[0], sel[1], 1 if key == KEY_DOWN else -1)
+		if moved != null:
+			_apply(moved)
+		return
+	if event.alt_pressed or ctrl:
+		return
+
+	if enter:
+		var edit = ListEdit.break_in_item(value, sel[0], sel[1]) if event.shift_pressed else ListEdit.enter_in_list(value, sel[0], sel[1])
+		# Umschalt+Enter ist sonst ein gewöhnlicher Umbruch – das Feld kennt ihn von sich aus nicht.
+		if edit == null and event.shift_pressed:
+			edit = {"from": sel[0], "to": sel[1], "text": "\n", "sel_start": sel[0] + 1, "sel_end": sel[0] + 1}
+		if edit != null:
+			_text.accept_event()
+			_apply(edit)
+	elif key == KEY_TAB or key == KEY_BACKTAB:
+		# Tab schreibt nie ein Tabulatorzeichen: im Listenpunkt rückt es ein und
+		# aus, sonst geht es zum nächsten Bedienelement wie im Browser.
+		_text.accept_event()
+		var back: bool = event.shift_pressed or key == KEY_BACKTAB
+		var edit = ListEdit.tab_in_list(value, sel[0], sel[1], -1 if back else 1)
+		if edit != null:
+			_apply(edit)
+		elif not ListEdit.in_item(value, sel[0]):
+			var next := _text.find_prev_valid_focus() if back else _text.find_next_valid_focus()
+			if next != null:
+				next.grab_focus()
+
+
+## Die Auswahl als Stellen im Text: `[anfang, ende]`, ohne Auswahl beide die Schreibmarke.
+func _selection() -> Array:
+	var value := _text.text
+	if _text.has_selection():
+		return [offset_of(value, _text.get_selection_from_line(), _text.get_selection_from_column()),
+			offset_of(value, _text.get_selection_to_line(), _text.get_selection_to_column())]
+	var at := offset_of(value, _text.get_caret_line(), _text.get_caret_column())
+	return [at, at]
+
+
+## Wendet eine Änderung aus `rules/list_edit.gd` an – als einen Schritt zum Rückgängigmachen.
+func _apply(edit: Dictionary) -> void:
+	var value := _text.text
+	var from := place_of(value, edit["from"])
+	var to := place_of(value, edit["to"])
+	_text.begin_complex_operation()
+	_text.deselect()
+	if edit["to"] > edit["from"]:
+		_text.remove_text(from.x, from.y, to.x, to.y)
+	if edit["text"] != "":
+		_text.insert_text(edit["text"], from.x, from.y)
+	_text.end_complex_operation()
+	var next := _text.text
+	var a := place_of(next, edit["sel_start"])
+	var b := place_of(next, edit["sel_end"])
+	if a == b:
+		_text.set_caret_line(a.x)
+		_text.set_caret_column(a.y)
+	else:
+		_text.select(a.x, a.y, b.x, b.y)
+	_text.adjust_viewport_to_caret()
+
+
+## Zeile und Spalte als Stelle im Text.
+static func offset_of(text: String, line: int, column: int) -> int:
+	var at := 0
+	for i in line:
+		at = text.find("\n", at) + 1
+	return at + column
+
+
+## Eine Stelle im Text als (Zeile, Spalte).
+static func place_of(text: String, offset: int) -> Vector2i:
+	var before := text.substr(0, offset)
+	return Vector2i(before.count("\n"), offset - (before.rfind("\n") + 1))
 
 
 static func _title_of(item: Dictionary) -> String:
