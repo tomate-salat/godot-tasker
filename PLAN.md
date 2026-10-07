@@ -169,12 +169,21 @@ Gebaut am 2026-10-06. Geprüft sind die Suche (Test), das fehlerfreie Laden der 
 
 ### Schritt 3: Tisch
 
-- [ ] Fenster mit den fünf Zonen
-- [ ] Ziehen zwischen den Zonen, Umsortieren auf dem Tisch
-- [ ] Nachziehstapel: ziehen, zurücklegen, ansehen, tauschen
-- [ ] Stapel auffächern
-- [ ] Erledigt-Stapel und abgelehnte Züge
-- [ ] Grundlegende Bewegung
+Gebaut am 2026-10-07. Geprüft sind die Regeln für Hand und Nachziehstapel (Tests) und der Tisch mit Beispieldaten: Ziehen, Auffächern, Ausspielen, Ablegen, ein abgelehnter Zug und der aufgedeckte Stapel, jeweils über die Zug-Funktionen und per Bildprobe. Nicht geprüft: das Ziehen mit der Maus selbst und alles gegen den echten Server.
+
+- [x] Fenster mit den fünf Zonen und der Schublade für aufgefächerte Stapel (`ui/table_window.gd`)
+- [x] Ziehen zwischen den Zonen setzt den Status, Umsortieren auf dem Tisch setzt `playOrder`, Umsortieren in der Hand ist lokal
+- [x] Nachziehstapel: Klick zieht per gewichtetem Zufall (`rules/hand.gd`), Handkarte auf den Stapel legt sie darunter, „Ansehen“ deckt ihn auf zum gezielten Ziehen und Tauschen. Die Handgröße kommt aus den Editor-Einstellungen (`tasker/hand_size`).
+- [x] Stapel auffächern: Klick auf einen Stapel in der Hand öffnet die Schublade, Unteraufgaben werden von dort ausgespielt
+- [x] Erledigt-Stapel und abgelehnte Züge mit Hinweis; die oberste Karte des Stapels lässt sich zurückholen
+- [x] Grundlegende Bewegung: Gleiten, Anheben in der Hand, Kippen beim Ziehen
+- [x] Lokaler Zustand je Milestone in den Projekt-Metadaten (`core/memory.gd`); das Dock zeigt Hand und Nachziehstapel daraus
+- [x] Doppelklick auf eine Karte öffnet ihr Aufgabenfenster
+- [x] Milestone-Fenster (`ui/milestone_window.gd`, 2026-10-07): Ein Klick auf den Milestone-Titel in Dock oder Tisch öffnet es. Status, Fortschritt in Segmenten, Zeitraum, Beschreibung mit Zeichnungen, Burnup-Diagramm (`rules/burnup.gd`, `ui/burnup_chart.gd`, aus `milestoneLog` im Stand) und die Aufgaben. Alles Anzeige, der Status wird hier bewusst nicht geändert. Geprüft per Test und Bildprobe mit Beispieldaten, nicht gegen den Server.
+- [x] Bildfenster (`ui/image_window.gd`, 2026-10-07): Ein Klick auf ein Bild oder eine Zeichnung in einer Beschreibung zeigt es groß, mit Zoom per Mausrad und Verschieben per Ziehen. Es nutzt das schon geladene Bild (Zeichnungen mit 1600 Pixeln Kantenlänge); größer nachladen ginge über den Parameter `kante` der Route bis 4000. Lädt fehlerfrei, im Editor noch nicht ausprobiert.
+- [x] Im Editor ausprobiert (Nutzer, 2026-10-07). Die Animationen gefallen noch nicht, siehe „Zum Schluss“.
+
+Noch offen aus dem Entwurf: die Kette über den gesperrten Karten (bisher nur das Schloss an der Karte) und das Austeilen beim Öffnen. Beides passt zu Schritt 4.
 
 ### Schritt 4: Gamification
 
@@ -185,6 +194,13 @@ Gebaut am 2026-10-06. Geprüft sind die Suche (Test), das fehlerfreie Laden der 
 ### Schritt 5: Änderungs-Strom
 
 - [ ] `/api/events` über `HTTPClient`, damit Änderungen aus der Web-App sofort ankommen
+
+### Zum Schluss: Feinschliff der Bewegung
+
+Bewusst ans Ende gestellt (Nutzer, 2026-10-07): Die Animationen am Tisch gefallen noch nicht. Überarbeitet werden sie erst, wenn das meiste steht, damit nichts poliert wird, was später doch verworfen wird.
+
+- [ ] Mit dem Nutzer durchgehen, was an Ziehen, Gleiten, Auffächern und Ablegen stört
+- [ ] Bewegung am Tisch überarbeiten
 
 ### Später
 

@@ -10,10 +10,13 @@ const Dock := preload("ui/dock.gd")
 const SearchPopup := preload("ui/search_popup.gd")
 const SetupDialog := preload("ui/setup_dialog.gd")
 const TableWindow := preload("ui/table_window.gd")
+const Memory := preload("core/memory.gd")
 const TaskWindow := preload("ui/task_window.gd")
+const MilestoneWindow := preload("ui/milestone_window.gd")
+const ImageWindow := preload("ui/image_window.gd")
 
 const MENU_SETUP := "Tasker einrichten …"
-const MENU_TABLE := "Tasker-Tisch (Prototyp)"
+const MENU_TABLE := "Tasker-Tisch"
 
 const SHORTCUT_SEARCH := "tasker/search"
 const COMMANDS := {
@@ -28,6 +31,7 @@ const RELOAD_EVERY_MSEC := 15_000
 var client: Client
 var images: Images
 var store: Store
+var memory: Memory
 
 var _dock: EditorDock
 var _panel: Dock
@@ -54,6 +58,9 @@ func _enter_tree() -> void:
 	store.client = client
 	add_child(store)
 
+	memory = Memory.new()
+	memory.persistent = true
+
 	_panel = Dock.new()
 	_dock = EditorDock.new()
 	_dock.title = "Tasker"
@@ -65,7 +72,7 @@ func _enter_tree() -> void:
 	_panel.table_requested.connect(_open_table)
 	_panel.task_requested.connect(_open_task)
 	add_dock(_dock)
-	_panel.connect_store(store, images)
+	_panel.connect_store(store, images, memory)
 
 	add_tool_menu_item(MENU_SETUP, _open_setup)
 	add_tool_menu_item(MENU_TABLE, _open_table)
@@ -148,9 +155,17 @@ func _open_table() -> void:
 		_table = TableWindow.new()
 		_table.store = store
 		_table.images = images
+		_table.memory = memory
 		_table.visible = false
+		_table.task_requested.connect(_open_task)
 		EditorInterface.get_base_control().add_child(_table)
-	_table.popup_centered()
+	_table.hand_size = Config.hand_size()
+	if _table.visible:
+		if _table.mode == Window.MODE_MINIMIZED:
+			_table.mode = Window.MODE_WINDOWED
+		_table.grab_focus()
+	else:
+		_table.popup_centered()
 
 
 func _open_search() -> void:
@@ -162,7 +177,7 @@ func _open_search() -> void:
 	_search.open()
 
 
-## Öffnet die Aufgabe in ihrem Fenster. Ist es schon offen, kommt es nach vorn.
+## Öffnet die Aufgabe oder den Milestone im eigenen Fenster. Ist es schon offen, kommt es nach vorn.
 func _open_task(task_id: String) -> void:
 	_panel.select(task_id)
 	var open = _task_windows.get(task_id)
@@ -172,12 +187,14 @@ func _open_task(task_id: String) -> void:
 		open.grab_focus()
 		return
 
-	var window := TaskWindow.new()
-	window.store = store
-	window.images = images
-	window.task_id = task_id
+	# Milestones haben ihr eigenes Fenster; geöffnet und gemerkt werden beide gleich.
+	var window: Window = MilestoneWindow.new() if store.ws.milestone(task_id) != null else TaskWindow.new()
+	window.set("store", store)
+	window.set("images", images)
+	window.set("task_id", task_id)
 	window.visible = false
-	window.task_requested.connect(_open_task)
+	window.connect("task_requested", _open_task)
+	window.connect("image_requested", _open_image)
 	window.tree_exited.connect(func() -> void:
 		if _task_windows.get(task_id) == window:
 			_task_windows.erase(task_id))
@@ -187,3 +204,27 @@ func _open_task(task_id: String) -> void:
 	# Neue Fenster leicht versetzt, damit sie sich nicht genau verdecken.
 	var shift := (_task_windows.size() - 1) % 8 * 28
 	window.position += Vector2i(shift, shift)
+
+
+## Zeigt ein Bild oder eine Zeichnung groß. Je Bild ein Fenster, wie bei den Aufgaben.
+func _open_image(key: String, title: String) -> void:
+	var texture := images.peek_key(key)
+	if texture == null:
+		return
+	var id := "bild:" + key
+	var open = _task_windows.get(id)
+	if is_instance_valid(open):
+		if open.mode == Window.MODE_MINIMIZED:
+			open.mode = Window.MODE_WINDOWED
+		open.grab_focus()
+		return
+	var window := ImageWindow.new()
+	window.texture = texture
+	window.title = title
+	window.visible = false
+	window.tree_exited.connect(func() -> void:
+		if _task_windows.get(id) == window:
+			_task_windows.erase(id))
+	_task_windows[id] = window
+	EditorInterface.get_base_control().add_child(window)
+	window.popup_centered()

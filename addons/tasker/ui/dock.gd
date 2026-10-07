@@ -3,8 +3,8 @@ extends MarginContainer
 ## Der Inhalt des Docks: der laufende Milestone als Karten und die Suche.
 ## Ein Doppelklick auf eine Karte öffnet die Aufgabe in ihrem eigenen Fenster.
 ##
-## Die Abschnitte folgen den Zonen des Tischs. Bis der Tisch Hand und
-## Nachziehstapel bekommt, zeigt „Offen“ alle offenen Karten.
+## Die Abschnitte folgen den Zonen des Tischs: Gespieltes, die Hand, der
+## Nachziehstapel und Gesperrtes. Gezogen und zurückgelegt wird am Tisch.
 
 signal setup_requested
 signal table_requested
@@ -24,15 +24,17 @@ const Model := preload("../rules/model.gd")
 const MENU_OPEN := 100
 const MENU_BROWSER := 101
 
-const SECTIONS := [["play", "Im Spiel"], ["open", "Offen"], ["locked", "Gesperrt"]]
+const Hand := preload("../rules/hand.gd")
+const Memory := preload("../core/memory.gd")
 
 var store: Store
 var images: Images
+var memory: Memory
 ## Die zuletzt angeklickte Karte – sie bleibt hervorgehoben.
 var selected_id := ""
 
 ## Welche Abschnitte zugeklappt sind.
-var _collapsed := {"locked": true}
+var _collapsed := {"locked": true, "deck": true}
 var _cards: Array = []
 
 var _query: LineEdit
@@ -50,11 +52,14 @@ func _init() -> void:
 	_build()
 
 
-func connect_store(new_store: Store, new_images: Images) -> void:
+func connect_store(new_store: Store, new_images: Images, new_memory: Memory = null) -> void:
 	store = new_store
 	images = new_images
 	store.changed.connect(_refresh)
 	store.state_changed.connect(_refresh)
+	memory = new_memory
+	if memory != null:
+		memory.changed.connect(_refresh)
 	_refresh()
 
 
@@ -180,11 +185,15 @@ func _fill_sections() -> void:
 		return
 
 	var stats := Progress.milestone_stats(ws, m)
-	var head := Label.new()
+	# Der Milestone selbst: ein Klick öffnet sein Fenster.
+	var head := Button.new()
+	head.flat = true
+	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	head.text = "◆ %s" % m["title"]
+	head.tooltip_text = "Milestone öffnen"
 	head.add_theme_font_override("font", Palette.title_font())
 	head.clip_text = true
-	head.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	head.pressed.connect(func() -> void: task_requested.emit(m["id"]))
 	_sections.add_child(head)
 
 	var line := HBoxContainer.new()
@@ -202,10 +211,19 @@ func _fill_sections() -> void:
 	line.add_child(count)
 
 	var layout := Tisch.layout(ws, m)
+	# Hand und Nachziehstapel sind lokaler Zustand des Tischs – hier nur gelesen.
+	var state := Hand.sanitize(memory.read(Hand.key(m["id"]), null) if memory != null else null, layout["open"], ws)
+	var hand: Array = state["hand"].map(func(id: String) -> Dictionary: return ws.task(id))
+	var sections := [
+		["play", "Im Spiel", layout["play"]],
+		["hand", "Hand", hand],
+		["deck", "Nachziehstapel", Hand.deck_of(layout["open"], state["hand"])],
+		["locked", "Gesperrt", layout["locked"]],
+	]
 	var any := false
-	for section in SECTIONS:
+	for section in sections:
 		var key: String = section[0]
-		var tasks: Array = layout[key]
+		var tasks: Array = section[2]
 		if tasks.is_empty():
 			continue
 		any = true

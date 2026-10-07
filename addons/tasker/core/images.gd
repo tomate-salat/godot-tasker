@@ -16,6 +16,8 @@ var cache_dir := ""
 
 var _textures := {}
 var _pending := {}
+## Mit welchem Status der Server zuletzt auf einen Schlüssel geantwortet hat.
+var _status := {}
 
 
 ## Längere Kante einer gerenderten Zeichnung in Pixeln.
@@ -51,6 +53,11 @@ static func drawing_key(meta: Dictionary) -> String:
 
 
 ## Das Bild unter diesem Schlüssel, falls es schon geladen ist – ohne zu warten.
+## Der Status der letzten Antwort des Servers zu diesem Schlüssel, 0 ohne Anfrage.
+func status_of(key: String) -> int:
+	return _status.get(key, 0)
+
+
 func peek_key(key: String) -> Texture2D:
 	return _textures.get(key)
 
@@ -68,7 +75,10 @@ func _load(key: String, path: String) -> Texture2D:
 	var bytes := _read(key)
 	if bytes.is_empty() and client != null:
 		var res := await client.request(HTTPClient.METHOD_GET, path)
-		# 204 heißt bei Zeichnungen: es gibt sie, sie ist aber leer.
+		_status[key] = res["status"]
+		# 204 heißt bei Zeichnungen: sie ist leer, oder Tasker hat noch kein Bild
+		# von ihr. Das wird nicht auf der Platte gemerkt – mit der nächsten
+		# Version der Zeichnung lohnt ein neuer Versuch.
 		if res["ok"] and res["body"].size() > 0:
 			bytes = res["body"]
 			_write(key, bytes)

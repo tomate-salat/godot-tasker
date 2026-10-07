@@ -6,14 +6,17 @@ extends Window
 ## Je Aufgabe gibt es höchstens ein Fenster – wer es öffnet, steht in
 ## `plugin.gd`. Titel und Beschreibung sind vorerst nur Anzeige.
 
-## Eine andere Aufgabe soll geöffnet werden: ein Verweis oder eine Unteraufgabe.
+## Eine andere Aufgabe oder ein Milestone soll geöffnet werden: ein Verweis
+## oder eine Unteraufgabe.
 signal task_requested(task_id: String)
+## Ein Bild aus der Beschreibung soll groß gezeigt werden.
+signal image_requested(key: String, title: String)
 
 const Store := preload("../core/store.gd")
 const Images := preload("../core/images.gd")
 const Palette := preload("palette.gd")
 const Results := preload("results.gd")
-const Markdown := preload("markdown.gd")
+const Description := preload("description.gd")
 const Model := preload("../rules/model.gd")
 const Tisch := preload("../rules/tisch.gd")
 const Progress := preload("../rules/progress.gd")
@@ -21,9 +24,6 @@ const Progress := preload("../rules/progress.gd")
 var store: Store
 var images: Images
 var task_id := ""
-
-## Bilder, die sich nicht laden ließen – damit nicht endlos neu versucht wird.
-var _missing_images := {}
 
 var _crumb: Label
 var _ref: Label
@@ -33,7 +33,7 @@ var _status: OptionButton
 var _prio: OptionButton
 var _prio_label: Label
 var _message: Label
-var _desc: RichTextLabel
+var _desc: Description
 var _kids: VBoxContainer
 
 
@@ -46,6 +46,8 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	_desc.store = store
+	_desc.images = images
 	if store != null:
 		store.changed.connect(refresh)
 	refresh()
@@ -70,7 +72,7 @@ func refresh() -> void:
 	for c in [_status, _prio, _prio_label]:
 		c.visible = not ws.is_doc(t)
 	_message.visible = _message.text != ""
-	_render_desc(t)
+	_desc.show_text(t.get("desc"), "taskId", task_id)
 
 	for c in _kids.get_children():
 		c.queue_free()
@@ -158,109 +160,17 @@ func _build() -> void:
 
 	box.add_child(HSeparator.new())
 
-	_desc = RichTextLabel.new()
-	_desc.bbcode_enabled = true
-	_desc.selection_enabled = true
+	_desc = Description.new()
 	_desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_desc.custom_minimum_size.y = 80
-	_desc.meta_clicked.connect(_on_link)
+	_desc.target_requested.connect(func(id: String) -> void: task_requested.emit(id))
+	_desc.image_requested.connect(func(key: String, name: String) -> void: image_requested.emit(key, name))
 	box.add_child(_desc)
 
 	_kids = VBoxContainer.new()
 	_kids.add_theme_constant_override("separation", 0)
 	box.add_child(_kids)
 
-
-# ------------------------------------------------------- Beschreibung
-
-## Die Beschreibung als gerendertes Markdown, mit den Bildern aus der Galerie.
-func _render_desc(t: Dictionary) -> void:
-	_desc.clear()
-	var faint := Palette.FAINT.to_html(false)
-	var bbcode := Markdown.to_bbcode(t.get("desc"), _ref_title)
-	if bbcode.strip_edges() == "":
-		_desc.append_text("[color=#%s]Keine Beschreibung[/color]" % faint)
-		return
-	var parts := bbcode.split(Markdown.IMAGE)
-	for i in parts.size():
-		if i % 2 == 0:
-			_desc.append_text(parts[i])
-			continue
-		# Eine Marke des Übersetzers: ein Bild der Galerie oder eine Zeichnung.
-		var mark: String = parts[i]
-		var what := "Bild"
-		var key := ""
-		var drawing = null
-		if mark.begins_with(Markdown.DRAWING):
-			var name := mark.trim_prefix(Markdown.DRAWING)
-			what = "Zeichnung „%s“" % name.replace("[", "[lb]")
-			drawing = _drawing(t, name)
-			if drawing == null:
-				_desc.append_text("[color=#%s]▣ %s gibt es nicht (mehr)[/color]" % [faint, what])
-				continue
-			key = Images.drawing_key(drawing)
-		else:
-			key = Images.image_key(mark, false)
-
-		var texture: Texture2D = images.peek_key(key) if images != null else null
-		if texture != null:
-			_desc.add_image(texture, mini(texture.get_width(), maxi(size.x - 60, 64)))
-		elif images == null or _missing_images.has(key):
-			_desc.append_text("[color=#%s]▣ %s ist leer oder nicht verfügbar[/color]" % [faint, what])
-		else:
-			_desc.append_text("[color=#%s]▣ %s wird geladen …[/color]" % [faint, what])
-			_load_image(key, mark, drawing)
-
-
-## Die Zeichnung dieses Namens an der Aufgabe – aus `drawings` im Stand.
-func _drawing(t: Dictionary, name: String) -> Variant:
-	for d in store.data.get("drawings", []):
-		if d.get("taskId") == t["id"] and d.get("name") == name:
-			return d
-	return null
-
-
-func _load_image(key: String, id: String, drawing: Variant) -> void:
-	var texture: Texture2D
-	if drawing != null:
-		texture = await images.get_drawing(drawing)
-	else:
-		texture = await images.get_texture(id, false)
-	if not is_instance_valid(self):
-		return
-	if texture == null:
-		_missing_images[key] = true
-	refresh()
-
-
-## Der Titel zu einem Verweis wie `$142` – leer, wenn es das Ziel nicht gibt.
-func _ref_title(number: int) -> String:
-	var target = _by_ref(number)
-	if target == null:
-		return ""
-	return target["title"] if target.get("title") else "Ohne Titel"
-
-
-func _by_ref(number: int) -> Variant:
-	for list in [store.ws.tasks, store.ws.milestones]:
-		for x in list:
-			if int(x.get("ref", 0)) == number:
-				return x
-	return null
-
-
-## Ein Verweis öffnet die Aufgabe in ihrem Fenster, alles andere den Browser.
-func _on_link(meta: Variant) -> void:
-	var link := str(meta)
-	if link.begins_with(Markdown.REF_SCHEME):
-		var target = _by_ref(int(link.trim_prefix(Markdown.REF_SCHEME)))
-		if target != null and not Model.is_milestone(target):
-			task_requested.emit(target["id"])
-	elif link.begins_with("http://") or link.begins_with("https://"):
-		OS.shell_open(link)
-
-
-# ------------------------------------------------------------- Ändern
 
 ## Schickt eine Änderung und sagt, wenn sie nicht greift.
 func _change(changes: Dictionary) -> void:
