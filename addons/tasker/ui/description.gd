@@ -38,6 +38,8 @@ var _titles := {}
 ## Ein umgeschaltetes Kästchen ist unterwegs; `_unsaved`: seither kam noch eins dazu.
 var _saving := false
 var _unsaved := false
+## Ein Neuzeichnen ist schon für den nächsten Leerlauf bestellt.
+var _render_queued := false
 ## Wo die Maustaste herunterging, und in welchem Bild zuletzt ein Verweis,
 ## ein Bild oder ein Kästchen angeklickt wurde.
 var _press_at := Vector2.INF
@@ -140,7 +142,9 @@ func _load(key: String, id: String, drawing: Variant) -> void:
 		return
 	if texture == null:
 		_missing[key] = true
-	_render()
+	# Nie mitten im Zeichnen: kommt das Bild ohne Warten (etwa von der Platte),
+	# liefe sonst ein zweites Zeichnen im ersten, und der Rest stünde doppelt da.
+	_render_soon()
 
 
 ## Warum statt eines Bildes nur sein Name dasteht.
@@ -288,3 +292,16 @@ func _maybe_edit() -> void:
 	if _link_frame == Engine.get_process_frames() or get_selected_text() != "" or not _can_tick():
 		return
 	edit_requested.emit()
+
+
+## Zeichnet beim nächsten Leerlauf neu – mehrere Wünsche im selben Bild nur einmal.
+func _render_soon() -> void:
+	if _render_queued:
+		return
+	_render_queued = true
+	(func() -> void:
+		_render_queued = false
+		var scroll := get_v_scroll_bar().value
+		_render()
+		if scroll > 0.0:
+			get_v_scroll_bar().set_deferred("value", scroll)).call_deferred()
