@@ -51,6 +51,8 @@ const TILT_STILL_MS := 60
 const FLY_SECONDS := 0.16
 ## So lange braucht eine Karte zurück, wenn Tasker den Zug ablehnt.
 const BACK_SECONDS := 0.36
+## So lange wartet ein Klick auf einen Stapel, ob ein zweiter folgt.
+const CLICK_WAIT := 0.3
 
 ## Der Datenbestand, über den Karten verschoben werden – fehlt er oder steht
 ## keine Verbindung, wird nur angesehen.
@@ -76,6 +78,8 @@ var _graph: DepGraphView
 ## Der Stapel, der gerade aus dem Ordner gezogen und aufgefächert ist.
 var _fan: FanView
 var _fan_source: Binder
+## Zählt die Klicks auf Stapel: nur der letzte darf noch auffächern.
+var _fan_ticket := 0
 var _menu: PopupMenu
 ## Die Karte, zu der das Menü offen ist.
 var _menu_task := ""
@@ -369,6 +373,7 @@ func _on_card(card: Control, event: InputEventMouseButton) -> void:
 		return
 	if event.double_click:
 		_pressed = null
+		_fan_ticket += 1
 		task_requested.emit(card.task_id)
 	else:
 		# Ob daraus ein Klick oder ein Ziehen wird, zeigt sich in `_input`.
@@ -377,6 +382,17 @@ func _on_card(card: Control, event: InputEventMouseButton) -> void:
 
 
 # ---------------------------------------------------------- Auffächern
+
+## Ein Klick auf einen Stapel fächert ihn auf – aber erst, wenn feststeht,
+## dass kein Doppelklick daraus wird: der öffnet die Aufgabe und lässt die
+## Karte im Fach.
+func _fan_soon(card: Control) -> void:
+	_fan_ticket += 1
+	var ticket := _fan_ticket
+	await get_tree().create_timer(CLICK_WAIT).timeout
+	if ticket == _fan_ticket and is_instance_valid(card) and card.is_inside_tree() and _flying == null and _pressed == null and not _fan.visible:
+		_open_fan(card)
+
 
 ## Zieht den Stapel dieser Karte aus dem Ordner und fächert ihn auf. Im Fach
 ## bleibt solange ihr blasses Abbild.
@@ -389,7 +405,8 @@ func _open_fan(card: Control) -> void:
 	_fan.open(_ws, _images, id, func() -> Variant:
 		var at = source.place_of(id)
 		return Rect2(at, Card.SIZE * small) if at != null else null)
-	# Ein Doppelklick fängt als Klick an: der zweite gilt dann noch dieser Karte.
+	# Ein langsamer Doppelklick kommt erst an, wenn der Fächer schon aufgeht: der
+	# zweite Klick gilt dann noch dieser Karte, und der Fächer geht wieder zu.
 	_fan.note_click(id)
 
 
@@ -467,7 +484,7 @@ func _input(event: InputEvent) -> void:
 		if _flying != null:
 			_drop()
 		elif card != null and not _ws.kids(card.task_id).is_empty():
-			_open_fan(card)
+			_fan_soon(card)
 
 
 ## Gezogen werden Karten der obersten Ebene; Unteraufgaben wandern mit ihrer Karte.

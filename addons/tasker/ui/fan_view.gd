@@ -46,6 +46,8 @@ const PATH_Z := 60
 ## So lange nach einem Klick zählt ein zweiter noch als Doppelklick auf
 ## dieselbe Karte – auch wenn sie inzwischen unter dem Zeiger weggeglitten ist.
 const DOUBLE_CLICK_MS := 400
+## So lange wartet ein Klick auf eine Karte, ob ein zweiter folgt.
+const CLICK_WAIT := 0.3
 
 var _ws: Workspace
 var _images: Node
@@ -65,6 +67,8 @@ var _closing := false
 var _opening := false
 var _last_click := ""
 var _last_click_at := 0
+## Zählt die Klicks auf Karten: nur der letzte bewegt noch etwas.
+var _click_ticket := 0
 
 
 func _init() -> void:
@@ -479,10 +483,17 @@ func _on_card(card: Control, event: InputEventMouseButton) -> void:
 	if event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	if event.double_click:
+		_click_ticket += 1
 		_open_clicked(id)
 		return
 	_last_click = id
 	_last_click_at = Time.get_ticks_msec()
+	# Erst wenn feststeht, dass kein Doppelklick folgt, bewegt sich etwas.
+	_click_ticket += 1
+	var ticket := _click_ticket
+	await get_tree().create_timer(CLICK_WAIT).timeout
+	if ticket != _click_ticket or _closing or not visible:
+		return
 	var at := _path.find(id)
 	if at == _path.size() - 1:
 		# Die Karte, deren Unteraufgaben aufgefächert sind: zurück.
@@ -505,6 +516,7 @@ func _on_dim(event: InputEvent) -> void:
 	if _last_click != "" and Time.get_ticks_msec() - _last_click_at < DOUBLE_CLICK_MS:
 		if event.double_click:
 			_open_clicked(_last_click)
+			close()
 		return
 	close()
 

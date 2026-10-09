@@ -278,6 +278,7 @@ Stand 2026-10-09. Zuerst reihten sich die Unteraufgaben einer aufgefächerten Ka
 - [x] Beliebig tief: ein Klick auf einen Stapel im Fächer rückt ihn nach oben neben seine Eltern-Karte, und seine Unteraufgaben fächern sich auf. Oben liegt der Weg als Karten, darunter steht er als Text.
 - [x] Zurück: Escape oder ein Klick auf die Karte, deren Unteraufgaben aufgefächert sind, geht eine Ebene hinauf; ein Klick auf eine frühere Karte des Wegs springt dorthin. Ein Klick daneben schließt: alles sammelt sich ein, und die Karte gleitet zurück in ihr Fach.
 - [x] Doppelklick öffnet die Aufgabe, Rechtsklick zeigt das Menü mit den Abhängigkeiten. Gezogen wird im Fächer nicht – Unteraufgaben wandern mit ihrer Karte.
+- [x] Klick oder Doppelklick: ein Klick auf einen Stapel fächert erst auf, wenn nach 0,3 s kein zweiter folgt – ein Doppelklick öffnet nur die Aufgabe, die Karte bleibt im Fach. Dasselbe gilt für die Karten im Fächer. Kommt der zweite Klick später, geht der schon geöffnete Fächer wieder zu
 
 #### Nicht gebaut: Decks umsortieren
 
