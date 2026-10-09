@@ -19,6 +19,7 @@ signal task_requested(task_id: String)
 const Card := preload("card.gd")
 const Demo := preload("demo.gd")
 const Model := preload("../rules/model.gd")
+const Blocking := preload("../rules/blocking.gd")
 const Tisch := preload("../rules/tisch.gd")
 const Hand := preload("../rules/hand.gd")
 const Progress := preload("../rules/progress.gd")
@@ -90,6 +91,9 @@ var _press_at := Vector2.ZERO
 var _grab := Vector2.ZERO
 var _dragging := false
 var _hot := ""
+## Warum die gezogene Karte dort nicht abgelegt werden kann – leer, wenn sie es kann.
+var _hot_refusal := ""
+var _why: Label
 ## Der Nachziehstapel ist aufgedeckt.
 var _browse := false
 ## Die Stapelkarte, die gegen eine Handkarte getauscht werden soll.
@@ -114,6 +118,10 @@ var _shelf_closing := false
 var _shelf_tween: Tween
 ## Der Platz im Spiel, an dem die gezogene Karte landen würde – oder -1.
 var _gap := -1
+## Der Platz in der Hand, an dem die gezogene Karte landen würde – und der,
+## an dem sie beim Loslassen landet.
+var _hand_gap := -1
+var _hand_landing := -1
 ## Tempo des Zeigers beim Ziehen in Pixeln pro Sekunde, geglättet, und die
 ## Neigung der gezogenen Karte in Grad (x nach links/rechts, y nach oben/unten).
 var _velocity := Vector2.ZERO
@@ -313,6 +321,25 @@ func _build() -> void:
 	_toast.z_index = 600
 	_toast.modulate.a = 0.0
 	_layer.add_child(_toast)
+
+	# Sagt beim Ziehen, warum eine Karte an einer Stelle nicht abgelegt werden kann.
+	_why = Label.new()
+	_why.add_theme_color_override("font_color", Color.WHITE)
+	_why.add_theme_font_size_override("font_size", 14)
+	var why_back := StyleBoxFlat.new()
+	why_back.bg_color = Color(Palette.SURFACE.lerp(Palette.P1, 0.35), 0.96)
+	why_back.border_color = Palette.P1
+	why_back.set_border_width_all(1)
+	why_back.set_corner_radius_all(8)
+	why_back.content_margin_left = 12
+	why_back.content_margin_right = 12
+	why_back.content_margin_top = 5
+	why_back.content_margin_bottom = 6
+	_why.add_theme_stylebox_override("normal", why_back)
+	_why.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_why.z_index = 610
+	_why.visible = false
+	_layer.add_child(_why)
 
 	# Rechtsklick auf eine Karte: ihre Abhängigkeiten ansehen, wie in der Planung.
 	_card_menu = PopupMenu.new()
@@ -584,8 +611,10 @@ func _show_cards(wanted: Dictionary) -> void:
 		if card == null:
 			card = Card.new()
 			_layer.add_child(card)
-			# Neue Karten kommen vom Nachziehstapel.
-			card.position = g["deck"].position
+			# Neue Karten kommen vom Nachziehstapel – gesperrte von dort, wo die
+			# gesperrten liegen: sonst sieht es aus, als wären sie zu haben.
+			var held: bool = not Model.is_done(task) and Blocking.is_blocked(_ws, task)
+			card.position = g["locked"].position + Vector2(8.0, 0.0) if held else g["deck"].position
 			card.pressed.connect(_on_card_pressed)
 			card.mouse_entered.connect(_on_hover.bind(card, true))
 			card.mouse_exited.connect(_on_hover.bind(card, false))
@@ -642,12 +671,15 @@ func _place() -> void:
 
 	# Die Hand: unten aufgefächert, die Mitte am höchsten.
 	var hand := _ids_in("hand")
-	var hand_rect: Rect2 = g["hand"]
-	var step := minf(c.x * 0.86, (hand_rect.size.x - c.x) / maxf(hand.size() - 1, 1))
-	for i in hand.size():
-		var t := i - (hand.size() - 1) / 2.0
-		var spot := Vector2(hand_rect.get_center().x + t * step - c.x / 2.0, size.y - c.y - 44.0 + t * t * 3.0)
-		_rest_at(hand[i], spot, deg_to_rad(t * 3.0), 10 + i)
+	if _hand_gap >= 0 and _pressed != null:
+		# Die Hand rückt auseinander und lässt der gezogenen Karte ihren Platz.
+		var others := hand.filter(func(id: String) -> bool: return id != _pressed.task_id)
+		for i in others.size():
+			var slot: int = i if i < _hand_gap else i + 1
+			_rest_at(others[i], _hand_spot(g, slot, others.size() + 1), deg_to_rad((slot - others.size() / 2.0) * 3.0), 10 + slot)
+	else:
+		for i in hand.size():
+			_rest_at(hand[i], _hand_spot(g, i, hand.size()), deg_to_rad((i - (hand.size() - 1) / 2.0) * 3.0), 10 + i)
 
 	var play := _ids_in("play")
 	if _gap >= 0 and _pressed != null:
@@ -833,8 +865,10 @@ func _draw_board() -> void:
 	# Wohin die gezogene Karte gerade fallen würde.
 	if _hot != "" and g.has(_hot):
 		var glow := StyleBoxFlat.new()
-		glow.bg_color = Color(Palette.ACCENT, 0.08)
-		glow.border_color = Palette.ACCENT
+		# Rot, wo die Karte nicht hin darf.
+		var tone := Palette.P1 if _hot_refusal != "" else Palette.ACCENT
+		glow.bg_color = Color(tone, 0.08)
+		glow.border_color = tone
 		glow.set_border_width_all(2)
 		glow.set_corner_radius_all(12)
 		_board.draw_style_box(glow, g[_hot])
@@ -922,17 +956,31 @@ func _input(event: InputEvent) -> void:
 			var id: String = _pressed.task_id
 			if hot == "play" and (_zone.get(id) == "play" or Tisch.play_refusal(_ws, _ws.task(id)) == ""):
 				gap = _play_index(_pressed.position.x + Card.SIZE.x / 2.0, id)
-			if hot != _hot or gap != _gap:
+			# Über der Hand ebenso: eine Handkarte sortiert sich ein, eine aus dem Spiel kommt ans Ende.
+			var hand_gap := -1
+			if hot == "hand" and _zone.get(id) == "hand":
+				hand_gap = _hand_index(_pressed.position.x + Card.SIZE.x / 2.0, id)
+			elif hot == "hand" and _zone.get(id) == "play" and not _ws.task(id).get("parentId") and not _state["hand"].has(id):
+				hand_gap = _ids_in("hand").size()
+			var refusal := _drop_refusal(id, hot)
+			if hot != _hot or gap != _gap or hand_gap != _hand_gap or refusal != _hot_refusal:
 				_hot = hot
+				_hot_refusal = refusal
+				_show_why()
 				_gap = gap
+				_hand_gap = hand_gap
 				_place()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		var card := _pressed
 		var was_dragging := _dragging
 		var gap := _gap
+		_hand_landing = _hand_gap
+		_hand_gap = -1
 		_pressed = null
 		_dragging = false
 		_hot = ""
+		_hot_refusal = ""
+		_show_why()
 		_gap = -1
 		card.set_tilt(Vector2.ZERO)
 		_board.queue_redraw()
@@ -1052,6 +1100,27 @@ func _drop(id: String, at: Vector2, play_index := -1) -> void:
 	_sync()
 
 
+## Wo die Karte auf Platz `index` von `count` in der Hand liegt.
+func _hand_spot(g: Dictionary, index: int, count: int) -> Vector2:
+	var c: Vector2 = g["card"]
+	var hand_rect: Rect2 = g["hand"]
+	var step := minf(c.x * 0.86, (hand_rect.size.x - c.x) / maxf(count - 1, 1))
+	var t := index - (count - 1) / 2.0
+	return Vector2(hand_rect.get_center().x + t * step - c.x / 2.0, size.y - c.y - 44.0 + t * t * 3.0)
+
+
+## An welchen Platz in der Hand eine Karte käme, deren Mitte bei `x` liegt –
+## in der Hand, wie sie mit der Karte aussähe.
+func _hand_index(x: float, dragged: String) -> int:
+	var g := _geometry()
+	var others := _ids_in("hand").filter(func(id: String) -> bool: return id != dragged).size()
+	if others == 0:
+		return 0
+	var first := _hand_spot(g, 0, others + 1).x + Card.SIZE.x / 2.0
+	var step := _hand_spot(g, 1, others + 1).x - _hand_spot(g, 0, others + 1).x
+	return clampi(roundi((x - first) / maxf(step, 1.0)), 0, others)
+
+
 ## An welchen Platz im Spiel eine Karte käme, deren Mitte bei `x` liegt: der
 ## nächstgelegene Platz in der Reihe, wie sie mit der Karte aussähe.
 func _play_index(x: float, dragged: String) -> int:
@@ -1107,11 +1176,16 @@ func _move_in_hand(id: String, at: Vector2) -> void:
 	var hand: Array = _state["hand"]
 	hand.erase(id)
 	var index := hand.size()
-	for i in hand.size():
-		var rest = _rest.get(hand[i])
-		if rest != null and at.x < rest["position"].x + Card.SIZE.x / 2.0:
-			index = i
-			break
+	if _hand_landing >= 0:
+		# Dorthin, wo die Lücke war.
+		index = mini(_hand_landing, hand.size())
+	else:
+		for i in hand.size():
+			var rest = _rest.get(hand[i])
+			if rest != null and at.x < rest["position"].x + Card.SIZE.x / 2.0:
+				index = i
+				break
+	_hand_landing = -1
 	hand.insert(index, id)
 	_save_state()
 
@@ -1253,6 +1327,36 @@ func _change_demo(id: String, changes: Dictionary) -> void:
 
 
 ## Ein abgelehnter Zug: die Karte geht zurück, und der Tisch sagt, warum.
+## Warum `id` in der Zone `to` nicht abgelegt werden kann – dieselben Regeln,
+## nach denen `_drop` ablehnt. Leer, wenn der Zug ginge.
+func _drop_refusal(id: String, to: String) -> String:
+	var from: String = _zone.get(id, "")
+	var task = _ws.task(id)
+	if task == null or to == "" or to == from:
+		return ""
+	match to:
+		"play":
+			return Tisch.play_refusal(_ws, task)
+		"pile":
+			return Tisch.done_refusal(_ws, task)
+		"deck":
+			return "" if from == "hand" else "Nur Karten von der Hand gehen zurück unter den Stapel"
+	return ""
+
+
+## Zeigt den Grund am unteren Rand der Zone, über der die Karte schwebt.
+func _show_why() -> void:
+	var g := _geometry()
+	_why.visible = _hot_refusal != "" and g.has(_hot)
+	if not _why.visible:
+		return
+	_why.text = _hot_refusal
+	_why.reset_size()
+	var zone: Rect2 = g[_hot]
+	var at := Vector2(zone.get_center().x - _why.size.x / 2.0, zone.end.y - _why.size.y / 2.0)
+	_why.position = Vector2(clampf(at.x, 8.0, maxf(size.x - _why.size.x - 8.0, 8.0)), at.y).round()
+
+
 func _refuse(text: String) -> void:
 	_sounds.play("refuse")
 	_say(text)

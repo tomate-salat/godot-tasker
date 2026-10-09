@@ -123,7 +123,7 @@ Die Trennung von Hand und Nachziehstapel kennt Tasker nicht. Sie ist lokaler Zus
 
 - **Ziehen per gewichtetem Zufall:** Karten mit hoher Prio und weit vorn in der Plan-Reihenfolge kommen wahrscheinlicher.
 - **Handgröße:** einstellbar, Vorgabe sieben. Ist die Hand voll, muss erst gespielt oder zurückgelegt werden.
-- **Gesperrte Karten** werden nie gezogen. Wird die Voraussetzung erledigt, springt die Kette auf und die Karte kommt in den Nachziehstapel.
+- **Gesperrte Karten** werden nie gezogen. Wird die Voraussetzung erledigt, springt die Kette auf und die Karte kommt in den Nachziehstapel. Erscheint eine gesperrte Karte neu auf dem Tisch – etwa als Unteraufgabe eines aufgefächerten Stapels –, gleitet sie von den gesperrten Karten her ein, nicht vom Nachziehstapel: sonst sieht sie aus, als wäre sie zu haben. Beim Ziehen zeigt die Zone unter der Karte, ob sie dort hin darf: grün wie bisher, oder rot mit dem Grund am unteren Rand – dieselben Regeln, nach denen das Ablegen ablehnt. Auch die Hand rückt beim Ziehen auseinander und zeigt die Lücke, in der die Karte landet; eine Karte aus dem Spiel bekommt ihren Platz am Ende.
 - **Stapel:** Eine Aufgabe mit Unteraufgaben ist eine dicke Karte. Sie wird als Ganzes gezogen, kommt aber nie auf den Tisch. Gespielt werden ihre Unteraufgaben.
 - **Erledigt** ist eine Karte erst, wenn alles darunter erledigt ist (Unteraufgaben und Checkboxen der Beschreibung). Abgelehnte Züge federn zurück und sagen, warum.
 - **Aktiver Milestone:** der mit Status „In Progress“, je Projekt höchstens einer. Ohne aktiven Milestone ist der Tisch leer und bietet an, den nächsten geplanten zu starten.
