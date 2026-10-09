@@ -41,6 +41,13 @@ const MIN_SCALE := 0.4
 const REACH := Vector2(20000, 20000)
 ## Bis zu diesem Anteil der Stadt lässt sich der Bildrand schieben – dahinter läuft sie nur noch aus.
 const CITY_EDGE := 0.9
+## Die Ringe: wie deckend sie in Ruhe und an der Front sind, wie viel der
+## wandernde Schimmer dazugibt und wie schnell er umläuft (Bogenmaß je Sekunde).
+const RING_QUIET := 0.16
+const RING_FRONT := 0.34
+const RING_GLINT := 0.62
+const RING_TURN := 0.5
+const RING_POINTS := 144
 ## So hoch ist die Kopfzeile des Tischs; unter ihr verschwinden Karten und Figuren.
 const HEAD := 58.0
 ## Wie weit das Mausrad über die eingepasste Größe hinaus vergrößert und verkleinert.
@@ -648,12 +655,15 @@ func _tilt_held(delta: float) -> void:
 ## Die Marienkäfer stehen nicht still: sie tänzeln an ihrem Platz.
 func _process(delta: float) -> void:
 	_tilt_held(delta)
-	if not visible or _ladies.is_empty():
+	if not is_visible_in_tree():
 		return
 	_time += delta
+	# Über die Ringe wandert ein Schimmer, auch wenn niemand kämpft.
+	_back.queue_redraw()
+	if _ladies.is_empty():
+		return
 	# Die Striche der Angriffe wandern, und geschossen wird auch.
 	_fx.queue_redraw()
-	_back.queue_redraw()
 	for key in _ladies:
 		var bug: Bug = _ladies[key]
 		if bug.get_meta("busy", false):
@@ -737,14 +747,30 @@ func _draw_back() -> void:
 	for n in _field["nodes"]:
 		done[n["id"]] = Model.is_done(n["task"])
 
-	# Die Ringe selbst, blass: sie zeigen, wie weit eine Karte von der Mitte weg ist.
+	# Die Ringe sind die Stufen der Einnahme und tragen deren Farbe: grün, was
+	# eingenommen ist, rot, was dem Gegner gehört, und dazwischen die Front.
+	# Über jeden wandert langsam ein Schimmer; die Front atmet dazu.
+	var front_ring: int = _field["front"]
 	for k in _rings:
 		var reach: Vector2 = (RING + STEP * float(k)) * _grow
+		var at_front := k + 1 == front_ring
+		var tone := Palette.OK if k + 1 > front_ring else Palette.P2 if at_front else Palette.P1
+		var base := RING_FRONT + 0.14 * sin(_time * 1.8) if at_front else RING_QUIET
+		# Benachbarte Ringe laufen gegeneinander, jeder in seinem Tempo.
+		var turn := _time * RING_TURN * (1.0 if k % 2 == 0 else -1.0) / (1.0 + 0.35 * k) + k * 1.7
 		var loop := PackedVector2Array()
-		for i in 97:
-			var a := TAU * i / 96.0
+		var tones := PackedColorArray()
+		var glow := PackedColorArray()
+		for i in RING_POINTS + 1:
+			var a := TAU * i / float(RING_POINTS)
 			loop.append(Vector2(cos(a) * reach.x, sin(a) * reach.y))
-		_back.draw_polyline(loop, Color(1, 1, 1, 0.07), 1.5, false)
+			# Zwei Schimmer liegen sich gegenüber und laufen weich aus.
+			var glint := pow(maxf(cos(a - turn), 0.0), 6.0) + pow(maxf(cos(a - turn - PI), 0.0), 6.0)
+			tones.append(Color(tone.lightened(0.35 * glint), base + RING_GLINT * glint))
+			glow.append(Color(tone, 0.2 * glint))
+		# Unter dem Schimmer liegt ein breiter, weicher Schein.
+		_back.draw_polyline_colors(loop, glow, 7.0, false)
+		_back.draw_polyline_colors(loop, tones, 2.0 if at_front else 1.5, false)
 
 	# Die Wege nach innen: grün, wo die Karte erledigt ist, sonst blass.
 	for way in _field["ways"]:
