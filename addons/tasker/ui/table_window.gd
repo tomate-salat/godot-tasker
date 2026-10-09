@@ -406,6 +406,7 @@ func _build() -> void:
 	_mode_plan = _mode_button("Planen", "Die Decks ansehen: was in welchem Milestone liegt und was im Vorrat")
 	_mode_plan.pressed.connect(func() -> void: planning = true)
 	modes.add_child(_mode_plan)
+	_round_modes([_mode_field, _mode_play, _mode_plan])
 	bar.offset_left = MARGIN + MODES_WIDTH
 
 	# Was sonst die Titelleiste trägt, liegt oben rechts über allem.
@@ -435,7 +436,34 @@ func _mode_button(text: String, tip: String) -> Button:
 	b.toggle_mode = true
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size.x = MODES_WIDTH / 3.0 - 8.0
+	# Eigenes Aussehen statt des Editor-Themas: dunkel und flach, der gewählte
+	# Reiter fast schwarz. Die Ecken rundet `_round_modes`, wenn alle da sind.
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color("0b1411") if state.contains("pressed") else Color("22302b") if state == "hover" else Color("18231f")
+		box.content_margin_left = 14
+		box.content_margin_right = 14
+		box.content_margin_top = 5
+		box.content_margin_bottom = 6
+		b.add_theme_stylebox_override(state, box)
+	b.add_theme_color_override("font_color", Color(Palette.INK, 0.85))
+	b.add_theme_color_override("font_hover_color", Palette.INK)
+	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	b.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
 	return b
+
+
+## Rundet die äußeren Ecken der Reiter: zusammen sind sie ein Stück.
+func _round_modes(buttons: Array) -> void:
+	for i in buttons.size():
+		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+			var box: StyleBoxFlat = buttons[i].get_theme_stylebox(state)
+			if i == 0:
+				box.corner_radius_top_left = 7
+				box.corner_radius_bottom_left = 7
+			if i == buttons.size() - 1:
+				box.corner_radius_top_right = 7
+				box.corner_radius_bottom_right = 7
 
 
 ## Wechselt zwischen Spielen und Planen.

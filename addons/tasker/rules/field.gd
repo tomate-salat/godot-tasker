@@ -32,6 +32,8 @@ const Workspace := preload("workspace.gd")
 ## - `pests`: je Karte die Schädlinge darauf, siehe `pests_on`.
 ## - `fronts`: je Karte in Arbeit, wohin ihr Marienkäfer geht, siehe `fronts_of`.
 ## - `boss`: `{ total, done }` – der große Käfer.
+## - `front`: der äußerste Ring, auf dem noch eine Karte offen ist – bis dorthin
+##   ist das Feld von außen her eingenommen. 0, wenn alles erledigt ist.
 static func build(ws: Workspace, m: Dictionary) -> Dictionary:
 	var tasks := []
 	for r in ws.ms_roots(m):
@@ -89,7 +91,11 @@ static func build(ws: Workspace, m: Dictionary) -> Dictionary:
 			fronts[t["id"]] = fronts_of(t, pests)
 
 	var stats := Progress.milestone_stats(ws, m)
-	return {"nodes": nodes, "ways": ways, "pests": pests, "fronts": fronts, "boss": {"total": stats["total"], "done": stats["done"]}}
+	var front := 0
+	for n in nodes:
+		if not Model.is_done(n["task"]):
+			front = maxi(front, n["ring"])
+	return {"nodes": nodes, "ways": ways, "pests": pests, "fronts": fronts, "front": front, "boss": {"total": stats["total"], "done": stats["done"]}}
 
 
 ## An der Karte wird gearbeitet.

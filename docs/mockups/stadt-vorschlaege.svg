@@ -1,0 +1,146 @@
+<svg viewBox="0 0 980 760" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Vorschläge für das Feld als belagerte Stadt: Gebäude und Straßen</title>
+<desc>Oben drei Vorschläge, wie eine Karte zum Gebäude wird: als Plakat auf einem Dach, als Grundstück mit kleinen Häusern, als befestigter Block mit Ecktürmen – jeweils besetzt vom Gegner und eingenommen. Unten zwei Vorschläge für die Straßen: Ringstraßen mit Querstraßen, oder Stadtmauern je Ring mit Toren. In der Mitte jeweils die Zitadelle mit dem Panzer.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.th{font-size:15px;font-weight:600;fill:#E3E8E4}
+.ts{font-size:12px;fill:#B9C2BD}
+.tn{font-size:11px;fill:#8C9590}
+.card{fill:#181D1B;stroke:#3C4643;stroke-width:1}
+.ct{font-size:10px;font-weight:600;fill:#E3E8E4}
+.road{fill:none;stroke:#3A4744;stroke-linecap:round}
+.dash{fill:none;stroke:#C9B46A;stroke-width:1.2;stroke-dasharray:7 7}
+.wall{fill:none;stroke:#8A8072;stroke-width:6}
+.roof-foe{fill:#7C3A30;stroke:#3A1A15;stroke-width:1}
+.roof-own{fill:#3A5C9C;stroke:#1A2A4A;stroke-width:1}
+.roof-old{fill:#6B5A48;stroke:#2E261E;stroke-width:1}
+</style>
+<defs>
+<g id="flag-foe"><path d="M0 0 v-18" stroke="#E3E8E4" stroke-width="1.4"/><path d="M0 -18 l11 4 l-11 4 z" fill="#E0584B"/></g>
+<g id="flag-own"><path d="M0 0 v-18" stroke="#E3E8E4" stroke-width="1.4"/><path d="M0 -18 l11 4 l-11 4 z" fill="#7EA6E6"/></g>
+<!-- ein kleines Haus von oben: Dach mit First -->
+<g id="house-foe"><rect x="-11" y="-8" width="22" height="16" rx="2" class="roof-foe"/><path d="M-11 0 h22" stroke="#3A1A15" stroke-width="1"/><rect x="4" y="-6" width="4" height="4" fill="#3A1A15"/></g>
+<g id="house-own"><rect x="-11" y="-8" width="22" height="16" rx="2" class="roof-own"/><path d="M-11 0 h22" stroke="#1A2A4A" stroke-width="1"/><rect x="4" y="-6" width="4" height="4" fill="#1A2A4A"/></g>
+<g id="tank"><rect x="-13" y="-17" width="7" height="34" rx="2" fill="#1C1A18"/><rect x="6" y="-17" width="7" height="34" rx="2" fill="#1C1A18"/><rect x="-9" y="-15" width="18" height="30" rx="3" fill="#5A4A3A"/><path d="M0 -2 v-24" stroke="#2B2622" stroke-width="3.4"/><circle cx="0" cy="1" r="7.5" fill="#75604A" stroke="#2E261E"/></g>
+</defs>
+<rect width="980" height="760" fill="#1F3A31"/>
+<text class="th" x="24" y="32">Das Feld als belagerte Stadt – wie Gebäude und Straßen aussehen könnten</text>
+<text class="ts" x="24" y="52">Jede Karte ist ein Gebäude. Links jeweils vom Gegner besetzt, rechts eingenommen (Karte erledigt).</text>
+
+<!-- ============ Gebäude 1: Karte als Plakat auf dem Dach ============ -->
+<text class="th" x="24" y="92">G1 · Karte auf dem Dach</text>
+<text class="tn" x="24" y="108">Das Gebäude ist etwas größer als die Karte; ringsum</text>
+<text class="tn" x="24" y="122">sieht man das Dach. Die Fahne zeigt, wem es gehört.</text>
+<g transform="translate(80 220)">
+<rect x="-48" y="-64" width="96" height="128" rx="6" class="roof-foe"/>
+<path d="M-48 -64 l14 14 M48 -64 l-14 14 M-48 64 l14 -14 M48 64 l-14 -14" stroke="#3A1A15" stroke-width="1.2"/>
+<rect x="-34" y="-50" width="68" height="100" rx="5" class="card"/>
+<text class="ct" x="-28" y="-34">Board</text><text class="ct" x="-28" y="-22">Controller</text>
+<use href="#flag-foe" transform="translate(40 -56)"/>
+</g>
+<g transform="translate(210 220)">
+<rect x="-48" y="-64" width="96" height="128" rx="6" class="roof-own"/>
+<path d="M-48 -64 l14 14 M48 -64 l-14 14 M-48 64 l14 -14 M48 64 l-14 -14" stroke="#1A2A4A" stroke-width="1.2"/>
+<rect x="-34" y="-50" width="68" height="100" rx="5" class="card" opacity="0.75"/>
+<text class="ct" x="-28" y="-34" opacity="0.7">Quest</text><text class="ct" x="-28" y="-22" opacity="0.7">Model</text>
+<use href="#flag-own" transform="translate(40 -56)"/>
+</g>
+
+<!-- ============ Gebäude 2: Karte als Grundstück mit Häusern ============ -->
+<text class="th" x="350" y="92">G2 · Karte als Viertel</text>
+<text class="tn" x="350" y="108">Die Karte bleibt, wie sie ist. Um sie stehen kleine</text>
+<text class="tn" x="350" y="122">Häuser; ihre Dächer wechseln die Farbe.</text>
+<g transform="translate(410 220)">
+<rect x="-58" y="-70" width="116" height="140" rx="8" fill="#16302A" stroke="#2C4A42" stroke-width="1"/>
+<rect x="-34" y="-50" width="68" height="100" rx="5" class="card"/>
+<text class="ct" x="-28" y="-34">Board</text><text class="ct" x="-28" y="-22">Controller</text>
+<use href="#house-foe" transform="translate(-46 -52) rotate(90)"/>
+<use href="#house-foe" transform="translate(-46 -8) rotate(90)"/>
+<use href="#house-foe" transform="translate(-46 40) rotate(90)"/>
+<use href="#house-foe" transform="translate(46 -40) rotate(90)"/>
+<use href="#house-foe" transform="translate(46 20) rotate(90)"/>
+<use href="#house-foe" transform="translate(0 62)"/>
+</g>
+<g transform="translate(550 220)">
+<rect x="-58" y="-70" width="116" height="140" rx="8" fill="#16302A" stroke="#2C4A42" stroke-width="1"/>
+<rect x="-34" y="-50" width="68" height="100" rx="5" class="card" opacity="0.75"/>
+<text class="ct" x="-28" y="-34" opacity="0.7">Quest</text><text class="ct" x="-28" y="-22" opacity="0.7">Model</text>
+<use href="#house-own" transform="translate(-46 -52) rotate(90)"/>
+<use href="#house-own" transform="translate(-46 -8) rotate(90)"/>
+<use href="#house-own" transform="translate(-46 40) rotate(90)"/>
+<use href="#house-own" transform="translate(46 -40) rotate(90)"/>
+<use href="#house-own" transform="translate(46 20) rotate(90)"/>
+<use href="#house-own" transform="translate(0 62)"/>
+</g>
+
+<!-- ============ Gebäude 3: befestigter Block ============ -->
+<text class="th" x="690" y="92">G3 · Befestigter Block</text>
+<text class="tn" x="690" y="108">Mauer und Ecktürme um die Karte. Eingenommen ist</text>
+<text class="tn" x="690" y="122">die Mauer durchbrochen und trägt deine Fahne.</text>
+<g transform="translate(750 220)">
+<rect x="-46" y="-62" width="92" height="124" rx="3" fill="none" stroke="#8A8072" stroke-width="7"/>
+<rect x="-34" y="-50" width="68" height="100" rx="5" class="card"/>
+<text class="ct" x="-28" y="-34">Board</text><text class="ct" x="-28" y="-22">Controller</text>
+<g fill="#A49A8A" stroke="#4A443A"><circle cx="-46" cy="-62" r="9"/><circle cx="46" cy="-62" r="9"/><circle cx="-46" cy="62" r="9"/><circle cx="46" cy="62" r="9"/></g>
+<use href="#flag-foe" transform="translate(46 -62)"/>
+</g>
+<g transform="translate(890 220)">
+<path d="M-46 -62 h92 v40 M46 14 v48 h-92 v-124" fill="none" stroke="#8A8072" stroke-width="7"/>
+<path d="M50 -20 l-6 6 l8 5 l-7 6 l6 7 l-5 6" fill="none" stroke="#C9B46A" stroke-width="1.5"/>
+<rect x="-34" y="-50" width="68" height="100" rx="5" class="card" opacity="0.75"/>
+<text class="ct" x="-28" y="-34" opacity="0.7">Quest</text><text class="ct" x="-28" y="-22" opacity="0.7">Model</text>
+<g fill="#A49A8A" stroke="#4A443A"><circle cx="-46" cy="-62" r="9"/><circle cx="46" cy="-62" r="9"/><circle cx="-46" cy="62" r="9"/><circle cx="46" cy="62" r="9"/></g>
+<use href="#flag-own" transform="translate(46 -62)"/>
+</g>
+
+<!-- ============ Straßen 1: Ringstraßen ============ -->
+<text class="th" x="24" y="352">S1 · Ringstraßen und Querstraßen</text>
+<text class="tn" x="24" y="368">Jeder Ring ist eine Straße, die Wege zwischen den Karten sind Querstraßen. Eingenommene Strecken leuchten in deiner Farbe.</text>
+<g transform="translate(245 560)">
+<ellipse rx="210" ry="150" class="road" stroke-width="16"/>
+<ellipse rx="120" ry="86" class="road" stroke-width="16"/>
+<ellipse rx="210" ry="150" class="dash"/>
+<ellipse rx="120" ry="86" class="dash"/>
+<!-- Querstraßen -->
+<path d="M-120 0 H-46" class="road" stroke-width="12"/>
+<path d="M-210 0 H-120" class="road" stroke-width="12" stroke="#34558F"/>
+<path d="M120 0 H46" class="road" stroke-width="12"/>
+<path d="M0 86 V40" class="road" stroke-width="12"/>
+<path d="M150 -105 L86 -60" class="road" stroke-width="12" stroke="#34558F"/>
+<!-- Zitadelle -->
+<circle r="44" fill="#122520" stroke="#8A8072" stroke-width="5"/>
+<use href="#tank"/>
+<!-- Gebäude als kleine Blöcke -->
+<g transform="translate(-120 0)"><rect x="-20" y="-28" width="40" height="56" rx="4" class="roof-foe"/><rect x="-14" y="-22" width="28" height="44" rx="3" class="card"/></g>
+<g transform="translate(-210 0)"><rect x="-20" y="-28" width="40" height="56" rx="4" class="roof-own"/><rect x="-14" y="-22" width="28" height="44" rx="3" class="card" opacity="0.7"/></g>
+<g transform="translate(120 0)"><rect x="-20" y="-28" width="40" height="56" rx="4" class="roof-foe"/><rect x="-14" y="-22" width="28" height="44" rx="3" class="card"/></g>
+<g transform="translate(0 86)"><rect x="-20" y="-28" width="40" height="56" rx="4" class="roof-foe"/><rect x="-14" y="-22" width="28" height="44" rx="3" class="card"/></g>
+<g transform="translate(86 -60)"><rect x="-20" y="-28" width="40" height="56" rx="4" class="roof-foe"/><rect x="-14" y="-22" width="28" height="44" rx="3" class="card"/></g>
+<g transform="translate(150 -105)"><rect x="-20" y="-28" width="40" height="56" rx="4" class="roof-own"/><rect x="-14" y="-22" width="28" height="44" rx="3" class="card" opacity="0.7"/></g>
+</g>
+
+<!-- ============ Straßen 2: Stadtmauern ============ -->
+<text class="th" x="510" y="352">S2 · Stadtmauern mit Toren</text>
+<text class="tn" x="510" y="368">Jeder Ring ist eine Mauer. Wo ein Weg sie kreuzt, ist ein Tor – offen, sobald die Karte davor eingenommen ist.</text>
+<g transform="translate(735 560)">
+<ellipse rx="210" ry="150" class="wall" stroke-dasharray="0"/>
+<ellipse rx="120" ry="86" class="wall"/>
+<!-- Wege als helle Pflasterstraßen -->
+<path d="M-205 0 H-46" stroke="#5C5548" stroke-width="9" stroke-linecap="round"/>
+<path d="M120 0 H46" stroke="#5C5548" stroke-width="9" stroke-linecap="round"/>
+<path d="M0 86 V40" stroke="#5C5548" stroke-width="9" stroke-linecap="round"/>
+<path d="M150 -105 L86 -60" stroke="#5C5548" stroke-width="9" stroke-linecap="round"/>
+<!-- Tore: offen (Lücke, blau) und zu (rot) -->
+<g transform="translate(-165 0)"><rect x="-9" y="-13" width="18" height="26" fill="#1F3A31"/><rect x="-11" y="-16" width="6" height="32" fill="#A49A8A"/><rect x="5" y="-16" width="6" height="32" fill="#A49A8A"/><path d="M-5 0 h10" stroke="#7EA6E6" stroke-width="3"/></g>
+<g transform="translate(-84 0)"><rect x="-11" y="-16" width="6" height="32" fill="#A49A8A"/><rect x="5" y="-16" width="6" height="32" fill="#A49A8A"/><rect x="-5" y="-11" width="10" height="22" fill="#7C3A30" stroke="#3A1A15"/></g>
+<g transform="translate(118 -84) rotate(-35)"><rect x="-9" y="-13" width="18" height="26" fill="#1F3A31"/><rect x="-11" y="-16" width="6" height="32" fill="#A49A8A"/><rect x="5" y="-16" width="6" height="32" fill="#A49A8A"/><path d="M-5 0 h10" stroke="#7EA6E6" stroke-width="3"/></g>
+<circle r="44" fill="#122520" stroke="#8A8072" stroke-width="5"/>
+<use href="#tank"/>
+<g transform="translate(-126 0)"><rect x="-14" y="-22" width="28" height="44" rx="3" class="card"/></g>
+<g transform="translate(-236 0)"><rect x="-14" y="-22" width="28" height="44" rx="3" class="card" opacity="0.7"/><use href="#flag-own" transform="translate(12 -20)"/></g>
+<g transform="translate(120 0)"><rect x="-14" y="-22" width="28" height="44" rx="3" class="card"/></g>
+<g transform="translate(0 86)"><rect x="-14" y="-22" width="28" height="44" rx="3" class="card"/></g>
+<g transform="translate(86 -60)"><rect x="-14" y="-22" width="28" height="44" rx="3" class="card"/></g>
+<g transform="translate(170 -118)"><rect x="-14" y="-22" width="28" height="44" rx="3" class="card" opacity="0.7"/><use href="#flag-own" transform="translate(12 -20)"/></g>
+</g>
+</svg>

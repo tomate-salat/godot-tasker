@@ -24,6 +24,7 @@ const Workspace := preload("../rules/workspace.gd")
 const Palette := preload("palette.gd")
 const Card := preload("card.gd")
 const Bug := preload("field_bug.gd")
+const City := preload("field_city.gd")
 
 ## Oben bleibt Platz für die Kopfzeile des Tischs.
 const TOP := 62.0
@@ -69,6 +70,9 @@ var _field := {}
 
 var _canvas: Control
 var _back: Control
+## Die Stadt im Hintergrund und ob sie schon einmal gezeigt wurde.
+var _city: City
+var _city_shown := false
 var _message: Label
 var _toast: Label
 var _toast_tween: Tween
@@ -119,6 +123,8 @@ func _init() -> void:
 	_canvas = Control.new()
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_canvas)
+	_city = City.new()
+	_canvas.add_child(_city)
 	_back = Control.new()
 	_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back.draw.connect(_draw_back)
@@ -140,6 +146,24 @@ func _init() -> void:
 	_fx.z_index = 40
 	_fx.draw.connect(_draw_fx)
 	_canvas.add_child(_fx)
+
+	# Hinter der Kopfzeile des Tischs wird die Stadt dunkler, damit man sie lesen kann.
+	var head := TextureRect.new()
+	var fade := Gradient.new()
+	fade.offsets = PackedFloat32Array([0.0, 0.7, 1.0])
+	fade.colors = PackedColorArray([Color(0.04, 0.09, 0.08, 0.88), Color(0.04, 0.09, 0.08, 0.7), Color(0.04, 0.09, 0.08, 0.0)])
+	var shade := GradientTexture2D.new()
+	shade.gradient = fade
+	shade.fill_from = Vector2(0, 0)
+	shade.fill_to = Vector2(0, 1)
+	shade.width = 4
+	shade.height = 64
+	head.texture = shade
+	head.stretch_mode = TextureRect.STRETCH_SCALE
+	head.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	head.offset_bottom = TOP + 14.0
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(head)
 
 	_message = Label.new()
 	_message.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -180,6 +204,7 @@ func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
 		return
 	_field = Field.build(ws, milestone)
 	_layout()
+	_show_city()
 	_fit()
 	_sync_cards()
 	_sync_bugs()
@@ -199,6 +224,20 @@ func say(text: String, color := Palette.P2) -> void:
 
 
 # ------------------------------------------------------------ Anordnung
+
+## Die Stadt hinter den Karten: eingenommen ist sie von außen bis zu dem Ring,
+## auf dem noch etwas offen ist.
+func _show_city() -> void:
+	_city.build(hash(str(_milestone["id"])), RING * _grow, STEP * _grow)
+	# Die Grenze liegt zwischen diesem Ring und dem nächsten weiter außen.
+	var ring_no: int = _field["front"]
+	var target := ring_no - 0.5 if ring_no > 0 else -3.0
+	if not _city_shown:
+		_city_shown = true
+		_city.front = target
+	elif not is_equal_approx(_city.front, target):
+		_city.create_tween().tween_property(_city, "front", target, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
 
 ## Verteilt die Karten auf ihre Ringe. Jede Karte bekommt einen Winkelbereich,
 ## so breit wie das, was hinter ihr nach außen hängt; sie selbst liegt in
@@ -339,6 +378,8 @@ func _sync_cards() -> void:
 			_cards[id] = card
 		card.show_task(_ws, task, _images, false)
 		card.selected = Field.is_tapped(task)
+		# Erledigte Karten sind hier abgedunkelt statt durchscheinend: vor der Stadt bliebe sonst wenig von ihnen.
+		card.modulate = Color(0.55, 0.6, 0.57, 1.0) if Model.is_done(task) else Color.WHITE
 		if card != _held or not _dragging:
 			_settle(card)
 

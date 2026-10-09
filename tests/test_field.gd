@@ -172,3 +172,19 @@ func test_tappen_geht_nur_bei_freien_karten_ohne_unteraufgaben() -> void:
 	eq(Field.tap_refusal(ws, ws.task("kind")), "")
 	eq(Field.tap_refusal(ws, ws.task("stapel")) != "", true)
 	eq(Field.tap_refusal(ws, ws.task("wartet")) != "", true)
+
+
+func test_die_front_ist_der_aeusserste_ring_mit_einer_offenen_karte() -> void:
+	var b := Builder.new() \
+		.project("p") \
+		.milestone("m", "p", {"status": "progress"}) \
+		.task("a", "p", {"milestoneId": "m", "status": "done"}) \
+		.task("b", "p", {"milestoneId": "m", "deps": ["a"]}) \
+		.task("c", "p", {"milestoneId": "m", "deps": ["b"]})
+	var ws: Workspace = b.build()
+	# a liegt auf Ring 3 und ist erledigt, b auf Ring 2 ist offen.
+	eq(Field.build(ws, ws.milestone("m"))["front"], 2)
+	for t in b.data["tasks"]:
+		t["status"] = "done"
+	ws = b.build()
+	eq(Field.build(ws, ws.milestone("m"))["front"], 0)
