@@ -22,6 +22,7 @@ const Tisch := preload("../rules/tisch.gd")
 const Progress := preload("../rules/progress.gd")
 const Links := preload("../core/links.gd")
 const Refs := preload("../rules/refs.gd")
+const Inherit := preload("../rules/inherit.gd")
 
 ## Was dieses Fenster zeigt – für das Speichern.
 const KIND := "task"
@@ -46,6 +47,9 @@ var _editor: ContentEditor
 var _reading: Array[Control] = []
 var _kids: VBoxContainer
 var _where: HFlowContainer
+var _cover: Control
+var _cover_id := ""
+var _cover_texture: Texture2D
 
 
 func _init() -> void:
@@ -87,6 +91,7 @@ func refresh() -> void:
 		c.visible = not ws.is_doc(t)
 	_message.visible = _message.text != ""
 	_desc.show_text(t.get("desc"), "taskId", task_id)
+	_load_cover(t)
 
 	# Woran die Aufgabe in Godot hängt: ein Klick springt hin.
 	for c in _where.get_children():
@@ -120,6 +125,14 @@ func refresh() -> void:
 
 
 func _build() -> void:
+	# Das Titelbild liegt blass hinter allem, wie im Inspektor von Tasker.
+	_cover = Control.new()
+	_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cover.clip_contents = true
+	_cover.material = ShaderMaterial.new()
+	_cover.material.shader = _cover_shader()
+	_cover.draw.connect(_draw_cover)
+	face.add_child(_cover)
 	var margin := MarginContainer.new()
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 18)
@@ -194,6 +207,8 @@ func _build() -> void:
 	_desc = Description.new()
 	_desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_desc.custom_minimum_size.y = 80
+	# Ohne eigenen Grund: das Titelbild scheint auch hinter dem Text durch.
+	_desc.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	_desc.target_requested.connect(func(id: String) -> void: task_requested.emit(id))
 	_desc.image_requested.connect(func(key: String, name: String) -> void: image_requested.emit(key, name))
 	_desc.save_failed.connect(_on_desc_failed)
@@ -288,3 +303,44 @@ func _input(event: InputEvent) -> void:
 			_editor.escape()
 		else:
 			shut()
+
+
+# ------------------------------------------------------------ Titelbild
+
+## Lädt das Titelbild der Aufgabe – ihr eigenes oder das geerbte – in voller Größe.
+func _load_cover(t: Dictionary) -> void:
+	var cover = Inherit.effective_cover(store.ws, t)
+	var id: String = cover["image_id"] if cover != null else ""
+	if id == _cover_id:
+		return
+	_cover_id = id
+	_cover_texture = null
+	_cover.queue_redraw()
+	if id == "" or images == null:
+		return
+	var texture: Texture2D = await images.get_texture(id, false)
+	if is_instance_valid(self) and _cover_id == id:
+		_cover_texture = texture
+		_cover.queue_redraw()
+
+
+## In voller Breite oben an der Karte, in seiner eigenen Höhe.
+func _draw_cover() -> void:
+	if _cover_texture == null:
+		return
+	var wide := _cover.size.x
+	_cover.draw_texture_rect(_cover_texture, Rect2(0.0, 0.0, wide, wide * _cover_texture.get_height() / maxf(_cover_texture.get_width(), 1.0)), false)
+
+
+## Blass und nach unten auslaufend – die Werte aus Taskers `.d-cover img`.
+static func _cover_shader() -> Shader:
+	var shader := Shader.new()
+	shader.code = "
+shader_type canvas_item;
+
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	COLOR = vec4(c.rgb, c.a * 0.08 * (1.0 - smoothstep(0.55, 1.0, UV.y)));
+}
+"
+	return shader

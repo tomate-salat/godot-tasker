@@ -480,6 +480,7 @@ Was sich zu einer Karte öffnet – Aufgabe, Milestone, Abhängigkeiten –, sie
 - [x] Öffnen und Schließen sind animiert: die Karte blendet ein und wächst dabei um wenige Prozent auf ihre Größe (`canvas_transform` des Fensters), beim Schließen blendet sie aus. Durchsichtig kann ein Fenster im Editor nicht sein: die Karte fotografiert beim Öffnen – solange das Fenster noch auf einen Punkt zugeschnitten und damit unsichtbar ist –, was an ihrer Stelle auf dem Bildschirm liegt (`DisplayServer.screen_get_image_rect`). Das Foto liegt über ihr und blendet aus, und hinter ihr, wo es den Rand füllt, solange sie noch kleiner ist. Beim Schließen blendet dasselbe Foto wieder ein, ohne Schrumpfen; wurde die Karte seither verschoben oder in der Größe geändert, schrumpft sie stattdessen kurz
 - [x] Im Milestone bleibt der Kopf stehen, wenn der Rest rollt – an ihm greift man die Karte
 - [x] Karten bleiben vor dem Editor, auch wenn man in ihn klickt; die Stecknadel in der Kopfzeile schaltet das je Fenster ab und wieder an
+- [x] Im Aufgabenfenster liegt das Titelbild blass hinter dem Inhalt, wie im Inspektor von Tasker (`.d-cover`): in voller Breite oben an der Karte, 8 % deckend, ab 55 % der Bildhöhe nach unten auslaufend. Es ist das Bild der Karte – das eigene oder das geerbte –, in voller Größe geladen. Die Beschreibung hat dafür keinen eigenen Grund mehr
 
 ### Nachgeschlagen in Godot 4.7
 
