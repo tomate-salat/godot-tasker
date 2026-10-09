@@ -251,7 +251,7 @@ func _open_table() -> void:
 			_table.mode = Window.MODE_WINDOWED
 		_table.grab_focus()
 	else:
-		_table.popup_centered()
+		_table.open_centered()
 
 
 func _open_search() -> void:
@@ -288,7 +288,7 @@ func _open_task(task_id: String) -> void:
 			_task_windows.erase(task_id))
 	_task_windows[task_id] = window
 	EditorInterface.get_base_control().add_child(window)
-	window.popup_centered()
+	window.open_centered()
 	# Neue Fenster leicht versetzt, damit sie sich nicht genau verdecken.
 	var shift := (_task_windows.size() - 1) % 8 * 28
 	window.position += Vector2i(shift, shift)
@@ -314,7 +314,7 @@ func _open_graph(task_id: String) -> void:
 			_task_windows.erase(id))
 	_task_windows[id] = window
 	EditorInterface.get_base_control().add_child(window)
-	window.popup_centered()
+	window.open_centered()
 
 
 ## Zeigt ein Bild oder eine Zeichnung groß. Je Bild ein Fenster, wie bei den Aufgaben.
@@ -338,7 +338,12 @@ func _open_image(key: String, title: String) -> void:
 			_task_windows.erase(id))
 	_task_windows[id] = window
 	EditorInterface.get_base_control().add_child(window)
-	window.popup_centered()
+	# Vor den Karten, die sich im Vordergrund halten – und deshalb ohne popup_centered(),
+	# das ein Fenster an seinen Elter bindet.
+	var host := EditorInterface.get_base_control().get_window()
+	window.always_on_top = true
+	window.position = host.position + (host.size - window.size) / 2
+	window.show()
 
 
 ## Sucht eine Aufgabe aus und hängt sie an die Nodes (aus dem Szenenbaum).

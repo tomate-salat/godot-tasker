@@ -478,6 +478,7 @@ Was sich zu einer Karte öffnet – Aufgabe, Milestone, Abhängigkeiten –, sie
 - [x] Der Tisch ist ebenfalls eine Karte: ohne Schattenrand, weil er mit der ganzen Fensterfläche rechnet; Maximieren und Schließen liegen oben rechts, am freien Filz verschiebt man ihn
 - [x] Öffnen und Schließen sind animiert: die Karte blendet ein und wächst dabei um wenige Prozent auf ihre Größe (`canvas_transform` des Fensters), beim Schließen blendet sie aus. Durchsichtig kann ein Fenster im Editor nicht sein: die Karte fotografiert beim Öffnen – solange das Fenster noch auf einen Punkt zugeschnitten und damit unsichtbar ist –, was an ihrer Stelle auf dem Bildschirm liegt (`DisplayServer.screen_get_image_rect`). Das Foto liegt über ihr und blendet aus, und hinter ihr, wo es den Rand füllt, solange sie noch kleiner ist. Beim Schließen blendet dasselbe Foto wieder ein, ohne Schrumpfen; wurde die Karte seither verschoben oder in der Größe geändert, schrumpft sie stattdessen kurz
 - [x] Im Milestone bleibt der Kopf stehen, wenn der Rest rollt – an ihm greift man die Karte
+- [x] Karten bleiben vor dem Editor, auch wenn man in ihn klickt; die Stecknadel in der Kopfzeile schaltet das je Fenster ab und wieder an
 
 ### Nachgeschlagen in Godot 4.7
 
@@ -486,6 +487,7 @@ Was sich zu einer Karte öffnet – Aufgabe, Milestone, Abhängigkeiten –, sie
 - Wo Durchsichtigkeit geht (eingebettete Fenster, Spiel mit der Projekteinstellung), bekommt die Karte Rand und Schatten; das Polygon lässt dann nur Klicks im Schattenrand durch.
 - `DisplayServer.window_start_drag()` und `window_start_resize()` übergeben Verschieben und Größe ans Betriebssystem; eingebettete Fenster rechnen selbst.
 - Maximieren von Hand auf die nutzbare Bildschirmfläche, einen Pixel kleiner: deckt ein rahmenloses Fenster die Fläche genau (auch über `MODE_MAXIMIZED`), wirft Godot Fehler aus `screen_get_position/size/usable_rect` (`screen_count = 0`).
+- Vor dem Editor hält ein Fenster nur `always_on_top` – und das gilt dann vor allen Anwendungen. `transient` bindet es zwar an das Editor-Fenster, hält es unter Windows aber nicht vorn. `always_on_top` wirkt nur sauber, wenn es beim Erzeugen des Fensters gesetzt ist. Bei einem offenen Fenster greift es sonst erst nach einem Umschalten des Rahmens (`borderless` aus und an) oder der Größe – beides flackert. Die Stecknadel tauscht das Fenster deshalb unsichtbar aus: ein Hilfsfenster mit einem Bild der Karte (`get_texture().get_image()`) legt sich an ihre Stelle, dahinter wird die Karte versteckt, umgestellt und neu gezeigt, dann geht das Hilfsfenster wieder. Verworfen: Aus- und Einblenden beim Umschalten – das Foto des Hintergrunds stimmt nach dem Verschieben nicht mehr. Beides zugleich geht nicht (`popup_centered()` macht ein Fenster `transient` und wirft dann Fehler), darum öffnen Karten über `open_centered()`. Auswahllisten und Menüs einer solchen Karte erscheinen weiterhin vor ihr.
 
 
 ## Risiken und offene Punkte

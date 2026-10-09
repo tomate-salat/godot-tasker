@@ -56,6 +56,11 @@ func _ready() -> void:
 	# Am Graphen greift man die Karte wie an ihrem Rand.
 	panel.gui_input.connect(_on_face_input)
 	_view.closer = shut
+	# Die Stecknadel sitzt in der Kopfzeile des Graphen, vor seinem Kreuz.
+	var head: Node = _view._title.get_parent()
+	var pin := pin_button()
+	head.add_child(pin)
+	head.move_child(pin, head.get_child_count() - 2)
 	# Schließt der Graph sich selbst (Kreuz), geht das Fenster mit.
 	_view.visibility_changed.connect(func() -> void:
 		if not _view.visible:

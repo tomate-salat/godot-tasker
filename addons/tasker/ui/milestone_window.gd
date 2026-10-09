@@ -212,6 +212,7 @@ func _build() -> void:
 		if m != null:
 			OS.shell_open(store.web_url(m)))
 	top.add_child(browser)
+	top.add_child(pin_button())
 	top.add_child(close_button())
 
 	var grid := GridContainer.new()

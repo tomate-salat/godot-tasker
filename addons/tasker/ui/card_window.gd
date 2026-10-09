@@ -38,6 +38,15 @@ var shadow := true
 ## Der Rand der Karte liegt über dem Inhalt statt darunter – wenn der Inhalt
 ## die Karte bis an die Kante bemalt.
 var rim_on_top := false
+## Die Karte bleibt vor dem Editor, auch wenn man in ihn klickt. Je Fenster
+## über die Stecknadel umzuschalten.
+var in_front := true: set = set_in_front
+## Die Karte wird nur kurz versteckt und neu gezeigt, um umzuschalten – kein
+## Öffnen, bei dem etwas neu aufgebaut werden müsste.
+var reshowing := false
+var _switching := false
+## Neu gezeigt ohne Animation: nur warten, bis das erste Bild da ist.
+var _quiet := false
 
 ## Wie groß die Karte gerade gezeigt wird: beim Öffnen wächst sie ein wenig
 ## auf 1, beim Schließen schrumpft sie wieder.
@@ -77,6 +86,7 @@ var _grab_value := Vector2i.ZERO
 
 func _init() -> void:
 	borderless = true
+	always_on_top = true
 	wrap_controls = false
 	face = PanelContainer.new()
 	face.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -88,6 +98,113 @@ func _init() -> void:
 		_pop = _pop
 		_update_passthrough())
 	visibility_changed.connect(_pop_open)
+
+
+## Hält die Karte vor allen anderen Fenstern oder gibt sie frei.
+##
+## An das Fenster des Editors binden (`transient`) hält ein Fenster unter
+## Windows nicht vorn, darum „immer im Vordergrund“ – und das wirkt nur
+## sauber, wenn es beim Erzeugen des Fensters gesetzt ist. Eine offene Karte
+## muss also kurz weg und neu her.
+func set_in_front(value: bool) -> void:
+	in_front = value
+	if always_on_top == value:
+		return
+	if not is_inside_tree() or not visible or is_embedded():
+		always_on_top = value
+		return
+	if not _switching:
+		_switch_front()
+
+
+## Tauscht das Fenster gegen eines mit der anderen Einstellung, ohne dass man
+## es sieht: solange es weg ist, steht ein Bild der Karte an seiner Stelle.
+func _switch_front() -> void:
+	_switching = true
+	var tiny := PackedVector2Array([Vector2.ZERO, Vector2(1, 0), Vector2(0, 1)])
+	var stand := Window.new()
+	stand.borderless = true
+	stand.always_on_top = true
+	stand.unfocusable = true
+	stand.position = position
+	stand.size = size
+	var picture := TextureRect.new()
+	picture.texture = ImageTexture.create_from_image(get_texture().get_image())
+	picture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_SCALE
+	stand.add_child(picture)
+	# Auch das Bild zeigt sich erst, wenn es im Fenster angekommen ist.
+	stand.mouse_passthrough_polygon = tiny
+	get_parent().add_child(stand)
+	var tree := get_tree()
+	var clear := func() -> void:
+		if is_instance_valid(stand):
+			stand.queue_free()
+	tree_exiting.connect(clear)
+	for i in LAG_FRAMES + 2:
+		await tree.process_frame
+	stand.mouse_passthrough_polygon = mouse_passthrough_polygon if _cut else PackedVector2Array()
+	for i in LAG_FRAMES:
+		await tree.process_frame
+	reshowing = true
+	hide()
+	always_on_top = in_front
+	show()
+	reshowing = false
+	for i in LAG_FRAMES * 2 + 4:
+		await tree.process_frame
+	tree_exiting.disconnect(clear)
+	stand.queue_free()
+	_switching = false
+	if visible and always_on_top != in_front:
+		_switch_front()
+
+
+## Zeigt die Karte mittig über dem Fenster, zu dem sie gehört. Statt
+## `popup_centered()`: das bindet das Fenster an seinen Elter, und ein
+## gebundenes Fenster darf nicht „immer im Vordergrund" sein.
+func open_centered() -> void:
+	var host := get_parent().get_window() if get_parent() != null else null
+	if host != null and not is_embedded():
+		position = host.position + (host.size - size) / 2
+	elif host != null:
+		position = (host.size - size) / 2
+	show()
+
+
+## Eine Stecknadel für die Kopfzeile: hält die Karte vor dem Editor oder lässt
+## sie dahinter verschwinden.
+func pin_button() -> Button:
+	var button := Button.new()
+	button.flat = true
+	button.toggle_mode = true
+	button.button_pressed = in_front
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(24, 0)
+	button.tooltip_text = "Im Vordergrund halten, auch wenn man in den Editor klickt"
+	button.toggled.connect(func(on: bool) -> void:
+		in_front = on
+		button.queue_redraw())
+	button.mouse_entered.connect(button.queue_redraw)
+	button.mouse_exited.connect(button.queue_redraw)
+	button.draw.connect(func() -> void:
+		# Eine Nadel in dünnen Linien, im Ton des Kreuzes daneben: angeheftet
+		# mit gefülltem Kopf, sonst blass und nur als Umriss.
+		var color := Palette.FAINT
+		if button.is_hovered():
+			color = Palette.INK
+		elif in_front:
+			color = Palette.MUTED
+		button.draw_set_transform(button.size / 2.0 + Vector2(0.5, 0.0), deg_to_rad(45.0))
+		var head := PackedVector2Array([Vector2(-2.0, -6.5), Vector2(2.0, -6.5), Vector2(2.0, -2.0), Vector2(4.0, 0.5), Vector2(-4.0, 0.5), Vector2(-2.0, -2.0)])
+		if in_front:
+			button.draw_colored_polygon(head, color)
+		head.append(head[0])
+		button.draw_polyline(head, color, 1.0, true)
+		button.draw_line(Vector2(0.0, 0.5), Vector2(0.0, 6.5), color, 1.0, true)
+		button.draw_set_transform(Vector2.ZERO))
+	return button
 
 
 ## Ein Kreuz, das die Karte schließt – für die Kopfzeile.
@@ -175,6 +292,16 @@ func _pop_open() -> void:
 	if _veil_layer != null:
 		_veil_layer.visible = false
 		_back_layer.visible = false
+	if reshowing:
+		# Nur umgeschaltet: die Karte steht sofort ganz da, sobald ihr erstes Bild angekommen ist.
+		_frames = 0
+		_pop = 1.0
+		_shape = 1.0
+		_quiet = true
+		_unseen = _cut
+		_update_passthrough()
+		_start_following()
+		return
 	_frames = 0
 	_time = 0.0
 	_trail.clear()
@@ -205,6 +332,13 @@ func _follow() -> void:
 			_stop_following()
 			_closing = false
 			_gone()
+		return
+	if _quiet:
+		if _frames > LAG_FRAMES + 1:
+			_quiet = false
+			_unseen = false
+			_update_passthrough()
+			_stop_following()
 		return
 	if _frames == PHOTO_FRAME and _cut:
 		_take_photo()

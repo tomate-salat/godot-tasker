@@ -141,6 +141,7 @@ func _build() -> void:
 	_ref = Label.new()
 	_ref.add_theme_color_override("font_color", Palette.MUTED)
 	top.add_child(_ref)
+	top.add_child(pin_button())
 	top.add_child(close_button())
 
 	_props = HBoxContainer.new()

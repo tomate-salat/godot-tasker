@@ -163,7 +163,7 @@ func _ready() -> void:
 		store.state_changed.connect(_sync)
 	memory.changed.connect(_sync)
 	visibility_changed.connect(func() -> void:
-		if visible:
+		if visible and not reshowing:
 			_dealing = true
 			_place())
 	_dealing = true
@@ -361,10 +361,11 @@ func _build() -> void:
 	frame_buttons.offset_right = -14
 	frame_buttons.add_theme_constant_override("separation", 0)
 	frame_buttons.z_index = 800
+	frame_buttons.add_child(pin_button())
 	frame_buttons.add_child(max_button())
 	frame_buttons.add_child(close_button())
 	add_child(frame_buttons)
-	bar.offset_right = -MARGIN - 64
+	bar.offset_right = -MARGIN - 92
 	_plan.gui_input.connect(_on_face_input)
 	for part in [bar, gap]:
 		part.mouse_filter = Control.MOUSE_FILTER_PASS
