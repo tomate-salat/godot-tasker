@@ -481,6 +481,8 @@ Was sich zu einer Karte öffnet – Aufgabe, Milestone, Abhängigkeiten –, sie
 - [x] Im Milestone bleibt der Kopf stehen, wenn der Rest rollt – an ihm greift man die Karte
 - [x] Karten bleiben vor dem Editor, auch wenn man in ihn klickt; die Stecknadel in der Kopfzeile schaltet das je Fenster ab und wieder an
 - [x] Im Aufgabenfenster liegt das Titelbild blass hinter dem Inhalt, wie im Inspektor von Tasker (`.d-cover`): in voller Breite oben an der Karte, 8 % deckend, ab 55 % der Bildhöhe nach unten auslaufend. Es ist das Bild der Karte – das eigene oder das geerbte –, in voller Größe geladen. Die Beschreibung hat dafür keinen eigenen Grund mehr
+- [x] Der Griff zum Größerziehen sitzt weiter von der Ecke weg
+- Kein Schatten im Editor: ein weicher bräuchte Durchsichtigkeit. Ausprobiert und verworfen: eine deckende dunkle Kante, versetzt unter der Karte, und ein gerasterter Schatten aus Pixelspalten, in die das Fenster unter der Karte geschnitten ist (wirkt wie ein Fransensaum)
 
 ### Nachgeschlagen in Godot 4.7
 

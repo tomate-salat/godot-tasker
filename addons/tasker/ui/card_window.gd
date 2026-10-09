@@ -14,6 +14,8 @@ const RADIUS := 18
 ## Der durchsichtige Rand um die Karte, in dem ihr Schatten liegt.
 const SHADOW := 28
 const GRIP := 16.0
+## So weit sitzt der Griff von der Ecke der Karte.
+const GRIP_INSET := 11.0
 const POP_FROM := 0.965
 const OPEN_SECONDS := 0.28
 ## So lange blendet die Karte beim Öffnen ein.
@@ -479,10 +481,10 @@ func _frame() -> void:
 	_grip = Control.new()
 	_grip.custom_minimum_size = Vector2(GRIP, GRIP)
 	_grip.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_grip.offset_left = -_edge - GRIP - 6
-	_grip.offset_top = -_edge - GRIP - 6
-	_grip.offset_right = -_edge - 6
-	_grip.offset_bottom = -_edge - 6
+	_grip.offset_left = -_edge - GRIP - GRIP_INSET
+	_grip.offset_top = -_edge - GRIP - GRIP_INSET
+	_grip.offset_right = -_edge - GRIP_INSET
+	_grip.offset_bottom = -_edge - GRIP_INSET
 	_grip.mouse_default_cursor_shape = Control.CURSOR_FDIAGSIZE
 	_grip.tooltip_text = "Ziehen ändert die Größe"
 	_grip.draw.connect(_draw_grip)
