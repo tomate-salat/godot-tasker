@@ -469,6 +469,25 @@ Stand 2026-10-07: Es beginnt mit der Beschreibung. Sie soll sich bedienen lassen
 
 - Bilder ins Feld legen.
 
+## Ausbau: Fenster als Karten
+
+Was sich zu einer Karte öffnet – Aufgabe, Milestone, Abhängigkeiten –, sieht selbst wie eine Karte aus: ohne Titelleiste, mit runden Ecken. Weitere Ideen dazu kommen einzeln nacheinander.
+
+- [x] Gemeinsame Hülle `ui/card_window.gd`: rahmenloses Fenster, Kartenfarbe und Rand; verschieben durch Greifen der Karte, Größe über den Griff unten rechts, Kreuz und Escape schließen
+- [x] Aufgaben-, Milestone- und Abhängigkeiten-Fenster erben davon
+- [x] Der Tisch ist ebenfalls eine Karte: ohne Schattenrand, weil er mit der ganzen Fensterfläche rechnet; Maximieren und Schließen liegen oben rechts, am freien Filz verschiebt man ihn
+- [x] Öffnen und Schließen sind animiert: die Karte blendet ein und wächst dabei um wenige Prozent auf ihre Größe (`canvas_transform` des Fensters), beim Schließen blendet sie aus. Durchsichtig kann ein Fenster im Editor nicht sein: die Karte fotografiert beim Öffnen – solange das Fenster noch auf einen Punkt zugeschnitten und damit unsichtbar ist –, was an ihrer Stelle auf dem Bildschirm liegt (`DisplayServer.screen_get_image_rect`). Das Foto liegt über ihr und blendet aus, und hinter ihr, wo es den Rand füllt, solange sie noch kleiner ist. Beim Schließen blendet dasselbe Foto wieder ein, ohne Schrumpfen; wurde die Karte seither verschoben oder in der Größe geändert, schrumpft sie stattdessen kurz
+- [x] Im Milestone bleibt der Kopf stehen, wenn der Rest rollt – an ihm greift man die Karte
+
+### Nachgeschlagen in Godot 4.7
+
+- Durchsichtige Fenster erlaubt der Editor seinen Fenstern nicht, auch nicht mit `display/window/per_pixel_transparency/allowed` im Projekt (`DisplayServer.is_window_transparency_available()` ist dort falsch, die Ecken wären schwarz). Ein Schatten um die Karte geht im Editor deshalb nicht.
+- Runde Ecken gehen trotzdem: `Window.mouse_passthrough_polygon` schneidet unter Windows das Fenster auf den Umriss zu. Die Karte nimmt dafür ein gerundetes Rechteck und zieht es bei jeder Größenänderung nach.
+- Wo Durchsichtigkeit geht (eingebettete Fenster, Spiel mit der Projekteinstellung), bekommt die Karte Rand und Schatten; das Polygon lässt dann nur Klicks im Schattenrand durch.
+- `DisplayServer.window_start_drag()` und `window_start_resize()` übergeben Verschieben und Größe ans Betriebssystem; eingebettete Fenster rechnen selbst.
+- Maximieren von Hand auf die nutzbare Bildschirmfläche, einen Pixel kleiner: deckt ein rahmenloses Fenster die Fläche genau (auch über `MODE_MAXIMIZED`), wirft Godot Fehler aus `screen_get_position/size/usable_rect` (`screen_count = 0`).
+
+
 ## Risiken und offene Punkte
 
 - **Animationen im Editor-Fenster:** Der Editor zeichnet sparsam neu. Ob Karten dort flüssig laufen, klärt der Prototyp in Schritt 1. Ausweichweg wäre ein eigener Prozess, mit den Nachteilen, dass das Token durchgereicht werden muss und die Autoloads des Spiels mitstarten.

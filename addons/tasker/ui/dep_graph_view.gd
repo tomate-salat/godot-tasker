@@ -33,6 +33,8 @@ const EDGE_SECONDS := 0.32
 const DOT_SPEED := 70.0
 const DOT_SPACING := 44.0
 
+## Steht der Graph in einem eigenen Fenster, schließt dieses sich selbst.
+var closer := Callable()
 var _panel: PanelContainer
 var _title: Label
 var _hint: Label
@@ -108,6 +110,9 @@ func _init() -> void:
 
 
 func close() -> void:
+	if closer.is_valid():
+		closer.call()
+		return
 	if not visible:
 		return
 	if _fade != null:

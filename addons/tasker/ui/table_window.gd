@@ -1,5 +1,5 @@
 @tool
-extends Window
+extends "card_window.gd"
 ## Der Tisch: der aktive Milestone als Kartenspiel, in einem eigenen Fenster
 ## des Editors.
 ##
@@ -17,7 +17,6 @@ extends Window
 signal task_requested(task_id: String)
 
 const Card := preload("card.gd")
-const Palette := preload("palette.gd")
 const Demo := preload("demo.gd")
 const Model := preload("../rules/model.gd")
 const Tisch := preload("../rules/tisch.gd")
@@ -145,11 +144,15 @@ var planning := false: set = set_planning
 
 
 func _init() -> void:
+	super()
+	# Der Tisch rechnet mit der ganzen Fensterfläche und bemalt sie bis an die Kante.
+	shadow = false
+	rim_on_top = true
+	fill = Palette.FELT
 	title = "Tasker – Tisch"
 	size = Vector2i(1440, 900)
 	min_size = Vector2i(1100, 800)
-	wrap_controls = false
-	close_requested.connect(hide)
+	close_requested.connect(shut)
 	size_changed.connect(_place)
 	_build()
 
@@ -197,6 +200,8 @@ func _build() -> void:
 	_board = Control.new()
 	_board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_board.draw.connect(_draw_board)
+	# Am freien Filz greift man den Tisch und verschiebt ihn.
+	_board.gui_input.connect(_on_face_input)
 	add_child(_board)
 
 	_layer = Control.new()
@@ -347,6 +352,23 @@ func _build() -> void:
 	_mode_plan.pressed.connect(func() -> void: planning = true)
 	modes.add_child(_mode_plan)
 	bar.offset_left = MARGIN + MODES_WIDTH
+
+	# Was sonst die Titelleiste trägt, liegt oben rechts über allem.
+	var frame_buttons := HBoxContainer.new()
+	frame_buttons.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	frame_buttons.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	frame_buttons.offset_top = 10
+	frame_buttons.offset_right = -14
+	frame_buttons.add_theme_constant_override("separation", 0)
+	frame_buttons.z_index = 800
+	frame_buttons.add_child(max_button())
+	frame_buttons.add_child(close_button())
+	add_child(frame_buttons)
+	bar.offset_right = -MARGIN - 64
+	_plan.gui_input.connect(_on_face_input)
+	for part in [bar, gap]:
+		part.mouse_filter = Control.MOUSE_FILTER_PASS
+	bar.gui_input.connect(_on_face_input)
 	_show_mode()
 
 
@@ -1400,3 +1422,9 @@ func _draw_card_back(rect: Rect2, with_pattern: bool, with_shadow: bool) -> void
 	_board.draw_colored_polygon(diamond, Color("24365c"))
 	diamond.append(diamond[0])
 	_board.draw_polyline(diamond, Color("a9c1ee"), 2.0, true)
+
+
+## Der Tisch wird nicht verworfen, nur weggelegt: beim nächsten Öffnen liegt
+## alles, wo es lag.
+func _gone() -> void:
+	hide()

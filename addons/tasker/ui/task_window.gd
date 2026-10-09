@@ -1,5 +1,5 @@
 @tool
-extends Window
+extends "card_window.gd"
 ## Eine Aufgabe in einem eigenen Fenster: Titel, Status, Prio, die
 ## Beschreibung als gerendertes Markdown und die Unteraufgaben.
 ##
@@ -14,7 +14,6 @@ signal image_requested(key: String, title: String)
 
 const Store := preload("../core/store.gd")
 const Images := preload("../core/images.gd")
-const Palette := preload("palette.gd")
 const Results := preload("results.gd")
 const Description := preload("description.gd")
 const ContentEditor := preload("content_editor.gd")
@@ -50,9 +49,9 @@ var _where: HFlowContainer
 
 
 func _init() -> void:
+	super()
 	size = Vector2i(620, 720)
 	min_size = Vector2i(360, 320)
-	wrap_controls = false
 	close_requested.connect(_close)
 	_build()
 
@@ -121,13 +120,10 @@ func refresh() -> void:
 
 
 func _build() -> void:
-	var back := PanelContainer.new()
-	back.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(back)
 	var margin := MarginContainer.new()
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 14)
-	back.add_child(margin)
+		margin.add_theme_constant_override("margin_" + side, 18)
+	face.add_child(margin)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	margin.add_child(box)
@@ -145,6 +141,7 @@ func _build() -> void:
 	_ref = Label.new()
 	_ref.add_theme_color_override("font_color", Palette.MUTED)
 	top.add_child(_ref)
+	top.add_child(close_button())
 
 	_props = HBoxContainer.new()
 	box.add_child(_props)
@@ -165,6 +162,7 @@ func _build() -> void:
 
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gap.mouse_filter = Control.MOUSE_FILTER_PASS
 	_props.add_child(gap)
 	var browser := Button.new()
 	browser.text = "In Tasker öffnen"
@@ -276,7 +274,7 @@ func _show_editing(on: bool) -> void:
 func _close() -> void:
 	if _editor.is_open() and not await _editor.commit():
 		return
-	queue_free()
+	shut()
 
 
 ## Escape übernimmt beim Bearbeiten den Text (oder schließt dort nur die
@@ -288,4 +286,4 @@ func _input(event: InputEvent) -> void:
 		if _editor.is_open():
 			_editor.escape()
 		else:
-			queue_free()
+			shut()

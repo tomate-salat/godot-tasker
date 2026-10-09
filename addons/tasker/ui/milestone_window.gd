@@ -1,5 +1,5 @@
 @tool
-extends Window
+extends "card_window.gd"
 ## Ein Milestone in einem eigenen Fenster, nach dem Inspektor in Tasker:
 ## Status, Fortschritt, Zeitraum, die Beschreibung als gerendertes Markdown
 ## samt Zeichnungen, das Burnup-Diagramm und die Aufgaben.
@@ -15,7 +15,6 @@ signal image_requested(key: String, title: String)
 const Store := preload("../core/store.gd")
 const Images := preload("../core/images.gd")
 const Card := preload("card.gd")
-const Palette := preload("palette.gd")
 const Description := preload("description.gd")
 const ContentEditor := preload("content_editor.gd")
 const BurnupChart := preload("burnup_chart.gd")
@@ -55,9 +54,9 @@ var _tasks: VBoxContainer
 
 
 func _init() -> void:
+	super()
 	size = Vector2i(640, 900)
 	min_size = Vector2i(420, 360)
-	wrap_controls = false
 	close_requested.connect(_close)
 	_build()
 
@@ -167,23 +166,36 @@ static func _date(iso: Variant) -> String:
 # ------------------------------------------------------------- Aufbau
 
 func _build() -> void:
-	var back := PanelContainer.new()
-	back.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(back)
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 0)
+	face.add_child(rows)
+
+	# Der Kopf bleibt stehen, wenn der Rest rollt – an ihm greift man die Karte.
+	var head_margin := MarginContainer.new()
+	for side in ["left", "right", "top"]:
+		head_margin.add_theme_constant_override("margin_" + side, 16)
+	head_margin.add_theme_constant_override("margin_bottom", 0)
+	rows.add_child(head_margin)
+	var head := VBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
+	head_margin.add_child(head)
+
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	back.add_child(scroll)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rows.add_child(scroll)
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for side in ["left", "right", "top", "bottom"]:
+	for side in ["left", "right", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 16)
+	margin.add_theme_constant_override("margin_top", 10)
 	scroll.add_child(margin)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	margin.add_child(box)
 
 	var top := HBoxContainer.new()
-	box.add_child(top)
+	head.add_child(top)
 	_crumb = Label.new()
 	_crumb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crumb.clip_text = true
@@ -200,12 +212,13 @@ func _build() -> void:
 		if m != null:
 			OS.shell_open(store.web_url(m)))
 	top.add_child(browser)
+	top.add_child(close_button())
 
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 8)
-	box.add_child(grid)
+	head.add_child(grid)
 
 	var status_row := HBoxContainer.new()
 	_status_icon = TextureRect.new()
@@ -231,7 +244,7 @@ func _build() -> void:
 	_period = Label.new()
 	_prop(grid, "Zeitraum", _period)
 
-	box.add_child(HSeparator.new())
+	head.add_child(HSeparator.new())
 
 	_title = Label.new()
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -353,7 +366,7 @@ func _show_editing(on: bool) -> void:
 func _close() -> void:
 	if _editor.is_open() and not await _editor.commit():
 		return
-	queue_free()
+	shut()
 
 
 ## Escape übernimmt beim Bearbeiten den Text (oder schließt dort nur die
@@ -365,4 +378,4 @@ func _input(event: InputEvent) -> void:
 		if _editor.is_open():
 			_editor.escape()
 		else:
-			queue_free()
+			shut()
