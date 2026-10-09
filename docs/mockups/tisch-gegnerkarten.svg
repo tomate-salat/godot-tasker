@@ -1,0 +1,156 @@
+<svg viewBox="0 0 720 580" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: Gegner als Karten, gedrehte Karten, Marken</title>
+<desc>Alles bleibt flach und aus Karten. Oben links eine gesperrte Aufgabe, über der quer eine Wächterkarte liegt. Oben rechts eine Aufgabe in Arbeit: sie liegt quer und trägt eine der drei Marken aus der Kopfzeile. Unten der Kampf in drei Momenten: die Gegnerkarte auf der Aufgabe hat so viele Punkte wie die Beschreibung Kästchen, jedes abgehakte reißt sie ein Stück weiter ein, beim letzten zerreißt sie und fliegt auf den Beutestapel; die Aufgabe dreht sich zurück und die Marke ist wieder frei. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.tn{font-size:11px;fill:#888780}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.note{font-size:11px;fill:#993C1D}
+.task{fill:#F1EFE8;stroke:#5F5E5A;stroke-width:0.75}
+.work{fill:#E6F1FB;stroke:#185FA5;stroke-width:1.5}
+.done{fill:#EAF3DE;stroke:#3B6D11;stroke-width:1.5}
+.foe{fill:#FAECE7;stroke:#993C1D;stroke-width:1.25}
+.pip{fill:#D85A30}
+.pip-off{fill:#FFFFFF;stroke:#D85A30;stroke-width:1}
+.rip{fill:none;stroke:#FFFFFF;stroke-width:3;stroke-linejoin:round}
+.rip-edge{fill:none;stroke:#993C1D;stroke-width:0.75;stroke-linejoin:round}
+</style>
+<defs>
+<!-- Eine Marke: der Einsatz für eine Karte in Arbeit -->
+<g id="gem">
+<path d="M0 -9 l8 6 l-3 11 h-10 l-3 -11 z" fill="#1D9E75" stroke="#0F6E56"/>
+<path d="M0 -9 v17 M-8 -3 h16" stroke="#9FE1CB" stroke-width="1" fill="none"/>
+</g>
+<g id="gem-off">
+<path d="M0 -9 l8 6 l-3 11 h-10 l-3 -11 z" fill="none" stroke="#B4B2A9" stroke-dasharray="2 2"/>
+</g>
+<!-- Das Gesicht auf einer Gegnerkarte -->
+<g id="face">
+<path d="M-12 4 a12 12 0 0 1 24 0 v10 h-24 z" fill="#D85A30"/>
+<circle cx="-5" cy="4" r="2" fill="#FAECE7"/><circle cx="5" cy="4" r="2" fill="#FAECE7"/>
+<path d="M-12 -6 l5 6 l4 -6 l3 6 l3 -6 l4 6 l5 -6" fill="none" stroke="#D85A30" stroke-width="2"/>
+</g>
+</defs>
+<rect width="720" height="580" fill="#FFFFFF"/>
+
+<!-- Kopfzeile: die drei Marken -->
+<text class="th" x="20" y="28">Quests</text>
+<rect x="84" y="19" width="150" height="8" rx="4" fill="#B4B2A9"/>
+<rect x="84" y="19" width="75" height="8" rx="4" fill="#1D9E75"/>
+<text class="ts" x="244" y="28">8/16</text>
+<text class="ts" x="330" y="28">Marken</text>
+<use href="#gem-off" transform="translate(394 23)"/>
+<use href="#gem-off" transform="translate(418 23)"/>
+<use href="#gem" transform="translate(442 23)"/>
+<text class="tn" x="458" y="28">2 liegen auf Karten, 1 ist frei</text>
+
+<!-- ============ Bewacht ============ -->
+<rect x="8" y="44" width="346" height="232" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="24" y="68">Bewacht: eine Wächterkarte liegt quer darüber</text>
+<rect class="task" x="56" y="88" width="104" height="146" rx="9"/>
+<text class="ts" x="108" y="112" text-anchor="middle">Enter Arena</text>
+<text class="ts" x="108" y="128" text-anchor="middle">Dialog</text>
+<g transform="translate(108 184) rotate(-78)">
+<rect class="foe" x="-34" y="-48" width="68" height="96" rx="7"/>
+<use href="#face" transform="translate(0 -8) rotate(78)"/>
+</g>
+<text class="note" x="108" y="254" text-anchor="middle">Wächter: Quest Board</text>
+<text class="tn" x="184" y="104">Je offener Voraussetzung</text>
+<text class="tn" x="184" y="118">eine Wächterkarte.</text>
+<text class="tn" x="184" y="146">Ist die Voraussetzung</text>
+<text class="tn" x="184" y="160">erledigt, wird sie vom</text>
+<text class="tn" x="184" y="174">Tisch gefegt und landet</text>
+<text class="tn" x="184" y="188">auf dem Beutestapel.</text>
+<text class="tn" x="184" y="216">Solange sie liegt, lässt</text>
+<text class="tn" x="184" y="230">sich die Karte nicht drehen.</text>
+
+<!-- ============ In Arbeit ============ -->
+<rect x="366" y="44" width="346" height="232" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="382" y="68">In Arbeit: die Karte liegt quer und trägt eine Marke</text>
+<!-- aufrecht, frei -->
+<rect class="task" x="394" y="96" width="78" height="110" rx="8"/>
+<text class="ts" x="433" y="120" text-anchor="middle">Replace</text>
+<text class="ts" x="433" y="136" text-anchor="middle">Camera</text>
+<text class="tn" x="433" y="226" text-anchor="middle">offen: aufrecht</text>
+<path d="M484 150 h26 m-7 -5 l7 5 l-7 5" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+<use href="#gem" transform="translate(497 132)"/>
+<!-- quer, in Arbeit -->
+<g transform="translate(600 152) rotate(90)">
+<rect class="work" x="-39" y="-55" width="78" height="110" rx="8"/>
+</g>
+<text class="ts" x="600" y="146" text-anchor="middle" fill="#0C447C">Replace Camera</text>
+<use href="#gem" transform="translate(640 168)"/>
+<text class="tn" x="600" y="226" text-anchor="middle">in Arbeit: quer, Marke darauf</text>
+<text class="tn" x="382" y="252">Eine Marke daraufziehen dreht die Karte. Sind alle drei gesetzt,</text>
+<text class="tn" x="382" y="266">geht nichts Neues, bevor eine Karte erledigt ist.</text>
+
+<!-- ============ Der Kampf ============ -->
+<rect x="8" y="288" width="704" height="284" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="24" y="312">Der Kampf: jedes abgehakte Kästchen reißt die Gegnerkarte weiter ein</text>
+<text class="tn" x="24" y="330">Die Gegnerkarte hat so viele Punkte, wie die Beschreibung Kästchen hat. Ohne Kästchen hat sie einen: das Erledigen.</text>
+
+<!-- Moment A -->
+<g transform="translate(110 420) rotate(90)">
+<rect class="work" x="-45" y="-64" width="90" height="128" rx="8"/>
+</g>
+<text class="ts" x="80" y="392" text-anchor="middle" fill="#0C447C">Board UI</text>
+<use href="#gem" transform="translate(64 444)"/>
+<g transform="translate(142 414) rotate(8)">
+<rect class="foe" x="-30" y="-42" width="60" height="84" rx="6"/>
+<use href="#face" transform="translate(0 -10)"/>
+<circle class="pip-off" cx="-18" cy="28" r="4"/><circle class="pip" cx="-6" cy="28" r="4"/><circle class="pip" cx="6" cy="28" r="4"/><circle class="pip" cx="18" cy="28" r="4"/>
+<path class="rip" d="M-30 -20 l10 4 l6 -6 l8 5"/>
+<path class="rip-edge" d="M-30 -20 l10 4 l6 -6 l8 5"/>
+</g>
+<text class="tn" x="110" y="492" text-anchor="middle">1 von 4 abgehakt:</text>
+<text class="tn" x="110" y="506" text-anchor="middle">ein Riss, 3 Punkte übrig</text>
+
+<path d="M196 420 h28 m-7 -5 l7 5 l-7 5" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+
+<!-- Moment B -->
+<g transform="translate(320 420) rotate(90)">
+<rect class="work" x="-45" y="-64" width="90" height="128" rx="8"/>
+</g>
+<text class="ts" x="290" y="392" text-anchor="middle" fill="#0C447C">Board UI</text>
+<use href="#gem" transform="translate(274 444)"/>
+<g transform="translate(354 412) rotate(14)">
+<rect class="foe" x="-30" y="-42" width="60" height="84" rx="6"/>
+<use href="#face" transform="translate(0 -10)"/>
+<circle class="pip-off" cx="-18" cy="28" r="4"/><circle class="pip-off" cx="-6" cy="28" r="4"/><circle class="pip-off" cx="6" cy="28" r="4"/><circle class="pip" cx="18" cy="28" r="4"/>
+<path class="rip" d="M-30 -20 l10 4 l6 -6 l8 5 l8 -4 l10 7 l8 -5 l10 4"/>
+<path class="rip-edge" d="M-30 -20 l10 4 l6 -6 l8 5 l8 -4 l10 7 l8 -5 l10 4"/>
+<path class="rip" d="M30 10 l-12 5 l-8 -6 l-10 6"/>
+<path class="rip-edge" d="M30 10 l-12 5 l-8 -6 l-10 6"/>
+</g>
+<path d="M392 370 l8 -10 M400 378 l12 -6 M388 362 l2 -12" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round"/>
+<text class="note" x="320" y="492" text-anchor="middle">3 von 4 abgehakt:</text>
+<text class="note" x="320" y="506" text-anchor="middle">sie wackelt, hängt in Fetzen</text>
+
+<path d="M406 420 h28 m-7 -5 l7 5 l-7 5" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+
+<!-- Moment C -->
+<rect class="done" x="476" y="356" width="90" height="128" rx="8"/>
+<text class="ts" x="521" y="380" text-anchor="middle" fill="#27500A">Board UI</text>
+<path d="M500 428 l12 14 l24 -30" fill="none" stroke="#3B6D11" stroke-width="4"/>
+<text class="tn" x="521" y="504" text-anchor="middle">letztes Kästchen: sie zerreißt,</text>
+<text class="tn" x="521" y="518" text-anchor="middle">die Karte steht wieder aufrecht</text>
+<!-- die zwei Hälften fliegen -->
+<g opacity="0.75">
+<path class="foe" d="M584 372 l26 -8 l6 22 l-10 6 l-6 -5 l-8 6 z"/>
+<path class="foe" d="M600 402 l8 -6 l6 5 l10 -6 l8 22 l-26 8 z"/>
+</g>
+<path d="M606 384 q44 -8 60 26" fill="none" stroke="#888780" stroke-width="1.25" stroke-dasharray="4 3"/>
+<path d="M660 402 l7 9 l3 -11" fill="none" stroke="#888780" stroke-width="1.25"/>
+<!-- Beutestapel -->
+<rect class="foe" x="646" y="428" width="44" height="60" rx="5" transform="rotate(6 668 458)" opacity="0.6"/>
+<rect class="foe" x="644" y="424" width="44" height="60" rx="5" transform="rotate(-4 666 454)" opacity="0.8"/>
+<rect class="foe" x="642" y="420" width="44" height="60" rx="5"/>
+<text class="th" x="664" y="456" text-anchor="middle" fill="#993C1D">7</text>
+<text class="tn" x="664" y="504" text-anchor="middle">Beutestapel</text>
+<!-- Marke zurück -->
+<use href="#gem" transform="translate(588 474)"/>
+<text class="tn" x="604" y="478">frei</text>
+
+<text class="tn" x="24" y="548">Bei einem Stapel ist die Gegnerkarte größer und ihre Punkte sind die Unteraufgaben. Der Milestone selbst ist die größte: der Endboss am Ende des Wegs.</text>
+</svg>

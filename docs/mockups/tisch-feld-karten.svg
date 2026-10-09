@@ -1,0 +1,166 @@
+<svg viewBox="0 0 780 580" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: das Feld mit Gegnerkarten</title>
+<desc>Der ganze Tisch ohne Hand und Nachziehstapel. Oben der Weg von links nach rechts: drei besiegte Karten, dann der Stapel Quest Board, der quer liegt, eine Marke trägt und von einer großen Gegnerkarte mit drei Punkten bedeckt ist, dahinter zwei Aufgaben mit quer liegender Wächterkarte und ganz rechts der Endboss des Milestones. Unten das offene Gelände: eine Aufgabe in Arbeit mit Gegnerkarte, drei offene aufrecht. Rechts unten die freie Marke und der Beutestapel. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.tn{font-size:11px;fill:#888780}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.note{font-size:11px;fill:#993C1D}
+.task{fill:#F1EFE8;stroke:#5F5E5A;stroke-width:0.75}
+.work{fill:#E6F1FB;stroke:#185FA5;stroke-width:1.5}
+.done{fill:#EAF3DE;stroke:#3B6D11;stroke-width:1}
+.foe{fill:#FAECE7;stroke:#993C1D;stroke-width:1.25}
+.boss{fill:#EEEDFE;stroke:#534AB7;stroke-width:2}
+.pip{fill:#D85A30}
+.pip-off{fill:#FFFFFF;stroke:#D85A30;stroke-width:1}
+.rip{fill:none;stroke:#FFFFFF;stroke-width:3;stroke-linejoin:round}
+.rip-edge{fill:none;stroke:#993C1D;stroke-width:0.75;stroke-linejoin:round}
+.way{fill:none;stroke:#B4B2A9;stroke-width:2}
+.shut{fill:none;stroke:#D85A30;stroke-width:2;stroke-dasharray:5 4}
+</style>
+<defs>
+<g id="gem">
+<path d="M0 -9 l8 6 l-3 11 h-10 l-3 -11 z" fill="#1D9E75" stroke="#0F6E56"/>
+<path d="M0 -9 v17 M-8 -3 h16" stroke="#9FE1CB" stroke-width="1" fill="none"/>
+</g>
+<g id="gem-off"><path d="M0 -9 l8 6 l-3 11 h-10 l-3 -11 z" fill="none" stroke="#B4B2A9" stroke-dasharray="2 2"/></g>
+<g id="face">
+<path d="M-12 4 a12 12 0 0 1 24 0 v10 h-24 z" fill="#D85A30"/>
+<circle cx="-5" cy="4" r="2" fill="#FAECE7"/><circle cx="5" cy="4" r="2" fill="#FAECE7"/>
+<path d="M-12 -6 l5 6 l4 -6 l3 6 l3 -6 l4 6 l5 -6" fill="none" stroke="#D85A30" stroke-width="2"/>
+</g>
+<g id="check"><path d="M-7 0 l5 6 l10 -13" fill="none" stroke="#3B6D11" stroke-width="3"/></g>
+<!-- Eine Wächterkarte, quer -->
+<g id="guardcard">
+<rect class="foe" x="-36" y="-25" width="72" height="50" rx="6"/>
+<use href="#face" transform="translate(0 -3)"/>
+</g>
+</defs>
+<rect width="780" height="580" fill="#FFFFFF"/>
+
+<!-- Kopfzeile -->
+<text class="th" x="20" y="28">Quests</text>
+<rect x="84" y="19" width="150" height="8" rx="4" fill="#B4B2A9"/>
+<rect x="84" y="19" width="75" height="8" rx="4" fill="#1D9E75"/>
+<text class="ts" x="244" y="28">8/16</text>
+<text class="ts" x="320" y="28">Marken</text>
+<use href="#gem-off" transform="translate(384 23)"/>
+<use href="#gem-off" transform="translate(408 23)"/>
+<use href="#gem" transform="translate(432 23)"/>
+<text class="ts" x="600" y="28">Serie 2 Wochen</text>
+<text class="ts" x="700" y="28">Woche 2/8</text>
+
+<!-- ================= Der Weg ================= -->
+<rect x="8" y="44" width="764" height="290" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="ts" x="24" y="66">Der Weg</text>
+
+<!-- Verbindungen -->
+<path class="way" d="M96 190 C116 190 118 128 136 128"/>
+<path class="way" d="M96 190 C116 190 118 252 136 252"/>
+<path class="way" d="M212 128 C236 128 240 190 262 190"/>
+<path class="way" d="M212 252 C236 252 240 190 262 190"/>
+<path class="shut" d="M412 190 C436 190 440 128 462 128"/>
+<path class="shut" d="M412 190 C436 190 440 252 462 252"/>
+<path class="shut" d="M538 128 C566 128 578 190 606 190"/>
+<path class="shut" d="M538 252 C566 252 578 190 606 190"/>
+
+<!-- besiegt -->
+<rect class="done" x="20" y="138" width="76" height="104" rx="8"/>
+<text class="ts" x="58" y="162" text-anchor="middle" fill="#27500A">Quest</text>
+<text class="ts" x="58" y="178" text-anchor="middle" fill="#27500A">Model</text>
+<use href="#check" transform="translate(58 214)"/>
+<rect class="done" x="136" y="76" width="76" height="104" rx="8"/>
+<text class="ts" x="174" y="100" text-anchor="middle" fill="#27500A">Player</text>
+<text class="ts" x="174" y="116" text-anchor="middle" fill="#27500A">Support</text>
+<use href="#check" transform="translate(174 152)"/>
+<rect class="done" x="136" y="200" width="76" height="104" rx="8"/>
+<text class="ts" x="174" y="224" text-anchor="middle" fill="#27500A">Quest</text>
+<text class="ts" x="174" y="240" text-anchor="middle" fill="#27500A">Generator</text>
+<use href="#check" transform="translate(174 276)"/>
+
+<!-- Zwischenboss: der Stapel liegt quer, Marke darauf, große Gegnerkarte darüber -->
+<rect class="work" x="268" y="146" width="150" height="100" rx="9" transform="rotate(2 343 196)" opacity="0.7"/>
+<rect class="work" x="262" y="140" width="150" height="100" rx="9"/>
+<text class="th" x="276" y="162" fill="#0C447C">Quest Board</text>
+<use href="#gem" transform="translate(284 220)"/>
+<g transform="translate(362 190) rotate(7)">
+<rect class="foe" x="-38" y="-52" width="76" height="104" rx="7"/>
+<use href="#face" transform="translate(0 -14) scale(1.3)"/>
+<circle class="pip-off" cx="-16" cy="34" r="5"/><circle class="pip" cx="0" cy="34" r="5"/><circle class="pip" cx="16" cy="34" r="5"/>
+<path class="rip" d="M-38 -26 l12 5 l8 -7 l10 6"/>
+<path class="rip-edge" d="M-38 -26 l12 5 l8 -7 l10 6"/>
+</g>
+<text class="note" x="337" y="266" text-anchor="middle">Zwischenboss: 1 von 3</text>
+<text class="note" x="337" y="280" text-anchor="middle">Unteraufgaben erledigt</text>
+
+<!-- bewacht -->
+<rect class="task" x="462" y="76" width="76" height="104" rx="8"/>
+<text class="ts" x="500" y="98" text-anchor="middle">Enter Arena</text>
+<use href="#guardcard" transform="translate(500 140) rotate(-6)"/>
+<rect class="task" x="462" y="200" width="76" height="104" rx="8"/>
+<text class="ts" x="500" y="222" text-anchor="middle">Arena reads</text>
+<use href="#guardcard" transform="translate(500 264) rotate(5)"/>
+<text class="tn" x="500" y="322" text-anchor="middle">Wächter: Quest Board</text>
+
+<!-- Endboss -->
+<g transform="translate(686 190)">
+<rect class="boss" x="-70" y="-100" width="140" height="200" rx="12"/>
+<text class="th" x="0" y="-74" text-anchor="middle" fill="#3C3489">Quests</text>
+<text class="ts" x="0" y="-56" text-anchor="middle" fill="#3C3489">itch-Release</text>
+<path d="M-26 6 a26 26 0 0 1 52 0 v26 h-52 z" fill="#534AB7"/>
+<circle cx="-10" cy="6" r="4" fill="#EEEDFE"/><circle cx="10" cy="6" r="4" fill="#EEEDFE"/>
+<path d="M-26 -18 l9 12 l8 -12 l9 12 l9 -12 l8 12 l9 -12" fill="none" stroke="#534AB7" stroke-width="2.5"/>
+<g transform="translate(-56 62)">
+<rect x="0" y="0" width="112" height="9" rx="4" fill="#FFFFFF" stroke="#534AB7"/>
+<rect x="0" y="0" width="56" height="9" rx="4" fill="#534AB7"/>
+</g>
+<text class="ts" x="0" y="90" text-anchor="middle" fill="#3C3489">8 von 16</text>
+</g>
+
+<!-- ================= Offenes Gelände ================= -->
+<rect x="8" y="344" width="566" height="228" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="ts" x="24" y="366">Offenes Gelände</text>
+
+<!-- in Arbeit: quer, Marke, Gegnerkarte mit Kästchen-Punkten -->
+<rect class="work" x="24" y="398" width="150" height="100" rx="9"/>
+<text class="th" x="38" y="420" fill="#0C447C">Replace Camera</text>
+<use href="#gem" transform="translate(46 478)"/>
+<g transform="translate(128 462) rotate(-8)">
+<rect class="foe" x="-30" y="-42" width="60" height="84" rx="6"/>
+<use href="#face" transform="translate(0 -10)"/>
+<circle class="pip-off" cx="-12" cy="28" r="4"/><circle class="pip-off" cx="0" cy="28" r="4"/><circle class="pip" cx="12" cy="28" r="4"/>
+<path class="rip" d="M-30 -18 l10 4 l6 -6 l8 5 l8 -4 l10 7 l8 -5 l10 4"/>
+<path class="rip-edge" d="M-30 -18 l10 4 l6 -6 l8 5 l8 -4 l10 7 l8 -5 l10 4"/>
+</g>
+<text class="note" x="99" y="528" text-anchor="middle">2 von 3 Kästchen abgehakt</text>
+
+<!-- offen: aufrecht -->
+<rect class="task" x="210" y="386" width="76" height="104" rx="8"/>
+<text class="ts" x="248" y="410" text-anchor="middle">Stamina</text>
+<text class="ts" x="248" y="426" text-anchor="middle">Pickup</text>
+<rect class="task" x="306" y="386" width="76" height="104" rx="8"/>
+<text class="ts" x="344" y="410" text-anchor="middle">Rename</text>
+<text class="ts" x="344" y="426" text-anchor="middle">Pickups</text>
+<rect class="task" x="402" y="386" width="76" height="104" rx="8"/>
+<text class="ts" x="440" y="410" text-anchor="middle">Spawner</text>
+<text class="ts" x="440" y="426" text-anchor="middle">Probability</text>
+<text class="tn" x="344" y="510" text-anchor="middle">offen und frei: eine Marke daraufziehen nimmt sie in Arbeit</text>
+<!-- Zug andeuten -->
+<path d="M612 420 C560 380 500 372 446 392" fill="none" stroke="#1D9E75" stroke-width="1.25" stroke-dasharray="4 3"/>
+<path d="M452 384 l-8 9 l11 3" fill="none" stroke="#1D9E75" stroke-width="1.25"/>
+
+<!-- ================= Rechts unten: Marken und Beute ================= -->
+<rect x="584" y="344" width="188" height="228" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="ts" x="600" y="366">Marken</text>
+<use href="#gem" transform="translate(622 426) scale(2)"/>
+<text class="tn" x="622" y="462" text-anchor="middle">1 frei</text>
+<text class="ts" x="686" y="366">Beute</text>
+<rect class="foe" x="684" y="394" width="52" height="72" rx="5" transform="rotate(7 710 430)" opacity="0.6"/>
+<rect class="foe" x="682" y="390" width="52" height="72" rx="5" transform="rotate(-5 708 426)" opacity="0.8"/>
+<rect class="foe" x="680" y="386" width="52" height="72" rx="5"/>
+<text class="th" x="706" y="428" text-anchor="middle" fill="#993C1D">7</text>
+<text class="tn" x="706" y="482" text-anchor="middle">besiegte Gegner</text>
+<text class="tn" x="600" y="520">Alle drei Marken gesetzt:</text>
+<text class="tn" x="600" y="534">erst etwas fertig machen.</text>
+</svg>

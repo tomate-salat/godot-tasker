@@ -1,0 +1,147 @@
+<svg viewBox="0 0 720 560" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: was die Spielfigur erzählt</title>
+<desc>Oben dieselbe Karte an drei Tagen: die Figur darauf ist erst frisch, nach drei Tagen erschöpft, nach einer Woche sitzt sie am Boden – so sieht man, wie lange eine Karte schon in Arbeit ist. Unten der Kampf über die Checkliste: links die Kästchen aus der Beschreibung, daneben die Karte in drei Momenten. Jedes abgehakte Kästchen ist ein Schlag und nimmt dem Gegner auf der Karte ein Leben; beim letzten fällt er. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.tn{font-size:11px;fill:#888780}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.c-gray rect{fill:#F1EFE8;stroke:#5F5E5A}.c-gray text{fill:#444441}
+.c-blue rect{fill:#E6F1FB;stroke:#185FA5}.c-blue text{fill:#0C447C}
+.c-green rect{fill:#EAF3DE;stroke:#3B6D11}.c-green text{fill:#27500A}
+.note{font-size:11px;fill:#993C1D}
+.foe{fill:#D85A30;stroke:#993C1D;stroke-width:1}
+.hero{fill:#185FA5}
+.life{fill:#D85A30}
+.lost{fill:#D3D1C7}
+</style>
+<defs>
+<!-- Der Gegner auf der Karte -->
+<g id="foe">
+<circle cx="0" cy="-12" r="7" class="foe"/>
+<path d="M-11 -4 h22 v10 q0 10 -11 15 q-11 -5 -11 -15 z" class="foe"/>
+<path d="M0 -1 v17 M-7 5 h14" stroke="#FFFFFF" stroke-width="1.5" fill="none"/>
+</g>
+<!-- Figur, aufrecht -->
+<g id="hero">
+<circle cx="0" cy="-13" r="6" class="hero"/>
+<path d="M-8 6 q0 -14 8 -14 q8 0 8 14 z" class="hero"/>
+<rect x="-10" y="6" width="20" height="4" rx="2" fill="#0C447C"/>
+</g>
+<!-- Figur, vornübergebeugt -->
+<g id="hero-tired">
+<circle cx="5" cy="-9" r="6" class="hero"/>
+<path d="M-8 6 q-1 -12 7 -12 q8 2 9 12 z" class="hero"/>
+<rect x="-10" y="6" width="20" height="4" rx="2" fill="#0C447C"/>
+<path d="M14 -16 q3 4 0 7" fill="none" stroke="#888780" stroke-width="1.2"/>
+<path d="M19 -18 q3 5 0 9" fill="none" stroke="#888780" stroke-width="1.2"/>
+</g>
+<!-- Figur, sitzt -->
+<g id="hero-sitting">
+<circle cx="-2" cy="-2" r="6" class="hero"/>
+<path d="M-9 10 q-2 -8 6 -8 l10 6 q3 2 -1 2 z" class="hero"/>
+<rect x="-12" y="10" width="26" height="3" rx="1.5" fill="#0C447C"/>
+<text x="8" y="-10" font-size="10" fill="#888780">z</text>
+<text x="14" y="-16" font-size="12" fill="#888780">z</text>
+</g>
+<g id="box"><rect x="0" y="0" width="11" height="11" rx="2" fill="#FFFFFF" stroke="#5F5E5A"/></g>
+<g id="box-on"><rect x="0" y="0" width="11" height="11" rx="2" fill="#1D9E75" stroke="#0F6E56"/><path d="M2.5 5.5 l2.5 3 l4 -6" fill="none" stroke="#FFFFFF" stroke-width="1.5"/></g>
+</defs>
+<rect width="720" height="560" fill="#FFFFFF"/>
+
+<!-- ============ 1: Die Figur wird müde ============ -->
+<rect x="8" y="8" width="704" height="226" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="24" y="32">1 · Die Figur zeigt, wie lange die Karte schon in Arbeit ist</text>
+<text class="tn" x="24" y="50">Dieselbe Karte an drei Tagen. Am Feld sieht man sofort, was liegen geblieben ist.</text>
+
+<g class="c-blue">
+<rect x="70" y="70" width="96" height="120" rx="9" stroke-width="1.5"/>
+<text class="ts" x="118" y="94" text-anchor="middle">Replace</text>
+<text class="ts" x="118" y="110" text-anchor="middle">Camera</text>
+<rect x="312" y="70" width="96" height="120" rx="9" stroke-width="1.5"/>
+<text class="ts" x="360" y="94" text-anchor="middle">Replace</text>
+<text class="ts" x="360" y="110" text-anchor="middle">Camera</text>
+<rect x="554" y="70" width="96" height="120" rx="9" stroke-width="1.5"/>
+<text class="ts" x="602" y="94" text-anchor="middle">Replace</text>
+<text class="ts" x="602" y="110" text-anchor="middle">Camera</text>
+</g>
+<use href="#hero" transform="translate(118 158) scale(1.5)"/>
+<use href="#hero-tired" transform="translate(356 158) scale(1.5)"/>
+<use href="#hero-sitting" transform="translate(600 162) scale(1.5)"/>
+<text class="ts" x="118" y="210" text-anchor="middle">seit heute – frisch</text>
+<text class="ts" x="360" y="210" text-anchor="middle">seit 3 Tagen – erschöpft</text>
+<text class="note" x="602" y="210" text-anchor="middle">seit 7 Tagen – sitzt am Boden</text>
+<path d="M182 130 h112 m-8 -5 l8 5 l-8 5" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+<path d="M424 130 h112 m-8 -5 l8 5 l-8 5" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+<text class="tn" x="238" y="122" text-anchor="middle">3 Tage</text>
+<text class="tn" x="480" y="122" text-anchor="middle">4 Tage</text>
+
+<!-- ============ 2: Der Kampf über die Kästchen ============ -->
+<rect x="8" y="244" width="704" height="308" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="24" y="268">2 · Die Kästchen der Beschreibung sind die Leben des Gegners</text>
+<text class="tn" x="24" y="286">Jedes abgehakte Kästchen ist ein Schlag. So passiert auch während der Arbeit an einer Karte etwas.</text>
+
+<!-- Die Beschreibung, wie sie im Aufgabenfenster steht -->
+<rect x="24" y="302" width="170" height="150" rx="8" fill="#FFFFFF" stroke="#D3D1C7"/>
+<text class="ts" x="36" y="322" font-weight="500">Board UI</text>
+<text class="tn" x="36" y="338">im Aufgabenfenster:</text>
+<use href="#box-on" transform="translate(36 350)"/><text class="ts" x="54" y="360">Liste der Quests</text>
+<use href="#box" transform="translate(36 372)"/><text class="ts" x="54" y="382">Aktive hervorheben</text>
+<use href="#box" transform="translate(36 394)"/><text class="ts" x="54" y="404">Belohnung zeigen</text>
+<use href="#box" transform="translate(36 416)"/><text class="ts" x="54" y="426">Schließen-Knopf</text>
+<text class="tn" x="24" y="472">4 Kästchen = 4 Leben.</text>
+<text class="tn" x="24" y="486">Ohne Kästchen hat der</text>
+<text class="tn" x="24" y="500">Gegner ein Leben: das</text>
+<text class="tn" x="24" y="514">Erledigen der Karte.</text>
+
+<!-- Moment A: angefangen -->
+<g class="c-blue">
+<rect x="226" y="302" width="130" height="162" rx="10" stroke-width="1.5"/>
+<text class="ts" x="291" y="326" text-anchor="middle">Board UI</text>
+</g>
+<use href="#hero" transform="translate(262 400) scale(1.5)"/>
+<use href="#foe" transform="translate(320 392) scale(1.4)"/>
+<rect x="246" y="438" width="20" height="8" rx="2" class="lost"/>
+<rect x="270" y="438" width="20" height="8" rx="2" class="life"/>
+<rect x="294" y="438" width="20" height="8" rx="2" class="life"/>
+<rect x="318" y="438" width="20" height="8" rx="2" class="life"/>
+<text class="tn" x="291" y="482" text-anchor="middle">1 von 4 abgehakt:</text>
+<text class="tn" x="291" y="496" text-anchor="middle">3 Leben übrig</text>
+
+<!-- Moment B: ein Kästchen wird abgehakt -->
+<g class="c-blue">
+<rect x="390" y="302" width="130" height="162" rx="10" stroke-width="1.5"/>
+<text class="ts" x="455" y="326" text-anchor="middle">Board UI</text>
+</g>
+<use href="#hero" transform="translate(434 400) rotate(18) scale(1.5)"/>
+<!-- Schlag -->
+<path d="M448 372 l22 10" stroke="#0C447C" stroke-width="3" stroke-linecap="round"/>
+<path d="M466 366 l6 8 M474 372 l8 3 M470 386 l8 -1" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round"/>
+<use href="#foe" transform="translate(490 394) rotate(12) scale(1.4)"/>
+<text class="note" x="494" y="356" text-anchor="middle" font-weight="500">−1</text>
+<rect x="410" y="438" width="20" height="8" rx="2" class="lost"/>
+<rect x="434" y="438" width="20" height="8" rx="2" class="lost"/>
+<rect x="458" y="438" width="20" height="8" rx="2" class="life"/>
+<rect x="482" y="438" width="20" height="8" rx="2" class="life"/>
+<text class="note" x="455" y="482" text-anchor="middle">Kästchen abgehakt:</text>
+<text class="note" x="455" y="496" text-anchor="middle">die Figur schlägt zu</text>
+
+<!-- Moment C: besiegt -->
+<g class="c-green">
+<rect x="554" y="302" width="130" height="162" rx="10" stroke-width="1.5"/>
+<text class="ts" x="619" y="326" text-anchor="middle">Board UI</text>
+</g>
+<use href="#foe" transform="translate(650 426) rotate(80) scale(1.2)" opacity="0.4"/>
+<path d="M600 384 l12 14 l24 -30" fill="none" stroke="#3B6D11" stroke-width="4"/>
+<rect x="574" y="438" width="20" height="8" rx="2" class="lost"/>
+<rect x="598" y="438" width="20" height="8" rx="2" class="lost"/>
+<rect x="622" y="438" width="20" height="8" rx="2" class="lost"/>
+<rect x="646" y="438" width="20" height="8" rx="2" class="lost"/>
+<text class="tn" x="619" y="482" text-anchor="middle">letztes Kästchen:</text>
+<text class="tn" x="619" y="496" text-anchor="middle">Gegner fällt, Figur ist frei</text>
+
+<path d="M362 384 h22 m-6 -4 l6 4 l-6 4" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+<path d="M526 384 h22 m-6 -4 l6 4 l-6 4" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+
+<text class="tn" x="226" y="530">Bei einem Stapel gilt dasselbe eine Ebene höher: jede erledigte Unteraufgabe nimmt dem Zwischenboss ein Leben.</text>
+</svg>

@@ -470,6 +470,38 @@ Stand 2026-10-07: Es beginnt mit der Beschreibung. Sie soll sich bedienen lassen
 
 - Bilder ins Feld legen.
 
+## Ausbau: Das Feld
+
+Der Weg zum Milestone soll ein Ziel haben. Statt Hand und Nachziehstapel liegen alle Karten des laufenden Milestones offen auf einem Feld, und was sie voneinander brauchen, wird zum Kampf: Marienkäfer gegen Schädlinge. Das Feld ist die erste Ansicht am Tisch; der Spieltisch („Spielen“) bleibt daneben, bis das Feld ihn ersetzt.
+
+### Festgelegt
+
+- **Schädlinge:** Auf einer Karte sitzt für alles, was sie noch braucht, ein Schädling: je offener Voraussetzung einer und, bei einem Stapel, je offener Unteraufgabe einer. Steht die Karte selbst auf „Blockiert“, liegt eine Mauer darauf – daran ändert keine andere Karte etwas.
+- **Tappen:** Ein Klick nimmt eine Karte in Arbeit („In Progress“) oder gibt sie wieder frei. Die getappte Karte liegt schräg und angehoben. Tappen geht nur bei freien Karten ohne Unteraufgaben – dieselbe Regel wie beim Ausspielen.
+- **Marienkäfer:** Eine getappte Karte schickt einen Marienkäfer zu jedem Schädling, den sie stellt – eine Unteraufgabe also zu ihrem Schädling auf dem Stapel. Im innersten Ring greift er den großen Käfer an. So hat jedes Tappen ein Ziel.
+- **Angriffe:** Von jeder getappten Karte laufen rote Striche zu dem, was sie angreift – zur Karte mit ihrem Schädling oder zum großen Käfer.
+- **Bisse:** Jedes abgehakte Kästchen der getappten Karte ist ein Biss; dem Schädling fehlt mit jedem Sechstel ein Bein. Bei einem Stapel zählen die erledigten Unteraufgaben.
+- **Erledigen:** Die Karte auf den großen Käfer ziehen (oder das Menü) erledigt sie – einen Knopf gibt es auf dem Feld nicht: ihre Schädlinge kippen auf den Rücken und verblassen, der große Käfer verliert ein Leben.
+- **Form:** Der große Käfer sitzt in der Mitte, die Karten liegen in Ringen um ihn. Im innersten Ring liegt, woran nichts mehr hängt. Was eine Karte braucht, liegt einen Ring weiter außen: ihre Voraussetzungen und, bei einem Stapel, ihre Unteraufgaben – auch die müssen erledigt sein, bevor er es ist. So führt von jeder Karte ein Weg zur Mitte; Umwege werden nicht eigens gezeichnet. Jede Karte bekommt einen Winkelbereich so breit wie das, was hinter ihr nach außen hängt, und die längste Kette zeigt zur Seite, wo das Fenster am meisten Platz hat. Für die Form zählen auch erledigte Karten, sonst rutschte das Feld beim Spielen um. Verworfen: der Weg von links nach rechts mit offenem Gelände darunter – er sah nach einem Ablauf aus, den es nicht gibt, und manche Karten hingen in der Luft.
+- **Karten:** Sie liegen verkleinert auf dem Feld und werden unter dem Zeiger groß. Verkleinert gezeichnete Schrift ist doppelt fein gerastert (`Palette.sharp_*_font`), die Käfer sind ohne weiche Kantenglättung gezeichnet und das Fenster glättet die Kanten (`msaa_2d`) – beides, weil Verkleinern sonst alles weich macht.
+- **Nichts davon wird gespeichert:** alles ergibt sich aus Status, Unteraufgaben, Abhängigkeiten und Kästchen. Tasker selbst kennt das Feld nicht.
+- **Keine Obergrenze** für getappte Karten (die Marken aus den Skizzen sind verworfen), keine Figuren, kein Alter der Arbeit.
+
+### Schritte
+
+- [x] Schritt 1: Regeln (`rules/field.gd`, Tests in `tests/test_field.gd`), die Ansicht (`ui/field_view.gd`, Käfer gezeichnet in `ui/field_bug.gd`) und der Umschalter Feld / Spielen / Planen. Tappen, zurücknehmen und erledigen gehen über dieselben Änderungen wie am Spieltisch.
+
+Geprüft mit Beispieldaten im Skript und als Bildprobe: Aufbau, Tappen, abgelehntes Tappen einer gesperrten Karte, Unteraufgabe tappen, Erledigen mit fallendem Schädling. Nicht geprüft: echte Maus, echte Daten, viele Karten, die Bewegungen in Bewegung.
+
+### Offen
+
+- Der Schatten als Rivale (Skizze `tisch-schatten.svg`) – als Leiste über dem Feld.
+- Viele Karten und lange Ketten: das Feld wird kleiner gezeichnet, bis es passt. Mit dem Mausrad lässt es sich vergrößern (um den Zeiger herum), am freien Filz verschieben; ein Doppelklick auf den Filz zeigt wieder alles. Das Fenster selbst verschiebt man dafür nur noch an der Kopfzeile.
+- Ein Milestone fast ohne Abhängigkeiten ist ein einziger voller innerer Ring.
+- Wohin die besiegten Schädlinge gehen (Beute), und ob „Unklar“ einen eigenen Gegner bekommt.
+- Der Spieltisch fliegt raus, wenn das Feld trägt: Hand, Nachziehstapel und ihr lokaler Zustand werden dann nicht mehr gebraucht.
+
+
 ## Ausbau: Fenster als Karten
 
 Was sich zu einer Karte öffnet – Aufgabe, Milestone, Abhängigkeiten –, sieht selbst wie eine Karte aus: ohne Titelleiste, mit runden Ecken. Weitere Ideen dazu kommen einzeln nacheinander.
@@ -513,3 +545,11 @@ Grobe Skizzen der Aufteilung, nicht des Aussehens. Die Titel auf den Karten sind
 | Planen, überholte Aufteilung; der Graph einer Karte gilt weiter | [docs/mockups/planen-vorrat-unten.svg](docs/mockups/planen-vorrat-unten.svg) |
 | Planen: Ordner-Varianten, gewählt ist die obere | [docs/mockups/planen-ordner-varianten.svg](docs/mockups/planen-ordner-varianten.svg) |
 | Abhängigkeiten als Fäden | [docs/mockups/tisch-faeden.svg](docs/mockups/tisch-faeden.svg) |
+| Idee: der Schatten als Gegner auf dem Weg zum Milestone | [docs/mockups/tisch-schatten.svg](docs/mockups/tisch-schatten.svg) |
+| Idee: Wächter auf gesperrten Karten | [docs/mockups/tisch-waechter.svg](docs/mockups/tisch-waechter.svg) |
+| Idee: alle Karten auf einem Feld statt Hand und Nachziehstapel – Weg, Wächter, Bosse, Spielfiguren | [docs/mockups/tisch-feld.svg](docs/mockups/tisch-feld.svg) |
+| Idee: was die Spielfigur erzählt – Müdigkeit über die Tage, Kampf über die Kästchen | [docs/mockups/tisch-figuren.svg](docs/mockups/tisch-figuren.svg) |
+| Idee ohne Figuren: Gegner als Karten, Karten in Arbeit liegen quer, drei Marken als Obergrenze | [docs/mockups/tisch-gegnerkarten.svg](docs/mockups/tisch-gegnerkarten.svg) |
+| Idee: der ganze Tisch als Feld mit Gegnerkarten, quer liegenden Karten und Marken | [docs/mockups/tisch-feld-karten.svg](docs/mockups/tisch-feld-karten.svg) |
+| Idee: Marienkäfer gegen Schädlinge – Tappen schickt einen Marienkäfer zum Schädling der Voraussetzung, Erledigen besiegt ihn | [docs/mockups/tisch-kaefer.svg](docs/mockups/tisch-kaefer.svg) |
+| Idee: der Milestone in der Mitte, die Karten in Ringen darum – von jeder führt ein Weg nach innen | [docs/mockups/tisch-ring.svg](docs/mockups/tisch-ring.svg) |

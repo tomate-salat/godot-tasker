@@ -31,12 +31,13 @@ const Sounds := preload("sounds.gd")
 const Shelf := preload("shelf.gd")
 const Burnup := preload("../rules/burnup.gd")
 const PlanView := preload("plan_view.gd")
+const FieldView := preload("field_view.gd")
 const DepGraphView := preload("dep_graph_view.gd")
 
 const HEADER := 60.0
 const MARGIN := 28.0
 ## So breit ist der Umschalter „Spielen / Planen“ links oben.
-const MODES_WIDTH := 188.0
+const MODES_WIDTH := 264.0
 ## Plätze im Spiel, die leer angezeigt werden – ein Richtwert, begrenzt wird nicht.
 const SLOTS := 7
 ## Ab so vielen Pixeln wird aus einem Klick ein Ziehen.
@@ -149,6 +150,11 @@ var _menu_task := ""
 var _mode_play: Button
 var _mode_plan: Button
 var planning := false: set = set_planning
+## Das Feld ist die erste Ansicht; der Spieltisch mit Hand und Nachziehstapel
+## bleibt daneben, bis das Feld ihn ersetzt.
+var field := true: set = set_field
+var _field: FieldView
+var _mode_field: Button
 
 
 func _init() -> void:
@@ -158,6 +164,8 @@ func _init() -> void:
 	rim_on_top = true
 	fill = Palette.FELT
 	title = "Tasker – Tisch"
+	# Gezeichnetes – die Käfer des Feldes – bekommt glatte Kanten, ohne weich zu werden.
+	msaa_2d = Viewport.MSAA_4X
 	size = Vector2i(1440, 900)
 	min_size = Vector2i(1100, 800)
 	close_requested.connect(shut)
@@ -351,6 +359,18 @@ func _build() -> void:
 		elif store != null and store.state == "ready":
 			task_requested.emit(_menu_task))
 	add_child(_card_menu)
+	# Das Feld liegt über dem Spieltisch und unter Graph und Planung.
+	_field = FieldView.new()
+	_field.visible = false
+	_field.task_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	_field.graph_requested.connect(_open_graph)
+	_field.refused.connect(_refuse)
+	_field.change_requested.connect(_field_change)
+	# Die Kopfzeile mit Milestone und Fortschritt bleibt über dem Feld.
+	add_child(_field)
+	move_child(_field, bar.get_index())
 	# Der Graph legt sich über den Tisch.
 	_graph = DepGraphView.new()
 	_graph.z_index = 700
@@ -372,8 +392,15 @@ func _build() -> void:
 	modes.position = Vector2(MARGIN, 14)
 	modes.add_theme_constant_override("separation", 0)
 	add_child(modes)
-	_mode_play = _mode_button("Spielen", "Der laufende Milestone als Kartenspiel")
-	_mode_play.pressed.connect(func() -> void: planning = false)
+	_mode_field = _mode_button("Feld", "Der laufende Milestone als Feld: alle Karten liegen offen, Marienkäfer gegen Schädlinge")
+	_mode_field.pressed.connect(func() -> void:
+		planning = false
+		field = true)
+	modes.add_child(_mode_field)
+	_mode_play = _mode_button("Spielen", "Der laufende Milestone als Kartenspiel mit Hand und Nachziehstapel")
+	_mode_play.pressed.connect(func() -> void:
+		planning = false
+		field = false)
 	modes.add_child(_mode_play)
 	_mode_plan = _mode_button("Planen", "Die Decks ansehen: was in welchem Milestone liegt und was im Vorrat")
 	_mode_plan.pressed.connect(func() -> void: planning = true)
@@ -406,7 +433,7 @@ func _mode_button(text: String, tip: String) -> Button:
 	b.tooltip_text = tip
 	b.toggle_mode = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size.x = MODES_WIDTH / 2.0 - 8.0
+	b.custom_minimum_size.x = MODES_WIDTH / 3.0 - 8.0
 	return b
 
 
@@ -421,12 +448,32 @@ func set_planning(value: bool) -> void:
 	_sync()
 
 
+## Wechselt zwischen dem Feld und dem Spieltisch.
+func set_field(value: bool) -> void:
+	field = value
+	if _plan == null:
+		return
+	_close_overlays()
+	_graph.close()
+	_show_mode()
+	_sync()
+
+
+## Ein Zug auf dem Feld: tappen, zurücknehmen, erledigen.
+func _field_change(id: String, changes: Dictionary) -> void:
+	_sounds.play("play" if changes.get("status") == "progress" else "draw" if changes.get("status") == "open" else "done")
+	await _change(id, changes)
+	_sync()
+
+
 func _show_mode() -> void:
 	_plan.visible = planning
+	_field.visible = field and not planning
 	# Die Karten des Spieltischs liegen auf eigenen Ebenen und würden sonst durchscheinen.
-	_board.visible = not planning
-	_layer.visible = not planning
-	_mode_play.set_pressed_no_signal(not planning)
+	_board.visible = not planning and not field
+	_layer.visible = not planning and not field
+	_mode_field.set_pressed_no_signal(field and not planning)
+	_mode_play.set_pressed_no_signal(not planning and not field)
 	_mode_plan.set_pressed_no_signal(planning)
 
 
@@ -474,6 +521,8 @@ func _sync() -> void:
 			Burnup.day_of(Time.get_unix_time_from_system(), Time.get_time_zone_from_system()["bias"]))
 
 	_milestone = Tisch.active_milestone(_ws, _project)
+	if field and not planning:
+		_field.show_field(_ws, _milestone, images if not demo else null)
 	if _milestone == null:
 		_layout = {"locked": [], "open": [], "play": [], "pile": []}
 		_state = {"hand": [], "buried": [], "open": []}
@@ -806,7 +855,7 @@ func _place_labels(g: Dictionary) -> void:
 	_deck_area.position = g["deck"].position
 	_deck_area.size = g["deck"].size
 	_deck_area.visible = _milestone != null
-	_browse_button.visible = _milestone != null and deck_count > 0
+	_browse_button.visible = _milestone != null and deck_count > 0 and not field
 	_browse_button.text = "Zudecken" if _browse else "Ansehen"
 	_browse_button.position = g["deck"].position + Vector2(g["deck"].size.x + 10.0, g["deck"].size.y - 36.0)
 	_toast.size = Vector2(size.x, 28)
@@ -1364,6 +1413,9 @@ func _refuse(text: String) -> void:
 
 func _say(text: String, color := Palette.P2) -> void:
 	_toast.add_theme_color_override("font_color", color)
+	if field and not planning:
+		_field.say(text, color)
+		return
 	_toast.text = text
 	if _toast_tween != null and _toast_tween.is_valid():
 		_toast_tween.kill()

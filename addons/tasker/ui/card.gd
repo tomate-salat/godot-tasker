@@ -44,6 +44,17 @@ var tight := false:
 	set(value):
 		tight = value
 		queue_redraw()
+## Die Karte wird verkleinert gezeichnet: ihre Schrift ist dann doppelt fein
+## gerastert, damit sie scharf bleibt.
+var sharp := false:
+	set(value):
+		sharp = value
+		var title := Palette.sharp_title_font() if value else Palette.title_font()
+		var body := Palette.sharp_body_font() if value else Palette.body_font()
+		_title.add_theme_font_override("font", title)
+		_mark.add_theme_font_override("font", title)
+		_crumb.add_theme_font_override("font", body)
+		_count.add_theme_font_override("font", body)
 var _locked := false
 var _segments: Array = []
 

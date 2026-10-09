@@ -1,0 +1,162 @@
+<svg viewBox="0 0 720 540" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: alle Karten auf einem Feld</title>
+<desc>Kein Nachziehstapel und keine Hand. Oben läuft der Weg des Milestones von links nach rechts, geordnet nach Abhängigkeiten: besiegte Karten, dann ein Zwischenboss mit Lebenspunkten, dahinter bewachte Karten und am rechten Rand der Endboss. Unten liegt das offene Gelände mit Karten ohne Abhängigkeiten. Drei Spielfiguren zeigen, woran gerade gearbeitet wird; eine steht frei im Lager. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.tn{font-size:11px;fill:#888780}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.c-gray rect{fill:#F1EFE8;stroke:#5F5E5A}.c-gray text{fill:#444441}
+.c-blue rect{fill:#E6F1FB;stroke:#185FA5}.c-blue text{fill:#0C447C}
+.c-green rect{fill:#EAF3DE;stroke:#3B6D11}.c-green text{fill:#27500A}
+.c-purple rect{fill:#EEEDFE;stroke:#534AB7}.c-purple text{fill:#3C3489}
+.note{font-size:11px;fill:#993C1D}
+.guard{fill:#D85A30;stroke:#993C1D;stroke-width:1}
+.way{fill:none;stroke:#B4B2A9;stroke-width:2}
+.shut{fill:none;stroke:#D85A30;stroke-width:2;stroke-dasharray:5 4}
+</style>
+<defs>
+<g id="guard">
+<circle cx="0" cy="-12" r="7" class="guard"/>
+<path d="M-11 -4 h22 v10 q0 10 -11 15 q-11 -5 -11 -15 z" class="guard"/>
+<path d="M0 -1 v17 M-7 5 h14" stroke="#FFFFFF" stroke-width="1.5" fill="none"/>
+</g>
+<!-- Eine Spielfigur -->
+<g id="pawn">
+<circle cx="0" cy="-13" r="6" fill="#185FA5"/>
+<path d="M-8 6 q0 -14 8 -14 q8 0 8 14 z" fill="#185FA5"/>
+<rect x="-10" y="6" width="20" height="4" rx="2" fill="#0C447C"/>
+</g>
+<g id="check"><path d="M-6 0 l4 5 l8 -10" fill="none" stroke="#3B6D11" stroke-width="2.5"/></g>
+</defs>
+<rect width="720" height="540" fill="#FFFFFF"/>
+
+<!-- Kopfzeile -->
+<text class="th" x="20" y="26">Quests</text>
+<rect x="84" y="17" width="150" height="8" rx="4" fill="#B4B2A9"/>
+<rect x="84" y="17" width="75" height="8" rx="4" fill="#1D9E75"/>
+<text class="ts" x="244" y="26">8/16</text>
+<text class="ts" x="330" y="26">Figuren</text>
+<use href="#pawn" transform="translate(392 24) scale(0.7)"/>
+<use href="#pawn" transform="translate(412 24) scale(0.7)"/>
+<use href="#pawn" transform="translate(432 24) scale(0.7)" opacity="0.3"/>
+<text class="tn" x="446" y="26">2 im Kampf, 1 frei</text>
+<use href="#guard" transform="translate(600 24) scale(0.6)"/>
+<text class="ts" x="614" y="26">Wächter 3/5</text>
+
+<!-- Der Weg -->
+<rect x="8" y="42" width="704" height="286" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="ts" x="24" y="64">Der Weg – nach Abhängigkeiten, links frei, rechts das Ziel</text>
+
+<!-- Verbindungen -->
+<path class="way" d="M102 180 C120 180 124 126 142 126"/>
+<path class="way" d="M102 180 C120 180 124 234 142 234"/>
+<path class="way" d="M222 126 C246 126 250 180 272 180"/>
+<path class="way" d="M222 234 C246 234 250 180 272 180"/>
+<path class="shut" d="M392 180 C416 180 420 126 440 126"/>
+<path class="shut" d="M392 180 C416 180 420 234 440 234"/>
+<path class="shut" d="M520 126 C548 126 556 180 580 180"/>
+<path class="shut" d="M520 234 C548 234 556 180 580 180"/>
+
+<!-- Besiegt -->
+<g class="c-green">
+<rect x="22" y="134" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="62" y="160" text-anchor="middle">Quest</text>
+<text class="ts" x="62" y="176" text-anchor="middle">Model</text>
+<rect x="142" y="80" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="182" y="106" text-anchor="middle">Player</text>
+<text class="ts" x="182" y="122" text-anchor="middle">Support</text>
+<rect x="142" y="188" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="182" y="214" text-anchor="middle">Quest</text>
+<text class="ts" x="182" y="230" text-anchor="middle">Generator</text>
+</g>
+<use href="#check" transform="translate(62 204)"/>
+<use href="#check" transform="translate(182 150)"/>
+<use href="#check" transform="translate(182 258)"/>
+<text class="tn" x="62" y="244" text-anchor="middle">besiegt</text>
+
+<!-- Zwischenboss: ein Stapel -->
+<g class="c-blue">
+<rect x="280" y="128" width="112" height="116" rx="10" stroke-width="0.5" transform="rotate(3 336 186)"/>
+<rect x="272" y="122" width="120" height="116" rx="10" stroke-width="1.5"/>
+<text class="th" x="332" y="148" text-anchor="middle" fill="#0C447C">Quest Board</text>
+<text class="ts" x="332" y="166" text-anchor="middle">Zwischenboss</text>
+</g>
+<!-- Lebenspunkte = Unteraufgaben -->
+<rect x="286" y="212" width="28" height="9" rx="2" fill="#B4B2A9"/>
+<rect x="318" y="212" width="28" height="9" rx="2" fill="#D85A30"/>
+<rect x="350" y="212" width="28" height="9" rx="2" fill="#D85A30"/>
+<text class="tn" x="332" y="232" text-anchor="middle">2 von 3 Leben übrig</text>
+<use href="#pawn" transform="translate(332 196)"/>
+<text class="note" x="332" y="110" text-anchor="middle">im Kampf: eine Figur steht darauf</text>
+
+<!-- Bewacht -->
+<g class="c-gray">
+<rect x="440" y="80" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="480" y="104" text-anchor="middle">Enter Arena</text>
+<text class="ts" x="480" y="120" text-anchor="middle">Dialog</text>
+<rect x="440" y="188" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="480" y="212" text-anchor="middle">Arena reads</text>
+<text class="ts" x="480" y="228" text-anchor="middle">Modifiers</text>
+</g>
+<use href="#guard" transform="translate(480 150)"/>
+<use href="#guard" transform="translate(480 258)"/>
+<text class="note" x="480" y="296" text-anchor="middle">bewacht von: Quest Board</text>
+
+<!-- Endboss -->
+<g class="c-purple">
+<rect x="580" y="110" width="118" height="140" rx="12" stroke-width="2"/>
+<text class="th" x="639" y="138" text-anchor="middle" fill="#3C3489">Quests</text>
+<text class="ts" x="639" y="156" text-anchor="middle">Endboss</text>
+<path d="M619 190 a20 20 0 0 1 40 0 v24 h-40 z" fill="#534AB7"/>
+<circle cx="631" cy="192" r="3" fill="#EEEDFE"/><circle cx="647" cy="192" r="3" fill="#EEEDFE"/>
+<path d="M619 172 l6 10 l6 -10 l8 10 l8 -10 l6 10 l6 -10" fill="none" stroke="#534AB7" stroke-width="2"/>
+<text class="ts" x="639" y="236" text-anchor="middle">8 von 16 Leben</text>
+</g>
+<text class="tn" x="639" y="270" text-anchor="middle">fällt, wenn alles</text>
+<text class="tn" x="639" y="284" text-anchor="middle">davor besiegt ist</text>
+
+<text class="tn" x="24" y="314">Gestrichelt rot: der Weg ist noch versperrt. Erledigst du den Boss davor, fallen die Wächter und die Linie wird fest.</text>
+
+<!-- Offenes Gelände -->
+<rect x="8" y="338" width="560" height="190" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="ts" x="24" y="360">Offenes Gelände – hängt an nichts, jederzeit angreifbar</text>
+<g class="c-gray">
+<rect x="24" y="376" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="64" y="402" text-anchor="middle">Stamina</text>
+<text class="ts" x="64" y="418" text-anchor="middle">Pickup</text>
+<rect x="232" y="376" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="272" y="402" text-anchor="middle">Rename</text>
+<text class="ts" x="272" y="418" text-anchor="middle">Pickups</text>
+<rect x="336" y="376" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="376" y="402" text-anchor="middle">Spawner</text>
+<text class="ts" x="376" y="418" text-anchor="middle">Probability</text>
+</g>
+<g class="c-blue">
+<rect x="128" y="376" width="80" height="92" rx="8" stroke-width="1.5"/>
+<text class="ts" x="168" y="402" text-anchor="middle">Replace</text>
+<text class="ts" x="168" y="418" text-anchor="middle">Camera</text>
+</g>
+<use href="#pawn" transform="translate(168 452)"/>
+<text class="note" x="168" y="486" text-anchor="middle">im Kampf</text>
+<!-- Nebel -->
+<g class="c-gray">
+<rect x="440" y="376" width="80" height="92" rx="8" stroke-width="0.5"/>
+<text class="ts" x="480" y="402" text-anchor="middle">Armor</text>
+<text class="ts" x="480" y="418" text-anchor="middle">Balance</text>
+</g>
+<g fill="#B4B2A9" opacity="0.75">
+<ellipse cx="466" cy="440" rx="22" ry="9"/><ellipse cx="494" cy="448" rx="24" ry="9"/><ellipse cx="478" cy="430" rx="18" ry="8"/>
+</g>
+<text class="tn" x="480" y="486" text-anchor="middle">Nebel: „Unklar“</text>
+<text class="tn" x="24" y="512">Ohne Abhängigkeiten gibt es keinen Weg – dann ordnet sich das Gelände nach Priorität oder Gruppe.</text>
+
+<!-- Lager -->
+<rect x="578" y="338" width="134" height="190" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="ts" x="592" y="360">Lager</text>
+<use href="#pawn" transform="translate(645 420) scale(1.6)"/>
+<text class="tn" x="645" y="456" text-anchor="middle">1 Figur frei</text>
+<text class="tn" x="592" y="482">Auf eine freie Karte ziehen</text>
+<text class="tn" x="592" y="496">nimmt sie in Arbeit. Sind</text>
+<text class="tn" x="592" y="510">alle gesetzt, erst fertig machen.</text>
+</svg>

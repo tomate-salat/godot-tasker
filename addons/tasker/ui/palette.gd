@@ -21,6 +21,8 @@ const FELT := Color("1f3a31")
 
 static var _title_font: Font
 static var _body_font: Font
+static var _sharp_title_font: Font
+static var _sharp_body_font: Font
 
 
 static func status_color(status: Variant) -> Color:
@@ -86,7 +88,23 @@ static func body_font() -> Font:
 	return _body_font
 
 
-static func _system_font(names: Array, weight: int) -> Font:
+## Dieselben Schriften, doppelt fein gerastert: für Karten, die verkleinert
+## gezeichnet werden – sonst wird die Schrift dort weich.
+static func sharp_title_font() -> Font:
+	if _sharp_title_font == null:
+		_sharp_title_font = _system_font(["Bricolage Grotesque", "Segoe UI", "Helvetica Neue", "Noto Sans"], 650)
+		_sharp_title_font.oversampling = 2.0
+	return _sharp_title_font
+
+
+static func sharp_body_font() -> Font:
+	if _sharp_body_font == null:
+		_sharp_body_font = _system_font(["IBM Plex Sans", "Segoe UI", "Helvetica Neue", "Noto Sans"], 500)
+		_sharp_body_font.oversampling = 2.0
+	return _sharp_body_font
+
+
+static func _system_font(names: Array, weight: int) -> SystemFont:
 	var font := SystemFont.new()
 	font.font_names = PackedStringArray(names)
 	font.font_weight = weight

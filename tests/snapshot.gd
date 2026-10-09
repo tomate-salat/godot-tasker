@@ -15,6 +15,8 @@ func _process(delta: float) -> bool:
 	_elapsed += delta
 	if _step == 0:
 		_table = TableWindow.new()
+		# Die Bildprobe gilt dem Spieltisch und der Planung, nicht dem Feld.
+		_table.field = false
 		root.add_child(_table)
 		_table.popup_centered()
 		_next()

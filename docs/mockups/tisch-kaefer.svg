@@ -1,0 +1,179 @@
+<svg viewBox="0 0 780 660" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: Marienkäfer gegen Schädlinge</title>
+<desc>Oben der Ablauf an einer gesperrten Karte in drei Momenten: erst sitzen zwei Schädlinge darauf, je einer pro offener Voraussetzung. Dann wird eine Voraussetzung getappt und ein Marienkäfer krabbelt zu ihrem Schädling. Ist die Voraussetzung erledigt, liegt der Schädling auf dem Rücken und der Marienkäfer zieht ab. Unten der Tisch mit mehreren Fronten: eine getappte Karte schickt Marienkäfer zu zwei gesperrten Karten, eine andere, an der nichts hängt, schickt ihren zum großen Käfer des Milestones. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.tn{font-size:11px;fill:#888780}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.note{font-size:11px;fill:#993C1D}
+.good{font-size:11px;fill:#0F6E56}
+.task{fill:#F1EFE8;stroke:#5F5E5A;stroke-width:0.75}
+.work{fill:#E6F1FB;stroke:#185FA5;stroke-width:1.5}
+.done{fill:#EAF3DE;stroke:#3B6D11;stroke-width:1}
+.boss{fill:#EEEDFE;stroke:#534AB7;stroke-width:2}
+.leg{fill:none;stroke:#2C2C2A;stroke-width:1.2;stroke-linecap:round}
+.trail{fill:none;stroke:#D85A30;stroke-width:1.25;stroke-dasharray:1 4;stroke-linecap:round}
+.way{fill:none;stroke:#B4B2A9;stroke-width:2}
+.shut{fill:none;stroke:#D85A30;stroke-width:2;stroke-dasharray:5 4}
+</style>
+<defs>
+<!-- Ein Schädling von oben, Kopf nach oben -->
+<g id="pest">
+<path class="leg" d="M-6 -4 l-8 -5 M-7 1 l-9 0 M-6 6 l-8 5 M6 -4 l8 -5 M7 1 l9 0 M6 6 l8 5"/>
+<path class="leg" d="M-2 -12 l-4 -6 M2 -12 l4 -6"/>
+<ellipse cx="0" cy="2" rx="7.5" ry="10" fill="#444441"/>
+<circle cx="0" cy="-9" r="4.5" fill="#2C2C2A"/>
+<path d="M0 -6 v17" stroke="#888780" stroke-width="0.8"/>
+</g>
+<!-- Derselbe, auf dem Rücken -->
+<g id="pest-dead">
+<path class="leg" d="M-5 -3 q-7 -1 -6 -7 M-6 2 q-8 2 -8 -4 M-5 7 q-6 4 -8 -1 M5 -3 q7 -1 6 -7 M6 2 q8 2 8 -4 M5 7 q6 4 8 -1" stroke="#888780"/>
+<ellipse cx="0" cy="2" rx="7.5" ry="10" fill="#D3D1C7" stroke="#888780" stroke-width="0.75"/>
+<circle cx="0" cy="-9" r="4.5" fill="#B4B2A9"/>
+<path d="M-3 -1 h6 M-4 3 h8 M-3 7 h6" stroke="#888780" stroke-width="0.8"/>
+</g>
+<!-- Ein Marienkäfer von oben, Kopf nach oben -->
+<g id="lady">
+<path class="leg" d="M-6 -3 l-7 -4 M-7 2 l-8 1 M-6 6 l-7 5 M6 -3 l7 -4 M7 2 l8 1 M6 6 l7 5"/>
+<path class="leg" d="M-2 -11 l-3 -5 M2 -11 l3 -5"/>
+<circle cx="0" cy="-8" r="4.5" fill="#2C2C2A"/>
+<circle cx="-2" cy="-9.5" r="1" fill="#FFFFFF"/><circle cx="2" cy="-9.5" r="1" fill="#FFFFFF"/>
+<ellipse cx="0" cy="2" rx="8.5" ry="9.5" fill="#E24B4A" stroke="#A32D2D" stroke-width="0.75"/>
+<path d="M0 -7 v18" stroke="#2C2C2A" stroke-width="1"/>
+<circle cx="-4" cy="-1" r="1.6" fill="#2C2C2A"/><circle cx="4" cy="-1" r="1.6" fill="#2C2C2A"/>
+<circle cx="-4.5" cy="5" r="1.6" fill="#2C2C2A"/><circle cx="4.5" cy="5" r="1.6" fill="#2C2C2A"/>
+</g>
+<g id="check"><path d="M-7 0 l5 6 l10 -13" fill="none" stroke="#3B6D11" stroke-width="3"/></g>
+<g id="box"><rect x="0" y="0" width="10" height="10" rx="2" fill="#FFFFFF" stroke="#5F5E5A"/></g>
+<g id="box-on"><rect x="0" y="0" width="10" height="10" rx="2" fill="#1D9E75" stroke="#0F6E56"/><path d="M2 5 l2.5 3 l3.5 -6" fill="none" stroke="#FFFFFF" stroke-width="1.4"/></g>
+</defs>
+<rect width="780" height="660" fill="#FFFFFF"/>
+
+<!-- ================= Ablauf an einer Karte ================= -->
+<rect x="8" y="8" width="764" height="290" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="24" y="32">Der Ablauf an einer gesperrten Karte</text>
+
+<!-- Moment 1 -->
+<text class="ts" x="24" y="56">1 · Zwei Voraussetzungen offen</text>
+<rect class="task" x="60" y="68" width="120" height="150" rx="9"/>
+<text class="ts" x="120" y="90" text-anchor="middle">Enter Arena</text>
+<text class="ts" x="120" y="106" text-anchor="middle">Dialog</text>
+<use href="#pest" transform="translate(96 160) rotate(-20) scale(1.5)"/>
+<use href="#pest" transform="translate(146 172) rotate(25) scale(1.5)"/>
+<text class="tn" x="96" y="204" text-anchor="middle">Quest Board</text>
+<text class="tn" x="150" y="140" text-anchor="middle">Arena Model</text>
+<text class="tn" x="24" y="244">Je offener Voraussetzung sitzt ein</text>
+<text class="tn" x="24" y="258">Schädling auf der Karte. Beim Überfahren</text>
+<text class="tn" x="24" y="272">zeigt er, zu welcher Karte er gehört.</text>
+
+<path d="M214 144 h32 m-7 -5 l7 5 l-7 5" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+
+<!-- Moment 2 -->
+<text class="ts" x="270" y="56">2 · Du tappst „Quest Board“</text>
+<rect class="task" x="306" y="68" width="120" height="150" rx="9"/>
+<text class="ts" x="366" y="90" text-anchor="middle">Enter Arena</text>
+<text class="ts" x="366" y="106" text-anchor="middle">Dialog</text>
+<use href="#pest" transform="translate(342 160) rotate(-20) scale(1.5)"/>
+<use href="#pest" transform="translate(392 172) rotate(25) scale(1.5)"/>
+<!-- Marienkäfer kommt von unten links -->
+<path class="trail" d="M286 262 q10 -40 30 -66"/>
+<use href="#lady" transform="translate(318 188) rotate(40) scale(1.5)"/>
+<!-- Biss -->
+<path d="M330 166 l4 -7 M324 170 l-6 -4 M334 174 l7 2" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round"/>
+<!-- Kästchen der Voraussetzung als Schläge -->
+<use href="#box-on" transform="translate(446 96)"/>
+<use href="#box-on" transform="translate(446 112)"/>
+<use href="#box" transform="translate(446 128)"/>
+<text class="tn" x="462" y="106">Kästchen von</text>
+<text class="tn" x="462" y="120">Quest Board:</text>
+<text class="tn" x="462" y="136">jedes ein Biss</text>
+<text class="good" x="270" y="244">Ein Marienkäfer krabbelt zu ihrem</text>
+<text class="good" x="270" y="258">Schädling und greift an. Der andere</text>
+<text class="good" x="270" y="272">Schädling bleibt unbehelligt.</text>
+
+<path d="M540 144 h32 m-7 -5 l7 5 l-7 5" fill="none" stroke="#B4B2A9" stroke-width="1.5"/>
+
+<!-- Moment 3 -->
+<text class="ts" x="592" y="56">3 · „Quest Board“ ist erledigt</text>
+<rect class="task" x="620" y="68" width="120" height="150" rx="9"/>
+<text class="ts" x="680" y="90" text-anchor="middle">Enter Arena</text>
+<text class="ts" x="680" y="106" text-anchor="middle">Dialog</text>
+<use href="#pest-dead" transform="translate(656 164) rotate(-150) scale(1.5)"/>
+<use href="#pest" transform="translate(706 172) rotate(25) scale(1.5)"/>
+<path class="trail" d="M640 190 q-20 30 -34 68"/>
+<use href="#lady" transform="translate(604 262) rotate(200) scale(1.3)"/>
+<text class="tn" x="592" y="244" dx="34">Der Schädling liegt auf dem Rücken</text>
+<text class="tn" x="592" y="258" dx="34">und verblasst. Einer sitzt noch:</text>
+<text class="tn" x="592" y="272" dx="34">die Karte bleibt gesperrt.</text>
+
+<!-- ================= Der Tisch ================= -->
+<rect x="8" y="308" width="764" height="344" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="24" y="332">Am Tisch: jede getappte Karte hat ihre Fronten</text>
+
+<!-- Verbindungen -->
+<path class="way" d="M96 440 C114 440 116 440 132 440"/>
+<path class="shut" d="M300 440 C330 440 336 384 364 384"/>
+<path class="shut" d="M300 440 C330 440 336 500 364 500"/>
+<path class="shut" d="M444 384 C480 384 500 440 548 440"/>
+<path class="shut" d="M444 500 C480 500 500 440 548 440"/>
+
+<!-- besiegt -->
+<rect class="done" x="20" y="388" width="76" height="104" rx="8"/>
+<text class="ts" x="58" y="412" text-anchor="middle" fill="#27500A">Quest</text>
+<text class="ts" x="58" y="428" text-anchor="middle" fill="#27500A">Model</text>
+<use href="#check" transform="translate(58 464)"/>
+
+<!-- getappt: Quest Board liegt quer -->
+<rect class="work" x="132" y="394" width="168" height="92" rx="9"/>
+<text class="th" x="146" y="418" fill="#0C447C">Quest Board</text>
+<text class="tn" x="146" y="436" fill="#0C447C">getappt – in Arbeit</text>
+<use href="#box-on" transform="translate(146 452)"/><use href="#box-on" transform="translate(160 452)"/><use href="#box" transform="translate(174 452)"/>
+<text class="good" x="216" y="508" text-anchor="middle">schickt 2 Marienkäfer</text>
+<path class="trail" d="M300 420 C330 400 344 388 372 388"/>
+<path class="trail" d="M300 462 C330 480 344 496 372 498"/>
+
+<!-- zwei gesperrte Karten mit Front -->
+<rect class="task" x="364" y="336" width="80" height="100" rx="8"/>
+<text class="ts" x="404" y="356" text-anchor="middle">Enter Arena</text>
+<use href="#pest" transform="translate(414 396) rotate(15) scale(1.3)"/>
+<use href="#lady" transform="translate(388 402) rotate(60) scale(1.2)"/>
+<rect class="task" x="364" y="452" width="80" height="100" rx="8"/>
+<text class="ts" x="404" y="472" text-anchor="middle">Arena reads</text>
+<use href="#pest" transform="translate(416 514) rotate(-10) scale(1.3)"/>
+<use href="#lady" transform="translate(390 518) rotate(75) scale(1.2)"/>
+<text class="tn" x="404" y="572" text-anchor="middle">beide fallen, wenn</text>
+<text class="tn" x="404" y="586" text-anchor="middle">Quest Board erledigt ist</text>
+
+<!-- Der große Käfer des Milestones -->
+<rect class="boss" x="548" y="352" width="140" height="176" rx="12"/>
+<text class="th" x="618" y="378" text-anchor="middle" fill="#3C3489">Quests</text>
+<use href="#pest" transform="translate(628 448) scale(4)"/>
+<g transform="translate(562 506)">
+<rect x="0" y="0" width="112" height="9" rx="4" fill="#FFFFFF" stroke="#534AB7"/>
+<rect x="0" y="0" width="56" height="9" rx="4" fill="#534AB7"/>
+</g>
+<text class="tn" x="618" y="546" text-anchor="middle">8 von 16: jede erledigte</text>
+<text class="tn" x="618" y="560" text-anchor="middle">Karte nimmt ihm ein Leben</text>
+
+<!-- Karte ohne Abhängige: ihr Marienkäfer geht zum großen Käfer -->
+<rect class="work" x="132" y="536" width="168" height="92" rx="9"/>
+<text class="th" x="146" y="560" fill="#0C447C">Replace Camera</text>
+<text class="tn" x="146" y="578" fill="#0C447C">getappt – an ihr hängt nichts</text>
+<path class="trail" d="M300 590 C420 640 560 620 590 500"/>
+<use href="#lady" transform="translate(584 482) rotate(20) scale(1.5)"/>
+<text class="good" x="444" y="634" text-anchor="middle">ihr Marienkäfer greift den großen Käfer an</text>
+
+<!-- offene Karte, aufrecht -->
+<rect class="task" x="20" y="524" width="76" height="104" rx="8"/>
+<text class="ts" x="58" y="548" text-anchor="middle">Stamina</text>
+<text class="ts" x="58" y="564" text-anchor="middle">Pickup</text>
+<text class="tn" x="58" y="646" text-anchor="middle">offen, aufrecht</text>
+
+<!-- Beute -->
+<use href="#pest-dead" transform="translate(724 400) rotate(30) scale(1.2)"/>
+<use href="#pest-dead" transform="translate(740 428) rotate(-70) scale(1.2)"/>
+<use href="#pest-dead" transform="translate(718 452) rotate(140) scale(1.2)"/>
+<text class="ts" x="730" y="490" text-anchor="middle">7</text>
+<text class="tn" x="730" y="506" text-anchor="middle">besiegt</text>
+</svg>

@@ -1,0 +1,121 @@
+<svg viewBox="0 0 680 500" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: der Schatten als Gegner</title>
+<desc>Unter der Kopfzeile eine Rennstrecke vom Start bis zum Enddatum des Milestones mit zwei Marken: du und der Schatten, der nach Plan spielt. Rechts am Tisch liegt neben dem Erledigt-Stapel der Stapel des Schattens, darunter der Stand in Karten und Tagen. Die Wochen sind Runden, gewonnene tragen eine Marke. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.tn{font-size:11px;fill:#888780}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.c-gray rect{fill:#F1EFE8;stroke:#5F5E5A}.c-gray text{fill:#444441}
+.c-blue rect{fill:#E6F1FB;stroke:#185FA5}.c-blue text{fill:#0C447C}
+.c-green rect{fill:#EAF3DE;stroke:#3B6D11}.c-green text{fill:#27500A}
+.c-purple rect{fill:#EEEDFE;stroke:#534AB7}.c-purple text{fill:#3C3489}
+.note{font-size:11px;fill:#993C1D}
+</style>
+<rect width="680" height="500" fill="#FFFFFF"/>
+
+<!-- Kopfzeile -->
+<text class="th" x="20" y="26">Quests</text>
+<rect x="84" y="17" width="150" height="8" rx="4" fill="#B4B2A9"/>
+<rect x="84" y="17" width="75" height="8" rx="4" fill="#1D9E75"/>
+<text class="ts" x="244" y="26">8/16</text>
+
+<!-- Runden: jede Woche eine -->
+<text class="ts" x="330" y="26">Runden</text>
+<circle cx="392" cy="21" r="8" fill="#EAF3DE" stroke="#3B6D11"/>
+<path d="M388 21 l3 3 l5 -6" fill="none" stroke="#3B6D11" stroke-width="1.5"/>
+<circle cx="414" cy="21" r="8" fill="#FFFFFF" stroke="#185FA5" stroke-width="1.5"/>
+<text class="tn" x="414" y="25" text-anchor="middle">2</text>
+<text class="tn" x="430" y="25">läuft: 2 von 8 Karten</text>
+<text class="ts" x="578" y="26">Serie 2 Runden</text>
+
+<!-- Rennstrecke -->
+<rect x="8" y="40" width="664" height="46" rx="10" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="tn" x="20" y="57">Start 28.09.</text>
+<text class="tn" x="660" y="57" text-anchor="end">Ende 09.10.</text>
+<line x1="24" y1="70" x2="656" y2="70" stroke="#B4B2A9" stroke-width="2"/>
+<!-- heute -->
+<line x1="440" y1="46" x2="440" y2="80" stroke="#D85A30" stroke-width="1" stroke-dasharray="3 2"/>
+<text class="note" x="444" y="56">heute</text>
+<!-- du -->
+<circle cx="340" cy="70" r="9" fill="#EAF3DE" stroke="#3B6D11" stroke-width="1.5"/>
+<text class="tn" x="340" y="74" text-anchor="middle" fill="#27500A">Du</text>
+<!-- Schatten: steht immer bei heute, das ist der Plan -->
+<circle cx="440" cy="70" r="9" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+<path d="M436 70 a4 4 0 0 1 8 0 v4 h-8 z" fill="#534AB7"/>
+<text class="tn" x="456" y="74" fill="#3C3489">Schatten</text>
+<text class="note" x="110" y="57">2 Karten zurück – etwa 1 Tag</text>
+
+<!-- Tisch -->
+<rect x="8" y="94" width="664" height="262" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+
+<text class="ts" x="24" y="118">Gesperrt 2</text>
+<g class="c-gray">
+<rect x="34" y="130" width="54" height="76" rx="6" stroke-width="0.5" transform="rotate(4 61 168)"/>
+<rect x="26" y="128" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="ts" x="53" y="170" text-anchor="middle">Arena</text>
+</g>
+<line x1="20" y1="184" x2="96" y2="184" stroke="#888780" stroke-width="3" stroke-dasharray="5 3"/>
+
+<text class="ts" x="24" y="240">Nachziehstapel</text>
+<g class="c-gray">
+<rect x="32" y="256" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="29" y="253" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="26" y="250" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="th" x="53" y="294" text-anchor="middle">4</text>
+</g>
+
+<text class="ts" x="136" y="118">Im Spiel 2</text>
+<g class="c-blue">
+<rect x="136" y="130" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="ts" x="163" y="164" text-anchor="middle">Board</text>
+<text class="ts" x="163" y="180" text-anchor="middle">UI</text>
+<rect x="198" y="130" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="ts" x="225" y="164" text-anchor="middle">Board</text>
+<text class="ts" x="225" y="180" text-anchor="middle">Model</text>
+</g>
+<g fill="none" stroke="#D3D1C7" stroke-width="0.5">
+<rect x="260" y="130" width="54" height="76" rx="6"/>
+<rect x="322" y="130" width="54" height="76" rx="6"/>
+<rect x="384" y="130" width="54" height="76" rx="6"/>
+</g>
+
+<!-- Der Schatten meldet sich, wenn man den Tisch öffnet -->
+<rect x="150" y="232" width="290" height="30" rx="15" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<path d="M166 247 a5 5 0 0 1 10 0 v5 h-10 z" fill="#534AB7"/>
+<text class="ts" x="184" y="251" fill="#3C3489">Der Schatten hat seit gestern 2 Karten gelegt</text>
+
+<!-- rechts: dein Stapel und seiner -->
+<text class="ts" x="478" y="118">Du 8</text>
+<g class="c-green">
+<rect x="486" y="134" width="54" height="76" rx="6" stroke-width="0.5" transform="rotate(5 513 172)"/>
+<rect x="482" y="132" width="54" height="76" rx="6" stroke-width="0.5" transform="rotate(-3 509 170)"/>
+<rect x="478" y="130" width="54" height="76" rx="6" stroke-width="0.5"/>
+<text class="th" x="505" y="174" text-anchor="middle">8</text>
+</g>
+
+<text class="ts" x="576" y="118" fill="#3C3489">Schatten 10</text>
+<g class="c-purple">
+<rect x="588" y="136" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="585" y="133" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="582" y="130" width="54" height="76" rx="6" stroke-width="0.5"/>
+<rect x="579" y="127" width="54" height="76" rx="6" stroke-width="0.5"/>
+<path d="M596 162 a10 10 0 0 1 20 0 v12 h-20 z" fill="#534AB7"/>
+<circle cx="602" cy="162" r="1.5" fill="#EEEDFE"/><circle cx="610" cy="162" r="1.5" fill="#EEEDFE"/>
+</g>
+<text class="tn" x="478" y="232">Sein Stapel wächst nach Plan:</text>
+<text class="tn" x="478" y="247">16 Karten über 12 Tage,</text>
+<text class="tn" x="478" y="262">heute ist Tag 8.</text>
+<text class="note" x="478" y="284">Erledigst du 3, ziehst du vorbei.</text>
+
+<!-- Hand -->
+<text class="ts" x="136" y="380">Hand 4/7</text>
+<g class="c-gray">
+<rect x="230" y="392" width="54" height="76" rx="6" stroke-width="0.5" transform="rotate(-6 257 430)"/>
+<rect x="282" y="386" width="54" height="76" rx="6" stroke-width="0.5" transform="rotate(-2 309 424)"/>
+<rect x="334" y="386" width="54" height="76" rx="6" stroke-width="0.5" transform="rotate(2 361 424)"/>
+<rect x="386" y="392" width="54" height="76" rx="6" stroke-width="0.5" transform="rotate(6 413 430)"/>
+<text class="ts" x="309" y="424" text-anchor="middle">Quest</text>
+<text class="ts" x="309" y="440" text-anchor="middle">Board</text>
+</g>
+</svg>

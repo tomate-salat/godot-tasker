@@ -1,0 +1,128 @@
+<svg viewBox="0 0 940 640" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: der Milestone in der Mitte, die Karten in Ringen darum</title>
+<desc>Der große Käfer des Milestones sitzt in der Mitte. Im innersten Ring liegen die Karten, an denen nichts mehr hängt – jede ist mit ihm verbunden. Was sie brauchen, liegt einen Ring weiter außen, in derselben Richtung. So führt von jeder Karte ein Weg zur Mitte. Getappte Karten schicken ihren Marienkäfer nach innen: zum Schädling auf der Karte, die auf sie wartet, oder, im innersten Ring, zum großen Käfer. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:11px;fill:#5F5E5A}
+.tn{font-size:11px;fill:#888780}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.note{font-size:11px;fill:#993C1D}
+.good{font-size:11px;fill:#0F6E56}
+.task{fill:#F1EFE8;stroke:#5F5E5A;stroke-width:0.75}
+.work{fill:#E6F1FB;stroke:#185FA5;stroke-width:1.5}
+.done{fill:#EAF3DE;stroke:#3B6D11;stroke-width:1}
+.ring{fill:none;stroke:#D3D1C7;stroke-width:1;stroke-dasharray:3 5}
+.way{fill:none;stroke:#B4B2A9;stroke-width:1.75}
+.won{fill:none;stroke:#639922;stroke-width:1.75}
+.leg{fill:none;stroke:#2C2C2A;stroke-width:1.2;stroke-linecap:round}
+.trail{fill:none;stroke:#D85A30;stroke-width:1.25;stroke-dasharray:1 4;stroke-linecap:round}
+</style>
+<defs>
+<g id="pest">
+<circle cx="0" cy="1" r="15" fill="#2C2C2A" opacity="0.25"/>
+<path class="leg" d="M-6 -4 l-8 -5 M-7 1 l-9 0 M-6 6 l-8 5 M6 -4 l8 -5 M7 1 l9 0 M6 6 l8 5" stroke="#7A8A1E"/>
+<ellipse cx="0" cy="2" rx="7.5" ry="10" fill="#C6D94A" stroke="#7A8A1E"/>
+<circle cx="0" cy="-9" r="4.5" fill="#7F9324"/>
+</g>
+<g id="lady">
+<path class="leg" d="M-6 -3 l-7 -4 M-7 2 l-8 1 M-6 6 l-7 5 M6 -3 l7 -4 M7 2 l8 1 M6 6 l7 5"/>
+<circle cx="0" cy="-8" r="4.5" fill="#2C2C2A"/>
+<ellipse cx="0" cy="2" rx="8.5" ry="9.5" fill="#E24B4A" stroke="#A32D2D" stroke-width="0.75"/>
+<path d="M0 -7 v18" stroke="#2C2C2A" stroke-width="1"/>
+<circle cx="-4" cy="-1" r="1.6" fill="#2C2C2A"/><circle cx="4" cy="-1" r="1.6" fill="#2C2C2A"/>
+<circle cx="-4.5" cy="5" r="1.6" fill="#2C2C2A"/><circle cx="4.5" cy="5" r="1.6" fill="#2C2C2A"/>
+</g>
+<g id="check"><path d="M-6 0 l4 5 l8 -10" fill="none" stroke="#3B6D11" stroke-width="2.5"/></g>
+</defs>
+<rect width="940" height="640" fill="#FFFFFF"/>
+<text class="th" x="20" y="28">Der Milestone in der Mitte, die Karten in Ringen darum</text>
+<text class="tn" x="20" y="46">Innen liegt, woran nichts mehr hängt. Was eine Karte braucht, liegt einen Ring weiter außen in derselben Richtung.</text>
+
+<!-- Ringe um die Mitte (470, 340) -->
+<circle class="ring" cx="470" cy="340" r="150"/>
+<circle class="ring" cx="470" cy="340" r="250"/>
+<circle class="ring" cx="470" cy="340" r="345"/>
+<text class="tn" x="470" y="186" text-anchor="middle">Ring 1: schlägt den großen Käfer direkt</text>
+<text class="tn" x="470" y="86" text-anchor="middle">Ring 2: wird von Ring 1 gebraucht</text>
+
+<!-- Wege nach innen -->
+<path class="way" d="M348 300 L420 322"/>
+<path class="way" d="M348 388 L420 360"/>
+<path class="way" d="M246 344 L296 312"/>
+<path class="way" d="M246 344 L296 380"/>
+<path class="won" d="M150 290 L196 322"/>
+<path class="won" d="M150 404 L196 368"/>
+<path class="won" d="M60 344 L100 300"/>
+<path class="won" d="M60 344 L100 396"/>
+<path class="way" d="M596 290 L522 322"/>
+<path class="way" d="M596 392 L522 360"/>
+<path class="won" d="M694 344 L648 300"/>
+<path class="won" d="M694 344 L648 388"/>
+<path class="way" d="M470 468 L470 392"/>
+
+<!-- Der große Käfer -->
+<circle cx="470" cy="340" r="54" fill="#EEEDFE" stroke="#534AB7" stroke-width="2"/>
+<path d="M452 344 a18 18 0 0 1 36 0 v20 h-36 z" fill="#3C3489"/>
+<path d="M458 328 q-10 -12 -2 -24 M482 328 q10 -12 2 -24" fill="none" stroke="#993C1D" stroke-width="3" stroke-linecap="round"/>
+<circle cx="463" cy="342" r="2.5" fill="#FAC775"/><circle cx="477" cy="342" r="2.5" fill="#FAC775"/>
+<text class="ts" x="470" y="380" text-anchor="middle" fill="#3C3489">Quests · 8 von 16</text>
+
+<!-- Ring 1 -->
+<rect class="task" x="296" y="266" width="52" height="70" rx="6"/>
+<text class="ts" x="322" y="282" text-anchor="middle">Enter</text><text class="ts" x="322" y="295" text-anchor="middle">Arena</text>
+<use href="#pest" transform="translate(322 316) scale(0.9)"/>
+<rect class="task" x="296" y="352" width="52" height="70" rx="6"/>
+<text class="ts" x="322" y="368" text-anchor="middle">Arena</text><text class="ts" x="322" y="381" text-anchor="middle">reads</text>
+<use href="#pest" transform="translate(322 402) scale(0.9)"/>
+
+<rect class="work" x="596" y="254" width="52" height="70" rx="6" transform="rotate(8 622 289)"/>
+<text class="ts" x="622" y="278" text-anchor="middle" fill="#0C447C">Spawner</text>
+<rect class="task" x="596" y="358" width="52" height="70" rx="6"/>
+<text class="ts" x="622" y="378" text-anchor="middle">Rename</text><text class="ts" x="622" y="391" text-anchor="middle">Pickups</text>
+
+<rect class="work" x="444" y="468" width="52" height="70" rx="6" transform="rotate(8 470 503)"/>
+<text class="ts" x="470" y="492" text-anchor="middle" fill="#0C447C">Replace</text><text class="ts" x="470" y="505" text-anchor="middle" fill="#0C447C">Camera</text>
+
+<!-- Marienkäfer der getappten Karten im innersten Ring: am großen Käfer -->
+<path class="trail" d="M600 300 Q560 300 530 320"/>
+<use href="#lady" transform="translate(526 322) rotate(-70) scale(0.9)"/>
+<path class="trail" d="M470 468 Q478 430 474 400"/>
+<use href="#lady" transform="translate(474 398) rotate(0) scale(0.9)"/>
+<text class="good" x="560" y="250">getappt: ihr Marienkäfer</text>
+<text class="good" x="560" y="264">beißt den großen Käfer</text>
+
+<!-- Ring 2 -->
+<rect class="work" x="196" y="308" width="52" height="70" rx="6" transform="rotate(8 222 343)"/>
+<text class="ts" x="222" y="334" text-anchor="middle" fill="#0C447C">Quest</text><text class="ts" x="222" y="347" text-anchor="middle" fill="#0C447C">Board</text>
+<!-- zwei Marienkäfer: zu den beiden Schädlingen im Ring 1 -->
+<path class="trail" d="M248 330 Q272 318 300 316"/>
+<use href="#lady" transform="translate(302 322) rotate(80) scale(0.8)"/>
+<path class="trail" d="M248 358 Q272 392 300 402"/>
+<use href="#lady" transform="translate(302 408) rotate(80) scale(0.8)"/>
+<text class="good" x="150" y="230">getappt: zwei Marienkäfer</text>
+<text class="good" x="150" y="244">gehen nach innen zu den</text>
+<text class="good" x="150" y="258">Schädlingen, die sie stellt</text>
+
+<rect class="done" x="694" y="309" width="52" height="70" rx="6"/>
+<text class="ts" x="720" y="330" text-anchor="middle" fill="#27500A">Stamina</text><text class="ts" x="720" y="343" text-anchor="middle" fill="#27500A">Pickup</text>
+<use href="#check" transform="translate(720 362)"/>
+
+<!-- Ring 3 -->
+<rect class="done" x="100" y="254" width="52" height="70" rx="6"/>
+<text class="ts" x="126" y="274" text-anchor="middle" fill="#27500A">Quest</text><text class="ts" x="126" y="287" text-anchor="middle" fill="#27500A">Generator</text>
+<use href="#check" transform="translate(126 308)"/>
+<rect class="done" x="100" y="368" width="52" height="70" rx="6"/>
+<text class="ts" x="126" y="388" text-anchor="middle" fill="#27500A">Player</text><text class="ts" x="126" y="401" text-anchor="middle" fill="#27500A">Support</text>
+<use href="#check" transform="translate(126 422)"/>
+
+<!-- Ring 4 -->
+<rect class="done" x="8" y="309" width="52" height="70" rx="6"/>
+<text class="ts" x="34" y="330" text-anchor="middle" fill="#27500A">Quest</text><text class="ts" x="34" y="343" text-anchor="middle" fill="#27500A">Model</text>
+<use href="#check" transform="translate(34 362)"/>
+
+<!-- Erläuterungen -->
+<text class="tn" x="20" y="560">Von jeder Karte führt ein Weg zur Mitte: grün, wo die Karte erledigt ist, sonst grau.</text>
+<text class="tn" x="20" y="576">Eine Kette von Voraussetzungen wächst nach außen; Karten ohne jede Abhängigkeit liegen einfach im innersten Ring.</text>
+<text class="note" x="20" y="600">Offen: Ein Stapel mit Unteraufgaben ist hier nur eine Karte. Wo seine Unteraufgaben liegen, ist noch zu klären.</text>
+<text class="note" x="20" y="616">Offen: Bei vielen Karten im innersten Ring wird es eng – dann braucht es einen größeren Ring oder kleinere Karten.</text>
+</svg>

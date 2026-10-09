@@ -1,0 +1,106 @@
+<svg viewBox="0 0 680 430" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mockup des Tasker-Tischs in Godot: Wächter auf gesperrten Karten</title>
+<desc>Drei Schritte von links nach rechts. Erstens: auf einer gesperrten Karte sitzt ein Wächter, der den Namen der Voraussetzung trägt. Zweitens: die Karte, die ihn schlägt, trägt auf der Hand und im Spiel ein Schwert mit der Zahl der Wächter, die an ihr hängen. Drittens: ist sie erledigt, fällt der Wächter, die befreite Karte wandert in den Nachziehstapel und der Zähler in der Kopfzeile steigt. Die Titel sind erfundene Beispiele.</desc>
+<style>
+text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ts{font-size:12px;fill:#5F5E5A}
+.tn{font-size:11px;fill:#888780}
+.th{font-size:14px;font-weight:500;fill:#2C2C2A}
+.c-gray rect{fill:#F1EFE8;stroke:#5F5E5A}.c-gray text{fill:#444441}
+.c-blue rect{fill:#E6F1FB;stroke:#185FA5}.c-blue text{fill:#0C447C}
+.c-green rect{fill:#EAF3DE;stroke:#3B6D11}.c-green text{fill:#27500A}
+.note{font-size:11px;fill:#993C1D}
+.guard{fill:#D85A30;stroke:#993C1D;stroke-width:1}
+</style>
+<defs>
+<!-- Ein Wächter: Kopf, Schild -->
+<g id="guard">
+<circle cx="0" cy="-12" r="7" class="guard"/>
+<path d="M-11 -4 h22 v10 q0 10 -11 15 q-11 -5 -11 -15 z" class="guard"/>
+<path d="M0 -1 v17 M-7 5 h14" stroke="#FFFFFF" stroke-width="1.5" fill="none"/>
+</g>
+<!-- Ein Schwert als Marke -->
+<g id="sword">
+<path d="M0 -9 l2.5 3 v9 h-5 v-9 z" fill="#185FA5"/>
+<path d="M-5 3 h10" stroke="#185FA5" stroke-width="2"/>
+<path d="M0 3 v6" stroke="#185FA5" stroke-width="2"/>
+</g>
+</defs>
+<rect width="680" height="430" fill="#FFFFFF"/>
+
+<!-- Kopfzeile mit Zähler -->
+<text class="th" x="20" y="26">Quests</text>
+<rect x="84" y="17" width="150" height="8" rx="4" fill="#B4B2A9"/>
+<rect x="84" y="17" width="75" height="8" rx="4" fill="#1D9E75"/>
+<text class="ts" x="244" y="26">8/16</text>
+<use href="#guard" transform="translate(560 24) scale(0.6)"/>
+<text class="ts" x="574" y="26">Wächter 3 von 5 besiegt</text>
+
+<!-- Schritt 1 -->
+<rect x="8" y="44" width="212" height="372" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="24" y="68">1 · Bewacht</text>
+<text class="tn" x="24" y="86">Gesperrte Karte: statt nur einer Kette</text>
+<text class="tn" x="24" y="100">sitzt der Grund sichtbar darauf.</text>
+<g class="c-gray">
+<rect x="64" y="124" width="100" height="140" rx="9" stroke-width="0.5"/>
+<text class="ts" x="114" y="150" text-anchor="middle">Board</text>
+<text class="ts" x="114" y="166" text-anchor="middle">Controller</text>
+</g>
+<use href="#guard" transform="translate(114 214) scale(1.5)"/>
+<rect x="46" y="276" width="136" height="22" rx="11" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+<text class="note" x="114" y="291" text-anchor="middle">bewacht von: Board Model</text>
+<text class="tn" x="24" y="328">Je Voraussetzung ein Wächter.</text>
+<text class="tn" x="24" y="342">Zwei offene Voraussetzungen:</text>
+<text class="tn" x="24" y="356">zwei Wächter auf der Karte.</text>
+<text class="tn" x="24" y="384">„Unklar“ wäre ein eigener Gegner:</text>
+<text class="tn" x="24" y="398">Nebel, den nur Klären vertreibt.</text>
+
+<!-- Schritt 2 -->
+<rect x="234" y="44" width="212" height="372" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="250" y="68">2 · Die Karte, die ihn schlägt</text>
+<text class="tn" x="250" y="86">Auf der Hand und im Spiel trägt sie</text>
+<text class="tn" x="250" y="100">ein Schwert: so viele hängen an ihr.</text>
+<g class="c-blue">
+<rect x="290" y="124" width="100" height="140" rx="9" stroke-width="0.5"/>
+<text class="ts" x="340" y="150" text-anchor="middle">Board</text>
+<text class="ts" x="340" y="166" text-anchor="middle">Model</text>
+</g>
+<circle cx="372" cy="142" r="13" fill="#FFFFFF" stroke="#185FA5"/>
+<use href="#sword" transform="translate(367 142)"/>
+<text class="ts" x="378" y="147" fill="#0C447C">2</text>
+<rect x="262" y="276" width="156" height="22" rx="11" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text class="ts" x="340" y="291" text-anchor="middle" fill="#0C447C">schlägt 2 Wächter</text>
+<text class="tn" x="250" y="328">Beim Überfahren leuchten die Karten</text>
+<text class="tn" x="250" y="342">auf, die sie befreit.</text>
+<text class="tn" x="250" y="370">Beim Ziehen aus dem Stapel zählt</text>
+<text class="tn" x="250" y="384">das Schwert mit: Karten, die viel</text>
+<text class="tn" x="250" y="398">befreien, kommen eher.</text>
+
+<!-- Schritt 3 -->
+<rect x="460" y="44" width="212" height="372" rx="12" fill="#FAF9F5" stroke="#D3D1C7" stroke-width="0.5"/>
+<text class="th" x="476" y="68">3 · Besiegt</text>
+<text class="tn" x="476" y="86">Ist die Voraussetzung erledigt, fällt</text>
+<text class="tn" x="476" y="100">der Wächter und die Karte ist frei.</text>
+<g class="c-gray">
+<rect x="484" y="124" width="100" height="140" rx="9" stroke-width="0.5"/>
+<text class="ts" x="534" y="150" text-anchor="middle">Board</text>
+<text class="ts" x="534" y="166" text-anchor="middle">Controller</text>
+</g>
+<!-- gefallener Wächter -->
+<use href="#guard" transform="translate(568 240) rotate(70) scale(1.2)" opacity="0.45"/>
+<path d="M522 196 l8 8 l14 -18" fill="none" stroke="#3B6D11" stroke-width="3"/>
+<!-- Weg in den Nachziehstapel -->
+<path d="M592 190 q40 10 44 60" fill="none" stroke="#888780" stroke-width="1.5" stroke-dasharray="4 3"/>
+<path d="M631 244 l5 8 l4 -9" fill="none" stroke="#888780" stroke-width="1.5"/>
+<g class="c-gray">
+<rect x="616" y="262" width="40" height="56" rx="5" stroke-width="0.5"/>
+<rect x="613" y="259" width="40" height="56" rx="5" stroke-width="0.5"/>
+</g>
+<text class="tn" x="634" y="334" text-anchor="middle">Nachzieh-</text>
+<text class="tn" x="634" y="347" text-anchor="middle">stapel</text>
+<rect x="476" y="276" width="120" height="22" rx="11" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.5"/>
+<text class="ts" x="536" y="291" text-anchor="middle" fill="#27500A">Wächter besiegt +1</text>
+<text class="tn" x="476" y="370">Der Zähler oben zählt je Milestone:</text>
+<text class="tn" x="476" y="384">ein zweites kleines Ziel neben</text>
+<text class="tn" x="476" y="398">den erledigten Karten.</text>
+</svg>
