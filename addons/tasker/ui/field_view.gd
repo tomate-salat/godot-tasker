@@ -51,6 +51,12 @@ const CLICK_WAIT := 0.25
 const DRAG_START := 8.0
 ## Eine getappte Karte liegt quer.
 const TAP_TILT := PI / 2.0
+## Das Kippen beim Ziehen – dieselben Werte wie am Spieltisch.
+const MAX_TILT := 22.0
+const TILT_STRENGTH := 0.5
+const TILT_SPEED := 180.0
+const TILT_RESPONSE_MS := 90.0
+const TILT_STILL_MS := 60
 ## Die Striche eines Angriffs: Farbe, Länge, Abstand und wie schnell sie wandern.
 const ATTACK := Color("f0604f")
 const ATTACK_DASH := 12.0
@@ -102,6 +108,10 @@ var _held_at := Vector2.ZERO
 var _dragging := false
 var _over_boss := false
 var _hovered := ""
+## Tempo und Neigung der gezogenen Karte.
+var _velocity := Vector2.ZERO
+var _tilt := Vector2.ZERO
+var _last_move := 0
 ## Vergrößerung über das Einpassen hinaus und die Verschiebung des Feldes.
 var _zoom := 1.0
 var _pan := Vector2.ZERO
@@ -589,8 +599,26 @@ func _shake(bug: Bug) -> void:
 		tween.tween_property(bug, "rotation", rest + turn, 0.06)
 
 
+## Die gezogene Karte kippt in die Bewegungsrichtung, wie am Spieltisch: sie
+## wird in der Kipprichtung schmaler, lehnt sich leicht mit, und Licht und
+## Folienschimmer wandern über sie.
+func _tilt_held(delta: float) -> void:
+	if not _dragging or _held == null or not is_instance_valid(_held):
+		return
+	var k := 1.0 - exp(-delta * 1000.0 / TILT_RESPONSE_MS)
+	if Time.get_ticks_msec() - _last_move > TILT_STILL_MS:
+		_velocity -= _velocity * k
+	var target := Vector2(tanh(_velocity.x / TILT_SPEED), tanh(_velocity.y / TILT_SPEED)) * MAX_TILT * TILT_STRENGTH
+	_tilt += (target - _tilt) * k
+	var squash := Vector2(cos(deg_to_rad(_tilt.x * 1.7)), cos(deg_to_rad(_tilt.y * 1.7)))
+	_held.scale = squash * CARD_SCALE * 1.25
+	_held.rotation = deg_to_rad(_tilt.x) * 0.22
+	_held.set_tilt(-_tilt / MAX_TILT)
+
+
 ## Die Marienkäfer stehen nicht still: sie tänzeln an ihrem Platz.
 func _process(delta: float) -> void:
+	_tilt_held(delta)
 	if not visible or _ladies.is_empty():
 		return
 	_time += delta
@@ -830,6 +858,9 @@ func _input(event: InputEvent) -> void:
 		if _dragging:
 			var at := (mouse - _canvas.position) / _canvas.scale.x
 			_held.position = at - Card.SIZE / 2.0
+			# Wie schnell es geht, bestimmt, wie weit die Karte kippt.
+			_velocity = _velocity.lerp(event.velocity, 0.5)
+			_last_move = Time.get_ticks_msec()
 			var over := at.length() < BOSS_RADIUS + 10.0
 			if over != _over_boss:
 				_over_boss = over
@@ -840,6 +871,9 @@ func _input(event: InputEvent) -> void:
 		var id: String = card.task_id
 		var dropped := _dragging and _over_boss
 		var clicked := not _dragging
+		_velocity = Vector2.ZERO
+		_tilt = Vector2.ZERO
+		card.set_tilt(Vector2.ZERO)
 		_held = null
 		_dragging = false
 		_over_boss = false
