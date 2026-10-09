@@ -51,13 +51,19 @@ func _process(delta: float) -> bool:
 			7:
 				_table._pressed = null
 				_table.planning = true
-				_table._plan._fanned["r2"] = true
-			8:
-				_table._plan._fanned["n3"] = true
 				_table._plan._show_stock("backlog")
-				_table._plan._refan()
+			8:
+				# Einen Stapel aus dem Ordner ziehen und auffächern.
+				var plan = _table._plan
+				for card in plan._right._sheet.get_meta("cards"):
+					if not plan._ws.kids(card.task_id).is_empty():
+						plan._open_fan(card)
+						break
 			9:
-				# Mitten im Umblättern anhalten.
+				# Den Fächer wegnehmen und mitten im Umblättern anhalten.
+				_table._plan._fan._clear()
+				_table._plan._fan.visible = false
+				_table._plan._fan.closed.emit()
 				_table._plan._left.turn(1)
 				_table._plan._left._flip.custom_step(0.3)
 				_table._plan._left._flip.pause()

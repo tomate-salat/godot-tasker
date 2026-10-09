@@ -32,6 +32,18 @@ var lift := 0.0: set = set_lift
 var _status: Variant = "open"
 var _prio := 0
 var _stack := false
+## Wie viel vom Stapel noch hinter der Karte liegt: 1 der ganze, 0 nur noch
+## die oberste Karte – wenn die Unteraufgaben gerade aufgefächert sind.
+var pile := 1.0:
+	set(value):
+		pile = value
+		queue_redraw()
+## Die Karte steckt in einem Fach: Stapelkanten und Schatten bleiben so
+## knapp, dass nichts über den Rand der Tasche ragt.
+var tight := false:
+	set(value):
+		tight = value
+		queue_redraw()
 var _locked := false
 var _segments: Array = []
 
@@ -289,11 +301,12 @@ func _draw() -> void:
 	shadow.bg_color = Color(0, 0, 0, 0.30)
 	shadow.set_corner_radius_all(RADIUS)
 	shadow.shadow_color = Color(0, 0, 0, 0.30)
-	shadow.shadow_size = int(7.0 + 16.0 * lift)
-	shadow.shadow_offset = Vector2(0.0, 3.0 + 11.0 * lift)
+	shadow.shadow_size = int((3.0 if tight else 7.0) + 16.0 * lift)
+	shadow.shadow_offset = Vector2(0.0, (1.0 if tight else 3.0) + 11.0 * lift)
 	# Ein Stapel wirft den Schatten seiner hintersten Karte.
-	draw_style_box(shadow, Rect2(Vector2(5, 5) if _stack else Vector2.ZERO, size))
-	if not _stack:
+	var back := (Vector2(3, 3) if tight else Vector2(5, 5)) * pile if _stack else Vector2.ZERO
+	draw_style_box(shadow, Rect2(back, size))
+	if not _stack or pile <= 0.01:
 		return
 	var edge := StyleBoxFlat.new()
 	edge.bg_color = Palette.SURFACE
@@ -301,8 +314,11 @@ func _draw() -> void:
 	edge.set_border_width_all(1)
 	edge.set_corner_radius_all(RADIUS)
 	var half := size / 2.0
-	for e in [[Vector2(6, 6), 2.0], [Vector2(3, 3), -1.0]]:
-		draw_set_transform(half + e[0], deg_to_rad(e[1]))
+	# Im Fach liegen die Kanten gerade und dicht an, frei gefächert etwas lockerer.
+	var edges := [[Vector2(3, 3), 0.0], [Vector2(1.5, 1.5), 0.0]] if tight else [[Vector2(6, 6), 2.0], [Vector2(3, 3), -1.0]]
+	for e in edges:
+		# Leert sich der Stapel, rücken die Kanten unter die Karte.
+		draw_set_transform(half + e[0] * pile, deg_to_rad(e[1] * pile))
 		draw_style_box(edge, Rect2(-half, size))
 	draw_set_transform(Vector2.ZERO)
 

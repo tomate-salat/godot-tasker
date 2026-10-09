@@ -269,6 +269,16 @@ Derselbe Tisch, nur zum Planen statt zum Spielen. Ein Umschalter wechselt zwisch
 - [x] Gezogen wird wie am Spieltisch: die Karte selbst hängt am Zeiger und kippt in die Bewegungsrichtung, im Fach bleibt ein blasses Abbild, am Ziel rücken die Karten zur Seite
 - [x] Die Karte liegt sofort am neuen Platz, Tasker erfährt es gleichzeitig; geht der Zug nicht, gleitet sie zurück
 
+#### Stapel auffächern
+
+Stand 2026-10-09. Zuerst reihten sich die Unteraufgaben einer aufgefächerten Karte in die Fächer dahinter ein. Stand die Karte im letzten Fach, lagen sie auf der nächsten Seite, und alles dahinter verschob sich (Nutzer: unintuitiv und unübersichtlich). Jetzt bleibt der Ordner, wie er ist:
+
+- [x] Ein Klick auf einen Stapel zieht ihn aus seinem Fach (`ui/fan_view.gd`). Erst langsam und ganz gerade nach oben, als holte man die Karte vorsichtig aus der Tasche eines Sammelordners; sobald er ganz draußen ist, nimmt er ohne anzuhalten Fahrt auf und gleitet im Bogen in die Mitte. Erst wenn der Stapel dort liegt, gleiten die Unteraufgaben nacheinander unter ihm hervor an ihre Plätze. Zurück läuft alles rückwärts: die Unteraufgaben verschwinden nacheinander unter dem Stapel, die zuletzt erschienene zuerst, dann gleitet er über sein Fach und langsam hinein (Nutzer, 2026-10-09). Im Fach bleibt solange ihr blasses Abbild.
+- [x] Der Stapel leert sich: mit jeder Unteraufgabe, die unter ihm hervorkommt, rücken seine hinteren Kanten unter die Karte, bis nur die oberste bleibt. Gleiten sie zurück, füllt er sich wieder (`Card.pile`). In der Tasche des Ordners liegt ein Stapel knapp und gerade (`Card.tight`) und hat rundum Luft zum Rand.
+- [x] Beliebig tief: ein Klick auf einen Stapel im Fächer rückt ihn nach oben neben seine Eltern-Karte, und seine Unteraufgaben fächern sich auf. Oben liegt der Weg als Karten, darunter steht er als Text.
+- [x] Zurück: Escape oder ein Klick auf die Karte, deren Unteraufgaben aufgefächert sind, geht eine Ebene hinauf; ein Klick auf eine frühere Karte des Wegs springt dorthin. Ein Klick daneben schließt: alles sammelt sich ein, und die Karte gleitet zurück in ihr Fach.
+- [x] Doppelklick öffnet die Aufgabe, Rechtsklick zeigt das Menü mit den Abhängigkeiten. Gezogen wird im Fächer nicht – Unteraufgaben wandern mit ihrer Karte.
+
 #### Nicht gebaut: Decks umsortieren
 
 Entschieden am 2026-10-07: wird nicht gebraucht. Die Plan-Reihenfolge der Milestones ändert man weiter in Tasker; eine neue Route dort entfällt damit.

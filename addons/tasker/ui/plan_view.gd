@@ -7,8 +7,9 @@ extends Control
 ## wird in jedem Ordner für sich (`binder.gd`).
 ##
 ## Liegt über dem Spieltisch, solange im Tisch-Fenster „Planen“ gewählt ist.
-## Vorerst wird nur angesehen: ein Klick fächert die Unteraufgaben einer Karte
-## auf, ein Doppelklick öffnet sie. Was wo liegt und welche Karte ein Schloss
+## Karten lassen sich verteilen; ein Klick zieht einen Stapel aus dem Ordner und
+## fächert ihn auf (`fan_view.gd`), ein Doppelklick öffnet die Karte. Was wo
+## liegt und welche Karte ein Schloss
 ## trägt, steht in `rules/planning.gd`, die Prognose in `rules/schedule.gd`.
 
 signal task_requested(task_id: String)
@@ -23,6 +24,7 @@ const Model := preload("../rules/model.gd")
 const Workspace := preload("../rules/workspace.gd")
 const Binder := preload("binder.gd")
 const DepGraphView := preload("dep_graph_view.gd")
+const FanView := preload("fan_view.gd")
 const Store := preload("../core/store.gd")
 
 const MARGIN := 28.0
@@ -61,8 +63,6 @@ var _images: Node
 var _today := 0
 ## Welcher Stapel des Vorrats auf der linken Seite steckt.
 var _stock := Planning.READY
-## Aufgefächerte Karten: ID → wahr.
-var _fanned := {}
 ## Was gezeigt wird – bei gleichem Stand wird nicht neu aufgebaut.
 var _shown := 0
 var _resize_queued := false
@@ -73,6 +73,9 @@ var _left: Binder
 var _right: Binder
 var _info: Label
 var _graph: DepGraphView
+## Der Stapel, der gerade aus dem Ordner gezogen und aufgefächert ist.
+var _fan: FanView
+var _fan_source: Binder
 var _menu: PopupMenu
 ## Die Karte, zu der das Menü offen ist.
 var _menu_task := ""
@@ -155,6 +158,18 @@ func _init() -> void:
 			task_requested.emit(_menu_task))
 	add_child(_menu)
 
+	# Ein aufgefächerter Stapel liegt über den Ordnern, der Graph noch darüber.
+	_fan = FanView.new()
+	_fan.task_requested.connect(func(id: String) -> void: task_requested.emit(id))
+	_fan.menu_requested.connect(func(id: String) -> void:
+		_menu_task = id
+		_menu.position = Vector2i(DisplayServer.mouse_get_position())
+		_menu.popup())
+	_fan.closed.connect(func() -> void:
+		if _fan_source != null:
+			_fan_source.clear_drag()
+		_fan_source = null)
+	add_child(_fan)
 	# Der Graph einer Karte legt sich über den Ordner.
 	_graph = DepGraphView.new()
 	_graph.task_requested.connect(func(id: String) -> void: task_requested.emit(id))
@@ -170,7 +185,8 @@ func show_plan(ws: Workspace, project_id: String, velocity: int, images: Node, t
 	_images = images
 	_today = today
 	_info.text = "Tempo: %d Karten je Woche   ·   Karten ziehen verteilt sie, Klick fächert auf, Doppelklick öffnet" % velocity
-	var stamp := hash([ws.tasks, ws.milestones, ws.groups, ws.marks, ws.categories, project_id, velocity, today, _stock, _fanned, size])
+	_fan.refresh(ws)
+	var stamp := hash([ws.tasks, ws.milestones, ws.groups, ws.marks, ws.categories, project_id, velocity, today, _stock, size])
 	if stamp == _shown:
 		return
 	_shown = stamp
@@ -293,25 +309,10 @@ func _build_decks() -> void:
 	_right.show_sections("decks", sections)
 
 
-## Die Karten für den Ordner: jede Wurzel und, ist sie aufgefächert, ihre
-## Unteraufgaben in den Fächern danach.
+## Die Karten für den Ordner: eine je Wurzel. Unteraufgaben stecken im Stapel
+## und kommen erst im Fächer hervor.
 func _items(roots: Array) -> Array:
-	var out := []
-	for t in roots:
-		var rows := []
-		_rows(t, 0, rows)
-		for row in rows:
-			var above = _ws.task(row["task"].get("parentId")) if row["depth"] > 0 else null
-			out.append({"task": row["task"], "child_of": (str(above["title"]) if above.get("title") else "Ohne Titel") if above != null else ""})
-	return out
-
-
-## Die Karte und, ist sie aufgefächert, ihre Unteraufgaben danach.
-func _rows(t: Dictionary, depth: int, out: Array) -> void:
-	out.append({"task": t, "depth": depth})
-	if _fanned.has(t["id"]):
-		for k in _ws.kids(t["id"]):
-			_rows(k, depth + 1, out)
+	return roots.map(func(t: Dictionary) -> Dictionary: return {"task": t, "child_of": ""})
 
 
 # -------------------------------------------------------------- Karten
@@ -321,8 +322,9 @@ func _card(t: Dictionary, order: Dictionary) -> Control:
 	card.show_task(_ws, t, _images)
 	card.pressed.connect(_on_card)
 	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.tight = true
 	var kids := _ws.kids(t["id"]).size()
-	card.tooltip_text = "Doppelklick öffnet die Aufgabe" if kids == 0 else "Klick fächert die %d Unteraufgaben %s, Doppelklick öffnet die Aufgabe" % [kids, "ein" if _fanned.has(t["id"]) else "auf"]
+	card.tooltip_text = "Doppelklick öffnet die Aufgabe" if kids == 0 else "Klick fächert die %d Unteraufgaben auf, Doppelklick öffnet die Aufgabe" % kids
 	var lock := Planning.lock_of(_ws, t, order)
 	if lock != "":
 		var badge := Control.new()
@@ -374,10 +376,21 @@ func _on_card(card: Control, event: InputEventMouseButton) -> void:
 		_press_at = get_local_mouse_position()
 
 
-## Baut nach dem Auf- oder Zufächern neu auf.
-func _refan() -> void:
-	_shown = 0
-	_rebuild()
+# ---------------------------------------------------------- Auffächern
+
+## Zieht den Stapel dieser Karte aus dem Ordner und fächert ihn auf. Im Fach
+## bleibt solange ihr blasses Abbild.
+func _open_fan(card: Control) -> void:
+	var id: String = card.task_id
+	var source: Binder = _left if _left.is_ancestor_of(card) else _right
+	var small: float = card.get_global_rect().size.x / Card.SIZE.x
+	_fan_source = source
+	source.ghost(id, true)
+	_fan.open(_ws, _images, id, func() -> Variant:
+		var at = source.place_of(id)
+		return Rect2(at, Card.SIZE * small) if at != null else null)
+	# Ein Doppelklick fängt als Klick an: der zweite gilt dann noch dieser Karte.
+	_fan.note_click(id)
 
 
 # ------------------------------------------------------- Abhängigkeiten
@@ -409,6 +422,13 @@ func _input(event: InputEvent) -> void:
 		if event.is_action_pressed("ui_cancel"):
 			_graph.close()
 			get_viewport().set_input_as_handled()
+		return
+	if _fan.is_open():
+		# Escape geht im Fächer eine Ebene zurück, ganz oben schließt es ihn.
+		if event.is_action_pressed("ui_cancel"):
+			_fan.back()
+			get_viewport().set_input_as_handled()
+		_pressed = null
 		return
 	if _pressed != null and not is_instance_valid(_pressed):
 		_pressed = null
@@ -447,11 +467,7 @@ func _input(event: InputEvent) -> void:
 		if _flying != null:
 			_drop()
 		elif card != null and not _ws.kids(card.task_id).is_empty():
-			if _fanned.has(card.task_id):
-				_fanned.erase(card.task_id)
-			else:
-				_fanned[card.task_id] = true
-			_refan.call_deferred()
+			_open_fan(card)
 
 
 ## Gezogen werden Karten der obersten Ebene; Unteraufgaben wandern mit ihrer Karte.

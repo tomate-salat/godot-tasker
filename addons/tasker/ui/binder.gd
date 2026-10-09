@@ -31,7 +31,8 @@ const Palette := preload("palette.gd")
 
 ## Über einer aufgefächerten Unteraufgabe steht in ihrem Fach, wozu sie gehört.
 const CAPTION := 18.0
-const POCKET := Vector2(Card.SIZE.x + 12.0, Card.SIZE.y + CAPTION + 12.0)
+## Rundum bleibt Luft zwischen Karte und Taschenrand – auch für einen Stapel.
+const POCKET := Vector2(Card.SIZE.x + 16.0, Card.SIZE.y + CAPTION + 12.0)
 const GAP := 6.0
 const PAD := 12.0
 ## An der linken Kante bleibt Platz für die Löcher der Ringe.
@@ -463,7 +464,7 @@ func _make_sheet(page: int) -> Control:
 			if item.get("child_of", "") != "":
 				pocket["caption"] = "↳ " + item["child_of"]
 			var card: Control = card_maker.call(item["task"])
-			card.position = rect.position + Vector2((POCKET.x - Card.SIZE.x) / 2.0, CAPTION + 6.0)
+			card.position = rect.position + Vector2((POCKET.x - Card.SIZE.x) / 2.0, CAPTION + 3.0)
 			sheet.add_child(card)
 			card.set_meta("task", item["task"]["id"])
 			# Erledigte Karten sind von sich aus blass – das soll beim Rücken so bleiben.
@@ -744,7 +745,7 @@ func _card_of(task_id: String) -> Control:
 
 ## Wo die Karte in einem Fach sitzt.
 static func _home(pocket: Rect2) -> Vector2:
-	return pocket.position + Vector2((POCKET.x - Card.SIZE.x) / 2.0, CAPTION + 6.0)
+	return pocket.position + Vector2((POCKET.x - Card.SIZE.x) / 2.0, CAPTION + 3.0)
 
 
 ## Rückt die Karten der Seite so, dass vor dem Fach `gap` Platz für die
