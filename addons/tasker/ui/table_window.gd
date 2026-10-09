@@ -20,6 +20,7 @@ const Card := preload("card.gd")
 const Demo := preload("demo.gd")
 const Model := preload("../rules/model.gd")
 const Blocking := preload("../rules/blocking.gd")
+const ParentStatus := preload("../rules/parent_status.gd")
 const Tisch := preload("../rules/tisch.gd")
 const Hand := preload("../rules/hand.gd")
 const Progress := preload("../rules/progress.gd")
@@ -446,6 +447,11 @@ func set_planning(value: bool) -> void:
 	_graph.close()
 	_show_mode()
 	_sync()
+
+
+## Womit auf dem Feld gekämpft wird: Soldaten oder Käfer.
+func set_field_style(value: String) -> void:
+	_field.set_style(value)
 
 
 ## Wechselt zwischen dem Feld und dem Spieltisch.
@@ -1367,11 +1373,30 @@ func _change(id: String, changes: Dictionary) -> bool:
 
 ## Ohne Verbindung ändert sich nur das Beispiel.
 func _change_demo(id: String, changes: Dictionary) -> void:
+	var by_id := {}
 	for t in _demo_data["tasks"]:
-		if t["id"] == id:
-			t.merge(changes, true)
-			if changes.has("status"):
-				t["doneAt"] = Time.get_datetime_string_from_system(true) + ".000Z" if changes["status"] == "done" else null
+		by_id[t["id"]] = t
+	var changed = by_id.get(id)
+	if changed == null:
+		return
+	changed.merge(changes, true)
+	if changes.has("status"):
+		changed["doneAt"] = Time.get_datetime_string_from_system(true) + ".000Z" if changes["status"] == "done" else null
+		# Wie am Server: der Status der Eltern-Aufgaben zieht nach, Stufe um Stufe.
+		var child: Dictionary = changed
+		while child.get("parentId") and by_id.has(child["parentId"]):
+			var parent: Dictionary = by_id[child["parentId"]]
+			var kids := []
+			for t in _demo_data["tasks"]:
+				if t.get("parentId") == parent["id"] and not t.get("archivedAt"):
+					kids.append(t.get("status"))
+			var next = ParentStatus.after(parent.get("status"), child.get("status"), kids)
+			if next == null:
+				break
+			parent["status"] = next
+			if next != "done":
+				parent["doneAt"] = null
+			child = parent
 	_ws = Workspace.new(_demo_data)
 
 

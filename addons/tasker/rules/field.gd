@@ -18,6 +18,7 @@ const Model := preload("model.gd")
 const Checklist := preload("checklist.gd")
 const Blocking := preload("blocking.gd")
 const Progress := preload("progress.gd")
+const ParentStatus := preload("parent_status.gd")
 const Workspace := preload("workspace.gd")
 
 
@@ -169,6 +170,16 @@ static func tap_refusal(ws: Workspace, t: Dictionary) -> String:
 	if Blocking.is_blocked(ws, t):
 		return "Erst die Schädlinge: die Karte ist noch gesperrt"
 	return ""
+
+
+## Warum sich das Tappen einer Karte nicht zurücknehmen lässt – leer heißt:
+## es geht. Ein Stapel ist in Arbeit, weil darunter etwas läuft oder erledigt
+## ist; das stellt Tasker selbst so ein, und es lässt sich nur über die
+## Unteraufgaben ändern.
+static func untap_refusal(ws: Workspace, t: Dictionary) -> String:
+	if ws.kids(t["id"]).is_empty():
+		return ""
+	return ParentStatus.open_refusal(ws, t)
 
 
 ## Der Ring einer Karte: einer weiter außen als alles, wohin sie führt.

@@ -56,6 +56,7 @@ var sharp := false:
 		_crumb.add_theme_font_override("font", body)
 		_count.add_theme_font_override("font", body)
 var _locked := false
+var _drawn_rotation := 0.0
 var _segments: Array = []
 
 var _body: Panel
@@ -80,6 +81,8 @@ func _init() -> void:
 	custom_minimum_size = SIZE
 	size = SIZE
 	pivot_offset = SIZE / 2.0
+	# Dreht sich die Karte, muss ihr Schatten neu gezeichnet werden.
+	set_notify_transform(true)
 	_build()
 
 
@@ -313,9 +316,10 @@ func _draw() -> void:
 	shadow.set_corner_radius_all(RADIUS)
 	shadow.shadow_color = Color(0, 0, 0, 0.30)
 	shadow.shadow_size = int((3.0 if tight else 7.0) + 16.0 * lift)
-	shadow.shadow_offset = Vector2(0.0, (1.0 if tight else 3.0) + 11.0 * lift)
+	# Der Schatten fällt immer nach unten, auch wenn die Karte gedreht liegt.
+	shadow.shadow_offset = Vector2(0.0, (1.0 if tight else 3.0) + 11.0 * lift).rotated(-rotation)
 	# Ein Stapel wirft den Schatten seiner hintersten Karte.
-	var back := (Vector2(3, 3) if tight else Vector2(5, 5)) * pile if _stack else Vector2.ZERO
+	var back := ((Vector2(3, 3) if tight else Vector2(5, 5)) * pile).rotated(-rotation) if _stack else Vector2.ZERO
 	draw_style_box(shadow, Rect2(back, size))
 	if not _stack or pile <= 0.01:
 		return
@@ -329,7 +333,7 @@ func _draw() -> void:
 	var edges := [[Vector2(3, 3), 0.0], [Vector2(1.5, 1.5), 0.0]] if tight else [[Vector2(6, 6), 2.0], [Vector2(3, 3), -1.0]]
 	for e in edges:
 		# Leert sich der Stapel, rücken die Kanten unter die Karte.
-		draw_set_transform(half + e[0] * pile, deg_to_rad(e[1] * pile))
+		draw_set_transform(half + (e[0] * pile).rotated(-rotation), deg_to_rad(e[1] * pile))
 		draw_style_box(edge, Rect2(-half, size))
 	draw_set_transform(Vector2.ZERO)
 
@@ -473,3 +477,9 @@ void fragment() {
 }
 "
 	return _foil_code
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSFORM_CHANGED and not is_equal_approx(rotation, _drawn_rotation):
+		_drawn_rotation = rotation
+		queue_redraw()

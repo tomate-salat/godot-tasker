@@ -11,6 +11,8 @@ const SERVER_URL := "tasker/server_url"
 const TOKEN := "tasker/token"
 const HAND_SIZE := "tasker/hand_size"
 const SOUND := "tasker/sound"
+## Womit auf dem Feld gekämpft wird: "soldiers" oder "bugs".
+const FIELD_STYLE := "tasker/field_style"
 
 const METADATA := "tasker"
 const PROJECT_ID := "project_id"
@@ -27,6 +29,7 @@ static func register() -> void:
 	_editor_setting(TOKEN, "", TYPE_STRING, PROPERTY_HINT_PASSWORD)
 	_editor_setting(HAND_SIZE, DEFAULT_HAND_SIZE, TYPE_INT, PROPERTY_HINT_RANGE, "1,20,1")
 	_editor_setting(SOUND, true, TYPE_BOOL)
+	_editor_setting(FIELD_STYLE, "soldiers", TYPE_STRING, PROPERTY_HINT_ENUM, "soldiers,bugs")
 	_move_out_of_project_settings()
 
 
@@ -89,3 +92,7 @@ static func _move_out_of_project_settings() -> void:
 		ProjectSettings.set_setting(OLD_PROJECT_ID, null)
 	if found:
 		ProjectSettings.save()
+
+
+static func field_style() -> String:
+	return str(_editor().get_setting(FIELD_STYLE)) if _editor().has_setting(FIELD_STYLE) else "soldiers"

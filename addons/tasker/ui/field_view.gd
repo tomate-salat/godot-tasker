@@ -48,13 +48,19 @@ const CRAWL_SECONDS := 0.8
 const CLICK_WAIT := 0.25
 ## Ab so vielen Pixeln wird aus dem Drücken ein Ziehen.
 const DRAG_START := 8.0
-## Eine getappte Karte liegt schräg.
-const TAP_TILT := 0.16
+## Eine getappte Karte liegt quer.
+const TAP_TILT := PI / 2.0
 ## Die Striche eines Angriffs: Farbe, Länge, Abstand und wie schnell sie wandern.
 const ATTACK := Color("f0604f")
 const ATTACK_DASH := 12.0
 const ATTACK_GAP := 30.0
 const ATTACK_SPEED := 70.0
+## Soldaten: wie oft einer eine Salve schießt, wie viele Schüsse sie hat, in
+## welchem Abstand, und wie lange man einen Schuss sieht.
+const SHOT_EVERY := 1.7
+const BURST := 3
+const BURST_GAP := 0.1
+const SHOT_SECONDS := 0.13
 
 var _ws: Workspace
 var _milestone: Variant
@@ -81,6 +87,8 @@ var _cards := {}
 var _pests := {}
 var _ladies := {}
 var _boss: Bug
+## Die Schüsse der Soldaten, über allem anderen.
+var _fx: Node2D
 var _boss_done := -1
 var _time := 0.0
 
@@ -127,6 +135,11 @@ func _init() -> void:
 	_boss.position = Vector2(0, 6)
 	_boss.z_index = 20
 	_canvas.add_child(_boss)
+
+	_fx = Node2D.new()
+	_fx.z_index = 40
+	_fx.draw.connect(_draw_fx)
+	_canvas.add_child(_fx)
 
 	_message = Label.new()
 	_message.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -344,7 +357,8 @@ func _settle(card: Card) -> void:
 	tween.tween_property(card, "position", _centers[id] - Card.SIZE / 2.0, MOVE_SECONDS)
 	tween.tween_property(card, "scale", Vector2(s, s), MOVE_SECONDS * 0.6)
 	tween.tween_property(card, "rotation", TAP_TILT if tapped and not big else 0.0, MOVE_SECONDS)
-	tween.tween_property(card, "lift", 1.0 if tapped or big else 0.0, MOVE_SECONDS)
+	# Angehoben ist nur die Karte unter dem Zeiger; eine getappte liegt flach auf dem Tisch.
+	tween.tween_property(card, "lift", 1.0 if big else 0.0, MOVE_SECONDS)
 
 
 func _on_hover(id: String, on: bool) -> void:
@@ -363,13 +377,21 @@ func _on_hover(id: String, on: bool) -> void:
 
 # --------------------------------------------------------------- Käfer
 
-## Wo der `index`-te von `count` Schädlingen auf einer Karte sitzt.
+## Wie viel Platz die Karte auf dem Feld einnimmt – quer, wenn sie getappt ist.
+func _card_box(id: String) -> Vector2:
+	var box := Card.SIZE * CARD_SCALE
+	var task = _ws.task(id) if _ws != null else null
+	return Vector2(box.y, box.x) if task != null and Field.is_tapped(task) else box
+
+
+## Wo der `index`-te von `count` Gegnern an einer Karte steht: am rechten
+## Rand, untereinander. Wer ihn angreift, steht ihm am linken Rand gegenüber.
 func _pest_spot(card_id: String, index: int, count: int) -> Variant:
 	if not _centers.has(card_id):
 		return null
-	var wide := Card.SIZE.x * CARD_SCALE
-	var spread := minf(32.0, (wide - 26.0) / maxf(count - 1, 1.0))
-	return _centers[card_id] + Vector2((index - (count - 1) / 2.0) * spread, Card.SIZE.y * CARD_SCALE * 0.14)
+	var card := _card_box(card_id)
+	var apart := minf(34.0, (card.y - 30.0) / maxf(count - 1, 1.0))
+	return _centers[card_id] + Vector2(card.x / 2.0 - 2.0, (index - (count - 1) / 2.0) * apart + 8.0)
 
 
 func _sync_bugs() -> void:
@@ -389,7 +411,8 @@ func _sync_bugs() -> void:
 			var bug: Bug = _pests.get(key)
 			if bug == null:
 				bug = _new_bug(Bug.PEST, spot, 1.25)
-				bug.rotation = deg_to_rad(float(hash(key) % 50) - 25.0)
+				# Käfer sitzen, wie sie wollen; Soldaten schauen über die Karte zum Angreifer.
+				bug.rotation = -PI / 2.0 if Bug.style == Bug.SOLDIERS else deg_to_rad(float(hash(key) % 50) - 25.0)
 				_pests[key] = bug
 				_pop_in(bug)
 			elif p["damage"] > bug.hurt + 0.001:
@@ -412,15 +435,15 @@ func _sync_bugs() -> void:
 		if fronts.is_empty():
 			# Innerster Ring: der Marienkäfer geht auf den großen Käfer los, von seiner Karte her.
 			var toward: Vector2 = _centers[card_id].normalized()
-			_want_lady("%s|boss" % card_id, card_id, toward * (BOSS_RADIUS - 22.0), Vector2.ZERO, keep)
+			_want_lady("%s|boss" % card_id, card_id, toward * (BOSS_RADIUS + 18.0 if Bug.style == Bug.SOLDIERS else BOSS_RADIUS - 22.0), Vector2.ZERO, keep)
 		for f in fronts:
 			var pest_key := "%s|%s" % [f["on"], f["blocker_id"]]
 			if not at.has(pest_key):
 				continue
 			var pest_at: Vector2 = at[pest_key]
 			# Von der eigenen Karte her an den Schädling heran.
-			var side: Vector2 = (_centers[card_id] - pest_at).normalized()
-			_want_lady("%s|%s" % [card_id, pest_key], card_id, pest_at + side * 28.0, pest_at, keep)
+			var across := Vector2(_card_box(f["on"]).x - 4.0, 0.0)
+			_want_lady("%s|%s" % [card_id, pest_key], card_id, pest_at - across, pest_at, keep)
 	for key in _ladies.keys():
 		if not keep.has(key):
 			_leave(_ladies[key])
@@ -530,7 +553,8 @@ func _process(delta: float) -> void:
 	if not visible or _ladies.is_empty():
 		return
 	_time += delta
-	# Die Striche der Angriffe wandern.
+	# Die Striche der Angriffe wandern, und geschossen wird auch.
+	_fx.queue_redraw()
 	_back.queue_redraw()
 	for key in _ladies:
 		var bug: Bug = _ladies[key]
@@ -538,7 +562,71 @@ func _process(delta: float) -> void:
 			continue
 		var home: Vector2 = bug.get_meta("home", bug.position)
 		var phase := float(hash(key) % 100) / 10.0
-		bug.position = home + Vector2(sin(_time * 5.0 + phase) * 1.4, cos(_time * 3.7 + phase) * 1.1)
+		# Käfer tänzeln; Soldaten stehen still.
+		if Bug.style != Bug.SOLDIERS:
+			bug.position = home + Vector2(sin(_time * 5.0 + phase) * 1.4, cos(_time * 3.7 + phase) * 1.1)
+
+
+# ------------------------------------------------------------- Schüsse
+
+## Welche Figuren kämpfen: Käfer oder Soldaten (`Bug.BUGS`, `Bug.SOLDIERS`).
+func set_style(value: String) -> void:
+	if Bug.style == value:
+		return
+	Bug.style = value
+	_boss.queue_redraw()
+	for key in _pests:
+		_pests[key].queue_redraw()
+	for key in _ladies:
+		_ladies[key].queue_redraw()
+	_fx.queue_redraw()
+
+
+## Soldaten schießen: jeder eigene in seinem Takt auf sein Ziel, und der
+## Gegner, auf den er schießt, zurück. Alles ergibt sich aus der Zeit – es gibt
+## keine Geschosse, die man verwalten müsste.
+func _draw_fx() -> void:
+	if Bug.style != Bug.SOLDIERS:
+		return
+	for key in _ladies:
+		var own: Bug = _ladies[key]
+		if own.get_meta("busy", false):
+			continue
+		var target: Vector2 = own.get_meta("target", own.position)
+		var phase := float(hash(key) % 1000) / 1000.0 * SHOT_EVERY
+		var round_no := int((_time + phase) / SHOT_EVERY) + hash(key)
+		_draw_burst(own.position, target, own.girth, round_no, fmod(_time + phase, SHOT_EVERY))
+		# Der Gegner antwortet im Gegentakt – der Panzer nicht, der hat Besseres zu tun.
+		if not key.ends_with("|boss"):
+			_draw_burst(target, own.position, own.girth, round_no + 7, fmod(_time + phase + SHOT_EVERY * 0.5, SHOT_EVERY))
+
+
+## Eine Salve: mehrere Schüsse kurz hintereinander, `since` Sekunden nach ihrem Beginn.
+func _draw_burst(from: Vector2, to: Vector2, girth: float, seed_value: int, since: float) -> void:
+	for i in BURST:
+		var shot := since - i * BURST_GAP
+		if shot >= 0.0 and shot < SHOT_SECONDS:
+			_draw_shot(from, to, girth, seed_value + i * 3, shot / SHOT_SECONDS)
+
+
+## Ein Schuss, dezent: ein kleines Mündungsfeuer im ersten Moment und ein
+## kurzer heller Strich, der vom Gewehr auf den Gegner zufliegt und vor ihm
+## erlischt. `progress` läuft während des Schusses von 0 bis 1.
+func _draw_shot(from: Vector2, to: Vector2, girth: float, seed_value: int, progress: float) -> void:
+	var dir := (to - from).normalized()
+	var side := Vector2(-dir.y, dir.x)
+	var muzzle := from + dir * 26.0 * girth + side * 7.0 * girth
+	var miss := (float(seed_value % 7) - 3.0) * 1.2
+	# Die Spur endet am Rand der Figur, nicht in ihrem Helm.
+	var end := to + side * (7.0 * girth + miss) - dir * 15.0 * girth
+	var way := end - muzzle
+	if way.dot(dir) <= 0.0:
+		return
+	if progress < 0.3:
+		_fx.draw_circle(muzzle, 1.7 * girth, Color(1.0, 0.9, 0.6, 0.85), true, -1.0, false)
+	var head := progress
+	var tail := maxf(progress - 0.28, 0.0)
+	_fx.draw_line(muzzle + way * tail, muzzle + way * head, Color(1.0, 0.94, 0.7, 0.6), 1.1, false)
 
 
 # ------------------------------------------------------------- Zeichnen
@@ -569,8 +657,19 @@ func _draw_back() -> void:
 		if way["to"] == "":
 			to = from.normalized() * BOSS_RADIUS
 		var color := Color(Palette.OK, 0.6) if done[way["from"]] else Color(1, 1, 1, 0.26)
-		var ends := _between_cards(from, to, way["to"] != "")
+		var ends := _between_cards(way["from"], way["to"] if _centers.has(way["to"]) else "", to)
 		_back.draw_line(ends[0], ends[1], color, 2.0, false)
+
+	# Wird eine Karte gerade gezogen, bleibt an ihrem Platz ihr Umriss liegen –
+	# sonst stünden die Soldaten, die an ihr kämpfen, im Nichts.
+	if _dragging and _held != null and is_instance_valid(_held) and _centers.has(_held.task_id):
+		var card := _card_box(_held.task_id)
+		var slot := StyleBoxFlat.new()
+		slot.bg_color = Color(0, 0, 0, 0.28)
+		slot.border_color = Color(1, 1, 1, 0.3)
+		slot.set_border_width_all(1)
+		slot.set_corner_radius_all(int(Card.RADIUS * CARD_SCALE))
+		_back.draw_style_box(slot, Rect2(_centers[_held.task_id] - card / 2.0, card))
 
 	# Die Angriffe: von jeder getappten Karte laufen Striche zu dem, was sie
 	# angreift – zur Karte mit ihrem Schädling oder zum großen Käfer.
@@ -587,7 +686,7 @@ func _draw_back() -> void:
 		for target in targets:
 			var from: Vector2 = _centers[card_id]
 			var to: Vector2 = from.normalized() * BOSS_RADIUS if target == "" else _centers[target]
-			var ends := _between_cards(from, to, target != "")
+			var ends := _between_cards(card_id, target, to)
 			_draw_attack(ends[0], ends[1])
 
 	# Die Mitte: der Bau des großen Käfers, außen herum sein Leben.
@@ -621,17 +720,27 @@ func _draw_attack(from: Vector2, to: Vector2) -> void:
 	_back.draw_colored_polygon(PackedVector2Array([to, to - dir * 11.0 + side * 6.0, to - dir * 11.0 - side * 6.0]), ATTACK)
 
 
-## Kürzt die Strecke von `from` nach `to` an beiden Enden um die Karten, die
-## dort liegen: der Weg beginnt und endet an ihrem Rand, nicht in ihrer Mitte.
-func _between_cards(from: Vector2, to: Vector2, to_card: bool) -> PackedVector2Array:
-	var half := Card.SIZE * CARD_SCALE / 2.0 + Vector2(4, 4)
+## Der Weg von der Karte `from_id` zur Karte `to_id` – oder zum Punkt `to`,
+## wenn `to_id` leer ist –, an beiden Enden bis an den Rand der Karte gekürzt.
+## Jede Karte zählt mit der Fläche, die sie gerade einnimmt: quer, wenn sie
+## getappt ist.
+func _between_cards(from_id: String, to_id: String, to: Vector2) -> PackedVector2Array:
+	var from: Vector2 = _centers[from_id]
+	if to_id != "":
+		to = _centers[to_id]
 	var dir := to - from
 	if dir.length() < 1.0:
 		return PackedVector2Array([from, to])
-	# Wie weit es von der Mitte einer Karte in dieser Richtung bis zu ihrem Rand ist.
-	var out := minf(half.x / maxf(absf(dir.x), 0.001), half.y / maxf(absf(dir.y), 0.001))
-	out = minf(out, 0.45)
-	return PackedVector2Array([from + dir * out, to - dir * out if to_card else to])
+	var start := from + dir * minf(_to_edge(_card_box(from_id), dir), 0.45)
+	var end := to - dir * minf(_to_edge(_card_box(to_id), dir), 0.45) if to_id != "" else to
+	return PackedVector2Array([start, end])
+
+
+## Welcher Anteil von `dir` von der Mitte einer Karte der Größe `box` bis zu
+## ihrem Rand reicht – mit etwas Luft.
+func _to_edge(box: Vector2, dir: Vector2) -> float:
+	var half := box / 2.0 + Vector2(4, 4)
+	return minf(half.x / maxf(absf(dir.x), 0.001), half.y / maxf(absf(dir.y), 0.001))
 
 
 # -------------------------------------------------------------- Bedienen
@@ -670,6 +779,7 @@ func _input(event: InputEvent) -> void:
 		var mouse := get_local_mouse_position()
 		if not _dragging and mouse.distance_to(_held_at) > DRAG_START:
 			_dragging = true
+			_back.queue_redraw()
 			_hovered = ""
 			_held.z_index = 80
 			var tween := _held.create_tween().set_parallel()
@@ -709,14 +819,11 @@ func _toggle(id: String) -> void:
 	var task = _ws.task(id) if _ws != null else null
 	if task == null:
 		return
-	if Field.is_tapped(task):
-		change_requested.emit(id, {"status": "open"})
-		return
-	var refusal := Field.tap_refusal(_ws, task)
+	var refusal := Field.untap_refusal(_ws, task) if Field.is_tapped(task) else Field.tap_refusal(_ws, task)
 	if refusal != "":
 		refused.emit(refusal)
 	else:
-		change_requested.emit(id, {"status": "progress"})
+		change_requested.emit(id, {"status": "open" if Field.is_tapped(task) else "progress"})
 
 
 ## Der letzte Schlag: die Karte ist erledigt.

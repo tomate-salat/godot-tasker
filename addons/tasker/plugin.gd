@@ -246,6 +246,7 @@ func _open_table() -> void:
 		EditorInterface.get_base_control().add_child(_table)
 	_table.hand_size = Config.hand_size()
 	_table.sound_enabled = Config.sound()
+	_table.set_field_style(Config.field_style())
 	if _table.visible:
 		if _table.mode == Window.MODE_MINIMIZED:
 			_table.mode = Window.MODE_WINDOWED
