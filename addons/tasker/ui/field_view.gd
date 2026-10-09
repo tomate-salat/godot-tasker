@@ -41,6 +41,8 @@ const MIN_SCALE := 0.4
 const REACH := Vector2(20000, 20000)
 ## Bis zu diesem Anteil der Stadt lässt sich der Bildrand schieben – dahinter läuft sie nur noch aus.
 const CITY_EDGE := 0.9
+## So hoch ist die Kopfzeile des Tischs; unter ihr verschwinden Karten und Figuren.
+const HEAD := 58.0
 ## Wie weit das Mausrad über die eingepasste Größe hinaus vergrößert und verkleinert.
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 4.0
@@ -80,6 +82,7 @@ var _canvas: Control
 var _back: Control
 ## Die Stadt im Hintergrund und ob sie schon einmal gezeigt wurde.
 var _city: City
+var _town: Control
 var _city_shown := false
 var _message: Label
 var _toast: Label
@@ -131,12 +134,29 @@ func _init() -> void:
 	felt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(felt)
 
+	# Die Stadt liegt für sich: sie scheint durch die Kopfzeile des Tischs.
+	_town = Control.new()
+	_town.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_town)
+	_city = City.new()
+	_town.add_child(_city)
+	# Alles andere – Karten, Wege, Figuren – verschwindet hinter der Kopfzeile:
+	# es wird unter ihr abgeschnitten. Die Zwischenstufe schiebt zurück, damit
+	# `_canvas` weiter vom Feld aus rechnet.
+	var stage := Control.new()
+	stage.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stage.offset_top = HEAD
+	stage.clip_contents = true
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(stage)
+	var shift := Control.new()
+	shift.position = Vector2(0, -HEAD)
+	shift.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(shift)
 	# Die Mitte des Feldes ist der Ursprung von `_canvas`.
 	_canvas = Control.new()
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_canvas)
-	_city = City.new()
-	_canvas.add_child(_city)
+	shift.add_child(_canvas)
 	_back = Control.new()
 	_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back.draw.connect(_draw_back)
@@ -211,6 +231,7 @@ func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
 	_images = images
 	_message.visible = milestone == null
 	_canvas.visible = milestone != null
+	_town.visible = _canvas.visible
 	if milestone == null:
 		_message.text = "Kein aktiver Milestone – in der Planung lässt sich einer starten"
 		return
@@ -333,6 +354,8 @@ func _fit() -> void:
 	look = look.clamp((-free).min(home), free.max(home))
 	_pan = (home - look) * s
 	_canvas.position = (middle - home * s + _pan).round()
+	_town.position = _canvas.position
+	_town.scale = _canvas.scale
 
 
 ## Vergrößert oder verkleinert um `factor`; was unter `at` liegt, bleibt dort.
