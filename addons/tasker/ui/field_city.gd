@@ -16,6 +16,14 @@ extends Node2D
 
 ## So weit reicht die Stadt von der Mitte.
 const EXTENT := Vector2(2000, 1500)
+## Zum Rand hin läuft sie aus: ab diesem Anteil des Weges werden die Blöcke
+## lichter und blasser, am Rand ist nur noch Umland. So viele der äußersten
+## Blöcke fehlen ganz.
+const FADE_FROM := 0.58
+const THIN := 0.7
+## Fluss und große Straßen laufen als Landstraßen weit ins Umland hinaus.
+const COUNTRY := 12000.0
+const COUNTRY_ROAD := Color(0.165, 0.22, 0.215, 0.55)
 ## Wie viele große Straßen die Stadt durchschneiden, und wie breit die
 ## Straßen sind: große, gewöhnliche und Gassen.
 const AVENUES := 6
@@ -82,6 +90,17 @@ func build(seed_value: int, ring: Vector2, step: Vector2) -> void:
 	queue_redraw()
 
 
+## Wie weit ein Punkt zum Rand der Stadt hin liegt: 0 in der Mitte, 1 am Rand.
+## Der Rand ist ein Rechteck mit weit gerundeten Ecken.
+static func edge_at(p: Vector2) -> float:
+	return pow(pow(p.x / EXTENT.x, 4.0) + pow(p.y / EXTENT.y, 4.0), 0.25)
+
+
+## Wie deckend die Stadt an dieser Stelle noch ist.
+static func _solid(p: Vector2) -> float:
+	return 1.0 - smoothstep(FADE_FROM, 1.0, edge_at(p))
+
+
 ## Wie weit außen ein Punkt liegt, in Ringen gemessen: 0 auf dem innersten
 ## Ring, 1 auf dem nächsten, dazwischen Bruchteile, innerhalb des innersten
 ## negativ.
@@ -110,14 +129,14 @@ func _generate() -> void:
 	var offset := side * rng.randf_range(430.0, 640.0)
 	var slope := rng.randf_range(-0.22, 0.22)
 	var wave := rng.randf() * TAU
-	var x := -EXTENT.x - 100.0
-	while x <= EXTENT.x + 100.0:
+	var x := -COUNTRY
+	while x <= COUNTRY:
 		_river.append(Vector2(x, offset + slope * x + sin(x * 0.0023 + wave) * 190.0))
 		x += 40.0
 
 	# Große Straßen schneiden die Fläche in Viertel – in jeder Richtung, aber nie durch die Mitte.
 	var districts: Array = [PackedVector2Array([-EXTENT, Vector2(EXTENT.x, -EXTENT.y), EXTENT, Vector2(-EXTENT.x, EXTENT.y)])]
-	var far := 6000.0
+	var far := COUNTRY
 	for k in AVENUES:
 		var dir := Vector2.from_angle(rng.randf() * PI)
 		var normal := Vector2(-dir.y, dir.x)
@@ -191,6 +210,11 @@ func _add_block(rect: Rect2, turn: float, district: PackedVector2Array, rng: Ran
 		# Um die Zitadelle bleibt ein Platz frei, und am Fluss das Ufer.
 		if wet or mid.length() < PLAZA or _river_distance(mid) < BANK:
 			continue
+		# Zum Rand hin stehen immer weniger Blöcke. Gewürfelt wird aus der Lage,
+		# nicht aus der Reihe – sonst sähe die übrige Stadt anders aus.
+		var solid := _solid(mid)
+		if solid <= 0.02 or (hash(Vector2i(mid)) % 1000) / 1000.0 < (1.0 - solid) * THIN:
+			continue
 		var roofs := []
 		if not park:
 			for i in shapes.size():
@@ -206,7 +230,7 @@ func _add_block(rect: Rect2, turn: float, district: PackedVector2Array, rng: Ran
 				# Ein Gebäude, das über den Block hinausragte, wird nicht gebaut.
 				if inside:
 					roofs.append({"poly": poly, "mid": middle / poly.size(), "tone": tones[i], "at": 0.0})
-		_blocks.append({"poly": piece, "mid": mid, "kind": "park" if park else "town", "roofs": roofs, "at": 0.0})
+		_blocks.append({"poly": piece, "mid": mid, "kind": "park" if park else "town", "roofs": roofs, "at": 0.0, "solid": solid})
 
 
 static func _area(poly: PackedVector2Array) -> float:
@@ -312,7 +336,10 @@ func _taken(at: float) -> float:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(-EXTENT, EXTENT * 2.0), STREET)
+	# Im Umland sind die großen Straßen Landstraßen.
+	for avenue in _avenues:
+		draw_line(avenue[0], avenue[1], COUNTRY_ROAD, AVENUE * 0.5)
+	_draw_ground()
 	# Der Mittelstreifen der großen Straßen.
 	for avenue in _avenues:
 		draw_dashed_line(avenue[0], avenue[1], LANE, 1.6, 16.0, true, false)
@@ -320,15 +347,16 @@ func _draw() -> void:
 		draw_polyline(_river, WATER, RIVER, false)
 	for b in _blocks:
 		var t := _taken(b["at"])
+		var solid: float = b["solid"]
 		if b["kind"] == "park":
-			var grass: Color = FOE_PARK.lerp(OWN_PARK, t)
+			var grass: Color = Color(FOE_PARK.lerp(OWN_PARK, t), solid)
 			draw_colored_polygon(b["poly"], grass)
 			if detail >= 2:
 				for k in 4:
 					var tree: Vector2 = b["mid"] + Vector2(-14.0 + 28.0 * (k % 2), -14.0 + 28.0 * (k / 2))
 					draw_circle(tree, 7.0, grass.lightened(0.12), true, -1.0, false)
 			continue
-		draw_colored_polygon(b["poly"], FOE_GROUND.lerp(OWN_GROUND, t))
+		draw_colored_polygon(b["poly"], Color(FOE_GROUND.lerp(OWN_GROUND, t), solid))
 		if detail < 1:
 			continue
 		for roof in b["roofs"]:
@@ -338,5 +366,31 @@ func _draw() -> void:
 				var shade := PackedVector2Array()
 				for p in poly:
 					shade.append(p + Vector2(3.0, 3.5))
-				draw_colored_polygon(shade, Color(0, 0, 0, 0.35))
-			draw_colored_polygon(poly, FOE_ROOFS[roof["tone"]].lerp(OWN_ROOFS[roof["tone"]], own))
+				draw_colored_polygon(shade, Color(0, 0, 0, 0.35 * solid))
+			draw_colored_polygon(poly, Color(FOE_ROOFS[roof["tone"]].lerp(OWN_ROOFS[roof["tone"]], own), solid))
+
+
+## Der Grund der Stadt, die Farbe ihrer Straßen: innen deckend, zum Rand hin
+## immer durchsichtiger, bis nur der Filz bleibt. Ein Stück, damit keine Nähte entstehen.
+func _draw_ground() -> void:
+	const AROUND := 96
+	var steps := [0.0, FADE_FROM, 0.72, 0.86, 1.0]
+	var points := PackedVector2Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	for step in steps.size():
+		var reach: float = steps[step]
+		var color := Color(STREET, 1.0 - smoothstep(FADE_FROM, 1.0, reach))
+		for i in AROUND:
+			var angle := TAU * i / AROUND
+			var c := cos(angle)
+			var n := sin(angle)
+			points.append(Vector2(signf(c) * sqrt(absf(c)) * EXTENT.x, signf(n) * sqrt(absf(n)) * EXTENT.y) * reach)
+			colors.append(color)
+		if step == 0:
+			continue
+		for i in AROUND:
+			var a := (step - 1) * AROUND + i
+			var b := (step - 1) * AROUND + (i + 1) % AROUND
+			indices.append_array([a, b, a + AROUND, b, b + AROUND, a + AROUND])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), indices, points, colors)

@@ -39,6 +39,8 @@ const BOSS_RADIUS := 84.0
 const MIN_SCALE := 0.4
 ## So weit reicht die Fläche, auf der Wege und Ringe gezeichnet werden, von der Mitte aus.
 const REACH := Vector2(20000, 20000)
+## Bis zu diesem Anteil der Stadt lässt sich der Bildrand schieben – dahinter läuft sie nur noch aus.
+const CITY_EDGE := 0.9
 ## Wie weit das Mausrad über die eingepasste Größe hinaus vergrößert und verkleinert.
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 4.0
@@ -315,7 +317,7 @@ func _spread(id: String, from: float, span: float, outer: Dictionary, weight: Di
 
 ## Ohne Zutun passt das Feld ganz ins Fenster; dafür wird es notfalls
 ## kleiner. Mit dem Mausrad lässt es sich darüber hinaus vergrößern und
-## verkleinern, mit gedrückter Taste verschieben.
+## verkleinern, mit gedrückter mittlerer Taste verschieben.
 func _fit() -> void:
 	var room := size - Vector2(MARGIN * 2.0, TOP + MARGIN)
 	if room.x <= 0.0 or room.y <= 0.0:
@@ -323,7 +325,14 @@ func _fit() -> void:
 	var s := clampf(minf(room.x / _bounds.size.x, room.y / _bounds.size.y), MIN_SCALE, 1.0) * _zoom
 	_canvas.scale = Vector2(s, s)
 	var middle := Vector2(size.x / 2.0, TOP + room.y / 2.0)
-	_canvas.position = (middle - _bounds.get_center() * s + _pan).round()
+	# Verschieben geht nur, so weit die Stadt reicht: der Blick bleibt in ihr.
+	# Ist das Fenster größer als sie, bleibt sie in der Mitte.
+	var home := _bounds.get_center()
+	var look := home - _pan / s
+	var free := (City.EXTENT * CITY_EDGE - size / (2.0 * s)).max(Vector2.ZERO)
+	look = look.clamp((-free).min(home), free.max(home))
+	_pan = (home - look) * s
+	_canvas.position = (middle - home * s + _pan).round()
 
 
 ## Vergrößert oder verkleinert um `factor`; was unter `at` liegt, bleibt dort.
@@ -349,15 +358,12 @@ func reset_view() -> void:
 	_fit()
 
 
-## Auf dem freien Filz: ziehen verschiebt das Feld, ein Doppelklick zeigt wieder alles.
+## Auf dem freien Filz zeigt ein Doppelklick wieder alles. Verschoben wird
+## nur mit der mittleren Taste (siehe `_input`): mit der linken greift man
+## Karten, und wer knapp daneben greift, soll nicht das Feld wegziehen.
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_MIDDLE):
-		if event.pressed and event.double_click:
-			reset_view()
-		_panning = event.pressed
-	elif event is InputEventMouseMotion and _panning:
-		_pan += event.relative
-		_fit()
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and event.double_click:
+		reset_view()
 
 
 # -------------------------------------------------------------- Karten
@@ -840,8 +846,19 @@ func _input(event: InputEvent) -> void:
 			_zoom_by(ZOOM_STEP if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / ZOOM_STEP, mouse)
 			get_viewport().set_input_as_handled()
 		return
-	if event is InputEventMouseButton and not event.pressed:
-		_panning = false
+	# Die mittlere Taste verschiebt das Feld, auch wenn der Zeiger über einer Karte steht.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE:
+		if not event.pressed:
+			_panning = false
+		elif is_visible_in_tree() and Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
+			_panning = true
+			get_viewport().set_input_as_handled()
+		return
+	if event is InputEventMouseMotion and _panning:
+		_pan += event.relative
+		_fit()
+		get_viewport().set_input_as_handled()
+		return
 	if _held == null or not is_instance_valid(_held) or not is_visible_in_tree():
 		return
 	if event is InputEventMouseMotion:

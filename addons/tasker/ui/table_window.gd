@@ -213,6 +213,10 @@ func _process(delta: float) -> void:
 	_pressed.set_tilt(-_tilt / MAX_TILT)
 
 
+## So hoch ist der Streifen am oberen Rand, an dem man das Fenster verschiebt.
+const HEADER_HEIGHT := 58.0
+
+
 func _build() -> void:
 	_board = Control.new()
 	_board.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -372,6 +376,14 @@ func _build() -> void:
 	# Die Kopfzeile mit Milestone und Fortschritt bleibt über dem Feld.
 	add_child(_field)
 	move_child(_field, bar.get_index())
+	# Über dem Feld bleibt oben ein Streifen in voller Breite, an dem man das
+	# Fenster greift – das Feld selbst nimmt sonst jeden Klick für sich.
+	var header := Control.new()
+	header.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	header.offset_bottom = HEADER_HEIGHT
+	header.gui_input.connect(_on_face_input)
+	add_child(header)
+	move_child(header, bar.get_index())
 	# Der Graph legt sich über den Tisch.
 	_graph = DepGraphView.new()
 	_graph.z_index = 700
@@ -423,7 +435,8 @@ func _build() -> void:
 	add_child(frame_buttons)
 	bar.offset_right = -MARGIN - 92
 	_plan.gui_input.connect(_on_face_input)
-	for part in [bar, gap]:
+	# Auch an Fortschritt und Beschriftung greift man das Fenster; nur der Name des Milestones bleibt ein Knopf.
+	for part in [bar, gap, _progress, _count, _streak, _week, _week_bar]:
 		part.mouse_filter = Control.MOUSE_FILTER_PASS
 	bar.gui_input.connect(_on_face_input)
 	_show_mode()
