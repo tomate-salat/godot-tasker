@@ -64,7 +64,8 @@ func test_unteraufgaben_liegen_einen_ring_weiter_aussen_als_ihr_stapel() -> void
 	var field := Field.build(ws, ws.milestone("m"))
 	eq([_node(field, "stapel")["ring"], _node(field, "s2")["ring"], _node(field, "s1")["ring"]], [1, 2, 3])
 	eq(_node(field, "s1")["inner"], "s2")
-	eq(_ways(field), ["s1>s2", "s2>stapel", "stapel>"])
+	# Zum Stapel führt von jeder Unteraufgabe ein Weg, auch wenn es einen über die Schwester gibt.
+	eq(_ways(field), ["s1>s2", "s1>stapel", "s2>stapel", "stapel>"])
 
 
 func test_die_form_bleibt_wenn_eine_voraussetzung_erledigt_ist() -> void:

@@ -28,7 +28,8 @@ const Workspace := preload("workspace.gd")
 ##   ab 1. `inner` ist die Karte, zu der sie nach innen gehört – die auf sie
 ##   wartet oder deren Unteraufgabe sie ist –, leer für die Mitte.
 ## - `ways`: die Verbindungen nach innen, `{ from, to }`; `to` ist leer für
-##   die Mitte. Umwege fehlen: führt A zu B und B zu C, steht A zu C nicht da.
+##   die Mitte. Umwege fehlen: führt A zu B und B zu C, steht A zu C nicht da –
+##   außer C ist der Stapel von A: zu dem führt immer ein Weg.
 ## - `pests`: je Karte die Schädlinge darauf, siehe `pests_on`.
 ## - `fronts`: je Karte in Arbeit, wohin ihr Marienkäfer geht, siehe `fronts_of`.
 ## - `boss`: `{ total, done }` – der große Käfer.
@@ -75,9 +76,12 @@ static func build(ws: Workspace, m: Dictionary) -> Dictionary:
 		if inward[id].is_empty():
 			ways.append({"from": id, "to": ""})
 		for other in inward[id]:
+			# Ein Weg, den es auch über eine andere Karte gibt, wäre nur eine
+			# Abkürzung und bleibt weg. Zum eigenen Stapel führt aber immer
+			# einer: dorthin geht auch der Angriff, wenn die Karte getappt ist.
 			var around := false
 			for via in inward[id]:
-				if via != other and _leads(via, other, inward, {}):
+				if other != t.get("parentId") and via != other and _leads(via, other, inward, {}):
 					around = true
 			if not around:
 				ways.append({"from": id, "to": other})

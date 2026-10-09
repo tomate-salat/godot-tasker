@@ -34,7 +34,12 @@ const CARD_SCALE := 0.68
 ## Der innerste Ring und der Abstand von Ring zu Ring – in der Breite mehr
 ## als in der Höhe, weil das Fenster breiter ist als hoch.
 const RING := Vector2(214.0, 172.0)
-const STEP := Vector2(170.0, 140.0)
+const STEP := Vector2(215.0, 178.0)
+## Hinter diesem Ring liegt der Fluss der Stadt – nicht gleich hinter dem
+## ersten, sonst müsste fast jeder Weg über eine Brücke. Die Lücke dort ist um
+## so viel weiter, damit er samt Ufer zwischen die Karten passt.
+const MOAT_AFTER := 2
+const MOAT := Vector2(14.0, 50.0)
 const BOSS_RADIUS := 84.0
 const MIN_SCALE := 0.4
 ## So weit reicht die Fläche, auf der Wege und Ringe gezeichnet werden, von der Mitte aus.
@@ -48,6 +53,29 @@ const RING_FRONT := 0.34
 const RING_GLINT := 0.62
 const RING_TURN := 0.5
 const RING_POINTS := 144
+## Auf den Wegen wandern helle Striche nach innen: so schnell, so weit
+## auseinander, so lang und um so viel deckender als der Weg selbst.
+const WAY_SPEED := 26.0
+const WAY_GAP := 64.0
+const WAY_DASH := 12.0
+const WAY_GLOW := 0.3
+## Soldaten gehen ihren Weg in diesem Schritt (Pixel je Sekunde); kurze Wege
+## dauern trotzdem mindestens, lange höchstens so viele Sekunden.
+const MARCH_SPEED := 150.0
+const MARCH_MIN := 0.7
+const MARCH_MAX := 4.0
+## Liegt der Zeiger auf einer Karte, bleiben fremde Verbindungen nur so deckend, und so lange dauert der Übergang.
+const FOCUS_DIM := 0.14
+const FOCUS_SECONDS := 0.18
+## Um so viel deckender werden dabei die Wege der Karte selbst.
+const FOCUS_RAISE := 0.4
+## Vor einer Pfeilspitze läuft der Weg so weit gerade.
+const ARROW_RUN := 30.0
+## So viel Abstand halten Wege zu fremden Karten.
+const CARD_ROOM := 7.0
+## Karten halten so viel Abstand zu Brücken, und so weit rücken sie je Versuch zur Seite.
+const BRIDGE_ROOM := 6.0
+const BRIDGE_STEP := 12.0
 ## So hoch ist die Kopfzeile des Tischs; unter ihr verschwinden Karten und Figuren.
 const HEAD := 58.0
 ## Wie weit das Mausrad über die eingepasste Größe hinaus vergrößert und verkleinert.
@@ -55,7 +83,6 @@ const ZOOM_MIN := 0.5
 const ZOOM_MAX := 4.0
 const ZOOM_STEP := 1.12
 const MOVE_SECONDS := 0.3
-const CRAWL_SECONDS := 0.8
 ## So lange wartet ein Klick, ob ein zweiter folgt.
 const CLICK_WAIT := 0.25
 ## Ab so vielen Pixeln wird aus dem Drücken ein Ziehen.
@@ -89,6 +116,9 @@ var _canvas: Control
 var _back: Control
 ## Die Stadt im Hintergrund und ob sie schon einmal gezeigt wurde.
 var _city: City
+## Ob die Verbindungen den Straßen folgen, und die schon gerechneten Wege.
+static var street_ways := true
+var _routes := {}
 var _town: Control
 var _city_shown := false
 var _message: Label
@@ -120,6 +150,9 @@ var _held_at := Vector2.ZERO
 var _dragging := false
 var _over_boss := false
 var _hovered := ""
+## Die Karte, deren Verbindungen gerade hervorgehoben sind, und wie sehr (0 bis 1).
+var _focus_id := ""
+var _focus := 0.0
 ## Tempo und Neigung der gezogenen Karte.
 var _velocity := Vector2.ZERO
 var _tilt := Vector2.ZERO
@@ -245,6 +278,8 @@ func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
 	_field = Field.build(ws, milestone)
 	_layout()
 	_show_city()
+	_clear_bridges()
+	_tell_city()
 	_fit()
 	_sync_cards()
 	_sync_bugs()
@@ -268,7 +303,8 @@ func say(text: String, color := Palette.P2) -> void:
 ## Die Stadt hinter den Karten: eingenommen ist sie von außen bis zu dem Ring,
 ## auf dem noch etwas offen ist.
 func _show_city() -> void:
-	_city.build(hash(str(_milestone["id"])), RING * _grow, STEP * _grow)
+	_city.build(hash(str(_milestone["id"])), RING * _grow, STEP * _grow, MOAT, _rings, MOAT_AFTER)
+	_routes.clear()
 	# Die Grenze liegt zwischen diesem Ring und dem nächsten weiter außen.
 	var ring_no: int = _field["front"]
 	var target := ring_no - 0.5 if ring_no > 0 else -3.0
@@ -312,10 +348,56 @@ func _layout() -> void:
 		_centers = {}
 	_spread("", start, TAU, outer, weight, ring, grow)
 
+	_measure()
+
+
+## Wie viel Platz das Feld braucht: alle Karten und die Mitte.
+func _measure() -> void:
+	var card := Card.SIZE * CARD_SCALE
 	var box := Rect2(-BOSS_RADIUS, -BOSS_RADIUS, BOSS_RADIUS * 2.0, BOSS_RADIUS * 2.0)
 	for id in _centers:
 		box = box.merge(Rect2(_centers[id] - card / 2.0, card))
 	_bounds = box.grow(14.0)
+
+
+## Auf einer Brücke und im Wasser liegt keine Karte: wer dort landen würde, rückt auf seinem
+## Ring zur Seite – so wenig wie nötig, und nicht auf eine andere Karte.
+func _clear_bridges() -> void:
+	var card := Card.SIZE * CARD_SCALE
+	# Getappt liegt die Karte quer; frei bleiben muss die Brücke in beiden Lagen.
+	var half := Vector2.ONE * (maxf(card.x, card.y) / 2.0 + BRIDGE_ROOM)
+	var moved := false
+	for n in _field["nodes"]:
+		var id: String = n["id"]
+		if not _centers.has(id) or not _city.in_the_way(_centers[id], half):
+			continue
+		var reach := _reach(n["ring"], _grow)
+		var here: Vector2 = _centers[id]
+		var angle := atan2(here.y / reach.y, here.x / reach.x)
+		# Abwechselnd nach beiden Seiten, immer ein Stück weiter.
+		var step := BRIDGE_STEP / maxf(reach.x, 1.0)
+		for k in range(1, 120):
+			var turn := step * ((k + 1) / 2) * (1.0 if k % 2 == 1 else -1.0)
+			var spot := Vector2(cos(angle + turn) * reach.x, sin(angle + turn) * reach.y)
+			if _city.in_the_way(spot, half):
+				continue
+			var free := true
+			for other in _centers:
+				var apart: Vector2 = (_centers[other] - spot).abs()
+				if other != id and apart.x < card.x + 8.0 and apart.y < card.y + 8.0:
+					free = false
+					break
+			if free:
+				_centers[id] = spot
+				moved = true
+				break
+	if moved:
+		_measure()
+
+
+## Die Halbachsen eines Rings; der innerste ist der erste.
+func _reach(ring_no: int, grow: float) -> Vector2:
+	return (RING + STEP * (ring_no - 1.0)) * grow + (MOAT if ring_no > MOAT_AFTER else Vector2.ZERO)
 
 
 func _weigh(id: String, outer: Dictionary, weight: Dictionary) -> float:
@@ -329,7 +411,7 @@ func _weigh(id: String, outer: Dictionary, weight: Dictionary) -> float:
 func _spread(id: String, from: float, span: float, outer: Dictionary, weight: Dictionary, ring: Dictionary, grow: float) -> void:
 	if id != "":
 		var angle := from + span / 2.0
-		var reach: Vector2 = (RING + STEP * (ring[id] - 1.0)) * grow
+		var reach := _reach(ring[id], grow)
 		_centers[id] = Vector2(cos(angle) * reach.x, sin(angle) * reach.y)
 	var list: Array = outer.get(id, [])
 	var total := 0.0
@@ -522,7 +604,7 @@ func _sync_bugs() -> void:
 		if fronts.is_empty():
 			# Innerster Ring: der Marienkäfer geht auf den großen Käfer los, von seiner Karte her.
 			var toward: Vector2 = _centers[card_id].normalized()
-			_want_lady("%s|boss" % card_id, card_id, toward * (BOSS_RADIUS + 18.0 if Bug.style == Bug.SOLDIERS else BOSS_RADIUS - 22.0), Vector2.ZERO, keep)
+			_want_lady("%s|boss" % card_id, card_id, "", toward * (BOSS_RADIUS + 18.0 if Bug.style == Bug.SOLDIERS else BOSS_RADIUS - 22.0), Vector2.ZERO, keep)
 		for f in fronts:
 			var pest_key := "%s|%s" % [f["on"], f["blocker_id"]]
 			if not at.has(pest_key):
@@ -530,7 +612,7 @@ func _sync_bugs() -> void:
 			var pest_at: Vector2 = at[pest_key]
 			# Von der eigenen Karte her an den Schädling heran.
 			var across := Vector2(_card_box(f["on"]).x - 4.0, 0.0)
-			_want_lady("%s|%s" % [card_id, pest_key], card_id, pest_at - across, pest_at, keep)
+			_want_lady("%s|%s" % [card_id, pest_key], card_id, f["on"], pest_at - across, pest_at, keep)
 	for key in _ladies.keys():
 		if not keep.has(key):
 			_leave(_ladies[key])
@@ -557,8 +639,9 @@ func _new_bug(kind: String, at: Vector2, girth: float) -> Bug:
 
 
 ## Ein Marienkäfer für diese Front: gibt es ihn schon, rückt er nur nach;
-## sonst krabbelt er von seiner Karte herüber.
-func _want_lady(key: String, card_id: String, spot: Vector2, target: Vector2, keep: Dictionary) -> void:
+## sonst kommt er von seiner Karte herüber – auf dem Weg, den auch die Linie
+## nimmt. `to_id` ist die Karte, an der er kämpft, leer für die Mitte.
+func _want_lady(key: String, card_id: String, to_id: String, spot: Vector2, target: Vector2, keep: Dictionary) -> void:
 	keep[key] = true
 	var bug: Bug = _ladies.get(key)
 	var fresh := bug == null
@@ -567,15 +650,69 @@ func _want_lady(key: String, card_id: String, spot: Vector2, target: Vector2, ke
 		_ladies[key] = bug
 	bug.set_meta("home", spot)
 	bug.set_meta("card", card_id)
+	bug.set_meta("to", to_id)
 	bug.set_meta("target", target)
 	bug.set_meta("busy", true)
-	if bug.position.distance_to(spot) > 2.0:
-		bug.rotation = (spot - bug.position).angle() + PI / 2.0
-	var tween := bug.create_tween()
-	tween.tween_property(bug, "position", spot, CRAWL_SECONDS if fresh else MOVE_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_callback(func() -> void:
+	# Ist er noch auf dem Marsch, geht er ihn zu Ende – der Stand wird öfter
+	# gezeigt, als sich etwas ändert, und zwei Bewegungen zugleich rissen ihn
+	# hin und her. Wohin er am Ende gehört, liest er dann selbst nach.
+	if bug.get_meta("marching", false):
+		return
+	if fresh:
+		var path := PackedVector2Array([_centers[card_id]])
+		path.append_array(_route(card_id, to_id))
+		path.append(spot)
+		bug.set_meta("marching", true)
+		_march(bug, path).tween_callback(func() -> void:
+			bug.set_meta("marching", false)
+			_settle_lady(bug))
+		return
+	_settle_lady(bug)
+
+
+## Stellt einen Marienkäfer auf seinen Platz, den Blick zum Gegner. Eine
+## Bewegung, die dafür schon läuft, wird abgelöst.
+func _settle_lady(bug: Bug) -> void:
+	var spot: Vector2 = bug.get_meta("home", bug.position)
+	var target: Vector2 = bug.get_meta("target", spot)
+	var old: Variant = bug.get_meta("move") if bug.has_meta("move") else null
+	if old is Tween and old.is_valid():
+		old.kill()
+	var arrived := func() -> void:
 		bug.rotation = (target - spot).angle() + PI / 2.0
-		bug.set_meta("busy", false))
+		bug.set_meta("busy", false)
+	if bug.position.distance_to(spot) <= 2.0:
+		bug.position = spot
+		arrived.call()
+		return
+	bug.rotation = (spot - bug.position).angle() + PI / 2.0
+	var tween := bug.create_tween()
+	bug.set_meta("move", tween)
+	tween.tween_property(bug, "position", spot, MOVE_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_callback(arrived)
+
+
+## Lässt eine Figur einen Weg entlanggehen, in gleichmäßigem Schritt und mit
+## dem Blick nach vorn. Gibt den Tween zurück, damit danach noch etwas folgen kann.
+func _march(bug: Bug, path: PackedVector2Array) -> Tween:
+	var marks := PackedFloat32Array([0.0])
+	for i in path.size() - 1:
+		marks.append(marks[i] + path[i].distance_to(path[i + 1]))
+	var total := marks[marks.size() - 1]
+	var tween := bug.create_tween()
+	if total < 1.0:
+		return tween
+	tween.tween_method(func(way: float) -> void:
+		var i := 0
+		while i < path.size() - 2 and marks[i + 1] < way:
+			i += 1
+		var piece := marks[i + 1] - marks[i]
+		bug.position = path[i].lerp(path[i + 1], (way - marks[i]) / piece if piece > 0.01 else 1.0)
+		if piece > 0.01:
+			# Um die Ecken dreht sich die Figur weich mit.
+			bug.rotation = lerp_angle(bug.rotation, (path[i + 1] - path[i]).angle() + PI / 2.0, 0.3),
+		0.0, total, clampf(total / MARCH_SPEED, MARCH_MIN, MARCH_MAX)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	return tween
 
 
 func _pop_in(bug: Bug) -> void:
@@ -598,11 +735,19 @@ func _fall(bug: Bug) -> void:
 func _leave(bug: Bug) -> void:
 	bug.set_meta("busy", true)
 	var card_id: String = bug.get_meta("card", "")
-	var back: Vector2 = _centers[card_id] if _centers.has(card_id) else bug.position + Vector2(0, 60)
-	bug.rotation = (back - bug.position).angle() + PI / 2.0
-	var tween := bug.create_tween()
-	tween.tween_property(bug, "position", back, CRAWL_SECONDS * 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	tween.parallel().tween_property(bug, "modulate:a", 0.0, CRAWL_SECONDS * 0.7).set_ease(Tween.EASE_IN)
+	var to_id: String = bug.get_meta("to", "")
+	# Zurück geht es denselben Weg, den er gekommen ist.
+	var path := PackedVector2Array([bug.position])
+	if _centers.has(card_id) and (to_id == "" or _centers.has(to_id)):
+		var way := _route(card_id, to_id).duplicate()
+		way.reverse()
+		path.append_array(way)
+		path.append(_centers[card_id])
+	else:
+		path.append(bug.position + Vector2(0, 60))
+	var tween := _march(bug, path)
+	# Kurz vor der eigenen Karte verblasst er.
+	tween.tween_property(bug, "modulate:a", 0.0, 0.3)
 	tween.tween_callback(bug.queue_free)
 
 
@@ -658,6 +803,10 @@ func _process(delta: float) -> void:
 	if not is_visible_in_tree():
 		return
 	_time += delta
+	# Unter dem Zeiger: die Verbindungen dieser Karte bleiben, die übrigen treten zurück.
+	if _hovered != "":
+		_focus_id = _hovered
+	_focus = move_toward(_focus, 1.0 if _hovered != "" else 0.0, delta / FOCUS_SECONDS)
 	# Über die Ringe wandert ein Schimmer, auch wenn niemand kämpft.
 	_back.queue_redraw()
 	if _ladies.is_empty():
@@ -752,7 +901,7 @@ func _draw_back() -> void:
 	# Über jeden wandert langsam ein Schimmer; die Front atmet dazu.
 	var front_ring: int = _field["front"]
 	for k in _rings:
-		var reach: Vector2 = (RING + STEP * float(k)) * _grow
+		var reach := _reach(k + 1, _grow)
 		var at_front := k + 1 == front_ring
 		var tone := Palette.OK if k + 1 > front_ring else Palette.P2 if at_front else Palette.P1
 		var base := RING_FRONT + 0.14 * sin(_time * 1.8) if at_front else RING_QUIET
@@ -781,8 +930,15 @@ func _draw_back() -> void:
 		if way["to"] == "":
 			to = from.normalized() * BOSS_RADIUS
 		var color := Color(Palette.OK, 0.6) if done[way["from"]] else Color(1, 1, 1, 0.26)
-		var ends := _between_cards(way["from"], way["to"] if _centers.has(way["to"]) else "", to)
-		_back.draw_line(ends[0], ends[1], color, 2.0, false)
+		color.a *= _shown(way["from"], way["to"])
+		# Gehört der Weg zur Karte unter dem Zeiger, wird er kräftiger und breiter.
+		var raised := _focus if way["from"] == _focus_id or way["to"] == _focus_id else 0.0
+		color.a = minf(color.a + FOCUS_RAISE * raised, 1.0)
+		var width := 2.0 + raised
+		var path := _route(way["from"], way["to"] if _centers.has(way["to"]) else "")
+		_back.draw_polyline(path, color, width, false)
+		# Helle Striche wandern nach innen – dezenter als bei den Angriffen.
+		_draw_flow(path, Color(color.lightened(0.45 + 0.3 * raised), minf(color.a + WAY_GLOW, 1.0)), width, WAY_SPEED, WAY_GAP, WAY_DASH)
 
 	# Wird eine Karte gerade gezogen, bleibt an ihrem Platz ihr Umriss liegen –
 	# sonst stünden die Soldaten, die an ihr kämpfen, im Nichts.
@@ -800,18 +956,8 @@ func _draw_back() -> void:
 	for card_id in _field["fronts"]:
 		if not _centers.has(card_id):
 			continue
-		var targets := []
-		var fronts: Array = _field["fronts"][card_id]
-		if fronts.is_empty():
-			targets.append("")
-		for front in fronts:
-			if not targets.has(front["on"]) and _centers.has(front["on"]):
-				targets.append(front["on"])
-		for target in targets:
-			var from: Vector2 = _centers[card_id]
-			var to: Vector2 = from.normalized() * BOSS_RADIUS if target == "" else _centers[target]
-			var ends := _between_cards(card_id, target, to)
-			_draw_attack(ends[0], ends[1])
+		for target in _targets_of(card_id):
+			_draw_attack(_route(card_id, target), _shown(card_id, target))
 
 	# Die Mitte: der Bau des großen Käfers, außen herum sein Leben.
 	_back.draw_circle(Vector2.ZERO, BOSS_RADIUS, Color(0, 0, 0, 0.3), true, -1.0, false)
@@ -828,20 +974,20 @@ func _draw_back() -> void:
 
 ## Ein Angriff als Linie: ein roter Grund und darauf helle Striche, die zum
 ## Ziel wandern.
-func _draw_attack(from: Vector2, to: Vector2) -> void:
-	var length := from.distance_to(to)
-	if length < 4.0:
+func _draw_attack(path: PackedVector2Array, shown := 1.0) -> void:
+	var total := 0.0
+	for i in path.size() - 1:
+		total += path[i].distance_to(path[i + 1])
+	if total < 4.0:
 		return
-	var dir := (to - from) / length
-	_back.draw_line(from, to, Color(ATTACK, 0.35), 3.0, false)
-	var at := fmod(_time * ATTACK_SPEED, ATTACK_GAP)
-	while at < length:
-		var end := minf(at + ATTACK_DASH, length)
-		_back.draw_line(from + dir * at, from + dir * end, ATTACK, 3.0, false)
-		at += ATTACK_GAP
+	path = _straight_end(path, ARROW_RUN)
+	var tone := Color(ATTACK, ATTACK.a * shown)
+	_back.draw_polyline(path, Color(ATTACK, 0.35 * shown), 3.0, false)
+	var dir := _draw_flow(path, tone, 3.0, ATTACK_SPEED, ATTACK_GAP, ATTACK_DASH)
 	# Eine Spitze am Ziel.
+	var to := path[path.size() - 1]
 	var side := Vector2(-dir.y, dir.x)
-	_back.draw_colored_polygon(PackedVector2Array([to, to - dir * 11.0 + side * 6.0, to - dir * 11.0 - side * 6.0]), ATTACK)
+	_back.draw_colored_polygon(PackedVector2Array([to, to - dir * 11.0 + side * 6.0, to - dir * 11.0 - side * 6.0]), tone)
 
 
 ## Der Weg von der Karte `from_id` zur Karte `to_id` – oder zum Punkt `to`,
@@ -858,6 +1004,149 @@ func _between_cards(from_id: String, to_id: String, to: Vector2) -> PackedVector
 	var start := from + dir * minf(_to_edge(_card_box(from_id), dir), 0.45)
 	var end := to - dir * minf(_to_edge(_card_box(to_id), dir), 0.45) if to_id != "" else to
 	return PackedVector2Array([start, end])
+
+
+## Macht das Ende eines Wegs gerade: die letzten `run` Pixel werden zu einem
+## einzigen Stück. Sonst säße die Pfeilspitze mitten in einer Kurve und sähe
+## geknickt aus.
+func _straight_end(path: PackedVector2Array, run: float) -> PackedVector2Array:
+	var left := run
+	var i := path.size() - 1
+	while i > 0:
+		var piece := path[i].distance_to(path[i - 1])
+		if piece >= left:
+			var out := path.slice(0, i)
+			var from := path[i].move_toward(path[i - 1], left)
+			if from.distance_to(path[i - 1]) > 0.5:
+				out.append(from)
+			out.append(path[path.size() - 1])
+			return out
+		left -= piece
+		i -= 1
+	return PackedVector2Array([path[0], path[path.size() - 1]])
+
+
+## Wie deckend eine Verbindung zwischen diesen beiden Karten gerade ist: voll,
+## solange keine Karte unter dem Zeiger liegt oder sie zu dieser gehört.
+func _shown(from_id: String, to_id: String) -> float:
+	if _focus <= 0.0 or from_id == _focus_id or to_id == _focus_id:
+		return 1.0
+	return lerpf(1.0, FOCUS_DIM, _focus)
+
+
+## Striche, die einen Weg entlangwandern, auch um die Ecken: alle `gap` einer,
+## `dash` lang. Gibt die Richtung des letzten Stücks zurück.
+func _draw_flow(path: PackedVector2Array, color: Color, width: float, speed: float, gap: float, dash: float) -> Vector2:
+	var done := 0.0
+	var dir := Vector2.RIGHT
+	for i in path.size() - 1:
+		var from := path[i]
+		var length := from.distance_to(path[i + 1])
+		if length < 0.01:
+			continue
+		dir = (path[i + 1] - from) / length
+		var at := fmod(_time * speed - done, gap)
+		if at < 0.0:
+			at += gap
+		at -= gap
+		while at < length:
+			var start := maxf(at, 0.0)
+			var end := minf(at + dash, length)
+			if end > start:
+				_back.draw_line(from + dir * start, from + dir * end, color, width, false)
+			at += gap
+		done += length
+	return dir
+
+
+## Der Weg von der Karte `from_id` zur Karte `to_id` – oder zur Mitte, wenn
+## `to_id` leer ist: den Straßen der Stadt entlang, oder gerade, wenn
+## `street_ways` aus ist. Gesucht wird von Kartenmitte zu Kartenmitte; so
+## verlässt der Weg die Karte an der Seite, die ihm am besten liegt. Zu sehen
+## ist er erst ab dem Kartenrand. Gerechnet wird jeder Weg nur einmal.
+func _route(from_id: String, to_id: String) -> PackedVector2Array:
+	var key := from_id + ">" + to_id
+	if _routes.has(key):
+		return _routes[key]
+	var from: Vector2 = _centers[from_id]
+	var straight := _between_cards(from_id, to_id, from.normalized() * BOSS_RADIUS)
+	var path := straight
+	if street_ways:
+		var from_box := Rect2(from - _card_box(from_id) / 2.0, _card_box(from_id)).grow(4.0)
+		path = _trim(_city.route(from, _centers[to_id] if to_id != "" else Vector2.ZERO),
+			func(p: Vector2) -> bool: return from_box.has_point(p))
+		path.reverse()
+		if to_id == "":
+			path = _trim(path, func(p: Vector2) -> bool: return p.length() < BOSS_RADIUS + 3.0)
+		else:
+			var to_box := Rect2(_centers[to_id] - _card_box(to_id) / 2.0, _card_box(to_id)).grow(4.0)
+			path = _trim(path, func(p: Vector2) -> bool: return to_box.has_point(p))
+		path.reverse()
+		if path.size() < 2:
+			path = straight
+	_routes[key] = path
+	return path
+
+
+## Schneidet von einem Weg den Anfang ab, so weit er in einer Fläche liegt:
+## er beginnt dann dort, wo er sie zum letzten Mal verlässt.
+func _trim(path: PackedVector2Array, inside: Callable) -> PackedVector2Array:
+	var last := -1
+	for i in path.size():
+		if inside.call(path[i]):
+			last = i
+	if last < 0:
+		return path
+	if last >= path.size() - 1:
+		return PackedVector2Array()
+	var a := path[last]
+	var b := path[last + 1]
+	for k in 12:
+		var mid := (a + b) / 2.0
+		if inside.call(mid):
+			a = mid
+		else:
+			b = mid
+	var out := PackedVector2Array([b])
+	out.append_array(path.slice(last + 1))
+	return out
+
+
+## Sagt der Stadt, wo Karten und Mitte liegen, damit die Wege sie meiden.
+func _tell_city() -> void:
+	var boxes := [Rect2(-BOSS_RADIUS, -BOSS_RADIUS, BOSS_RADIUS * 2.0, BOSS_RADIUS * 2.0)]
+	# Jede Karte zählt mit der Fläche beider Lagen, hochkant und quer: sonst
+	# änderten sich die Wege, sobald man eine tappt.
+	var card := Card.SIZE * CARD_SCALE
+	var both := Vector2.ONE * maxf(card.x, card.y)
+	for id in _centers:
+		boxes.append(Rect2(_centers[id] - both / 2.0, both).grow(CARD_ROOM))
+	_city.set_cards(boxes)
+	_routes.clear()
+	# Jeder gefundene Weg macht seine Straße für die folgenden teurer. Darum
+	# hier in fester Reihenfolge, die nicht davon abhängt, was getappt ist:
+	# erst alle Wege, dann die Angriffe, die keinem Weg folgen. So bleibt ein
+	# Weg derselbe, wenn aus ihm ein Angriff wird.
+	for way in _field["ways"]:
+		if _centers.has(way["from"]):
+			_route(way["from"], way["to"] if _centers.has(way["to"]) else "")
+	for card_id in _field["fronts"]:
+		if _centers.has(card_id):
+			for target in _targets_of(card_id):
+				_route(card_id, target)
+
+
+## Wohin die Angriffe einer getappten Karte gehen: zu jeder Karte, an der sie
+## kämpft, oder – leer – zur Mitte.
+func _targets_of(card_id: String) -> Array:
+	var targets := []
+	var fronts: Array = _field["fronts"][card_id]
+	if fronts.is_empty():
+		targets.append("")
+	for front in fronts:
+		if not targets.has(front["on"]) and _centers.has(front["on"]):
+			targets.append(front["on"])
+	return targets
 
 
 ## Welcher Anteil von `dir` von der Mitte einer Karte der Größe `box` bis zu
