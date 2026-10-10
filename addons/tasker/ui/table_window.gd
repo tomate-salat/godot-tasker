@@ -33,6 +33,8 @@ const Shelf := preload("shelf.gd")
 const Burnup := preload("../rules/burnup.gd")
 const PlanView := preload("plan_view.gd")
 const FieldView := preload("field_view.gd")
+const CampaignView := preload("campaign_view.gd")
+const Release := preload("../rules/release.gd")
 const DepGraphView := preload("dep_graph_view.gd")
 
 const HEADER := 60.0
@@ -74,6 +76,16 @@ var _demo_data := {}
 var _ws: Workspace
 var _project := ""
 var _milestone: Variant
+## Das Release, an dem gerade gearbeitet wird, oder null. Gibt es eines, liegt
+## über dem Feld die Feldzugskarte: `_map` sagt, ob sie gerade zu sehen ist.
+var _release: Variant
+var _map := false
+var _map_decided := false
+## Der Milestone, dessen Feld auf der Karte gewählt wurde, und der, der im Feld liegt.
+var _chosen := ""
+var _shown: Variant
+var _campaign: CampaignView
+var _release_chip: Button
 var _layout := {"locked": [], "open": [], "play": [], "pile": []}
 var _state := {"hand": [], "buried": [], "open": []}
 
@@ -267,13 +279,33 @@ func _build() -> void:
 	bar.add_theme_constant_override("separation", 14)
 	add_child(bar)
 
+	# Das Release: ein Klick führt auf die Feldzugskarte.
+	_release_chip = Button.new()
+	_release_chip.focus_mode = Control.FOCUS_NONE
+	_release_chip.visible = false
+	_release_chip.tooltip_text = "Die Feldzugskarte: alle Milestones dieses Releases"
+	_release_chip.add_theme_font_size_override("font_size", 14)
+	for state in ["normal", "hover", "pressed"]:
+		var chip := StyleBoxFlat.new()
+		chip.bg_color = Color(Palette.P1, 0.26 if state == "hover" else 0.16)
+		chip.border_color = Color(Palette.P1, 0.7)
+		chip.set_border_width_all(1)
+		chip.set_corner_radius_all(8)
+		chip.content_margin_left = 10
+		chip.content_margin_right = 10
+		chip.content_margin_top = 3
+		chip.content_margin_bottom = 3
+		_release_chip.add_theme_stylebox_override(state, chip)
+	_release_chip.pressed.connect(func() -> void: _set_map(true))
+	bar.add_child(_release_chip)
 	# Der Milestone selbst: ein Klick öffnet sein Fenster.
 	_title = Button.new()
 	_title.flat = true
 	_title.focus_mode = Control.FOCUS_NONE
 	_title.pressed.connect(func() -> void:
-		if _milestone != null and store != null and store.state == "ready":
-			task_requested.emit(_milestone["id"]))
+		var head: Variant = _shown if field and not planning and _shown != null else _milestone
+		if head != null and store != null and store.state == "ready":
+			task_requested.emit(head["id"]))
 	_title.add_theme_font_override("font", Palette.title_font())
 	_title.add_theme_font_size_override("font_size", 18)
 	bar.add_child(_title)
@@ -376,6 +408,18 @@ func _build() -> void:
 	# Die Kopfzeile mit Milestone und Fortschritt bleibt über dem Feld.
 	add_child(_field)
 	move_child(_field, bar.get_index())
+	_field.left.connect(func() -> void: _set_map(true))
+	# Die Feldzugskarte liegt an derselben Stelle wie das Feld, eine Ebene höher.
+	_campaign = CampaignView.new()
+	_campaign.visible = false
+	_campaign.milestone_chosen.connect(func(id: String) -> void:
+		_chosen = id
+		_set_map(false))
+	_campaign.details_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	add_child(_campaign)
+	move_child(_campaign, bar.get_index())
 	# Über dem Feld bleibt oben ein Streifen in voller Breite, an dem man das
 	# Fenster greift – das Feld selbst nimmt sonst jeden Klick für sich.
 	var header := Control.new()
@@ -508,14 +552,35 @@ func set_field(value: bool) -> void:
 
 ## Ein Zug auf dem Feld: tappen, zurücknehmen, erledigen.
 func _field_change(id: String, changes: Dictionary) -> void:
+	# Im Feld eines Milestones, der nicht läuft, wird nur geschaut.
+	if _shown != null and _shown.get("status") != "progress":
+		_refuse("„%s“ ist nicht aktiv – gespielt wird nur in einem laufenden Milestone" % _shown.get("title", ""))
+		return
 	_sounds.play("play" if changes.get("status") == "progress" else "draw" if changes.get("status") == "open" else "done")
 	await _change(id, changes)
 	_sync()
 
 
+## Wechselt zwischen der Feldzugskarte und dem Feld eines Milestones.
+func _set_map(value: bool) -> void:
+	if value and _release == null:
+		return
+	_map = value
+	_map_decided = true
+	_close_overlays()
+	_graph.close()
+	_show_mode()
+	_sync()
+
+
+func _on_map() -> bool:
+	return _map and _release != null
+
+
 func _show_mode() -> void:
 	_plan.visible = planning
-	_field.visible = field and not planning
+	_field.visible = field and not planning and not _on_map()
+	_campaign.visible = field and not planning and _on_map()
 	# Die Karten des Spieltischs liegen auf eigenen Ebenen und würden sonst durchscheinen.
 	_board.visible = not planning and not field
 	_layer.visible = not planning and not field
@@ -567,9 +632,27 @@ func _sync() -> void:
 		_plan.show_plan(_ws, _project, 8 if demo else store.velocity, images if not demo else null,
 			Burnup.day_of(Time.get_unix_time_from_system(), Time.get_time_zone_from_system()["bias"]))
 
-	_milestone = Tisch.active_milestone(_ws, _project)
+	var active: Variant = Tisch.active_milestone(_ws, _project)
+	_release = Release.active(_ws, _project)
+	if _release != null and not _map_decided:
+		# Mit genau einem laufenden Milestone geht es gleich auf sein Feld, sonst erst auf die Karte.
+		_map_decided = true
+		_map = _ws.release_milestones(_release["id"]).filter(func(m: Dictionary) -> bool: return m.get("status") == "progress").size() != 1
+	var chosen: Variant = _ws.milestone(_chosen) if _chosen != "" else null
+	if chosen != null and (Model.is_archived(chosen) or chosen.get("projectId") != _project):
+		chosen = null
+	# Im Feld liegt, was auf der Karte gewählt wurde – auch ein geplanter oder
+	# fertiger Milestone. Gespielt wird weiter nur in einem laufenden.
+	_shown = chosen if chosen != null else active
+	if _shown == null and _release != null:
+		_shown = _ws.release_milestones(_release["id"])[0]
+	_milestone = chosen if chosen != null and chosen.get("status") == "progress" else active
+	_show_mode()
 	if field and not planning:
-		_field.show_field(_ws, _milestone, images if not demo else null)
+		if _on_map():
+			_campaign.show_campaign(_ws, _release)
+		else:
+			_field.show_field(_ws, _shown, images if not demo else null)
 	if _milestone == null:
 		_layout = {"locked": [], "open": [], "play": [], "pile": []}
 		_state = {"hand": [], "buried": [], "open": []}
@@ -583,6 +666,7 @@ func _sync() -> void:
 		_seen = {}
 		_show_cards({})
 		_place()
+		_show_head()
 		return
 
 	_layout = Tisch.layout(_ws, _milestone)
@@ -608,6 +692,7 @@ func _sync() -> void:
 	_week_bar.max_value = goal
 	_week_bar.value = mini(_shelf_data["this_week"], goal)
 	_streak.text = "Serie: %d Wochen" % _shelf_data["streak"] if _shelf_data["streak"] >= 2 else ""
+	_show_head()
 	if _shelf and _shelf_data["weeks"].is_empty():
 		_shelf = false
 
@@ -634,6 +719,30 @@ func _sync() -> void:
 			wanted[t["id"]] = "deck"
 	_show_cards(wanted)
 	_place()
+
+
+## Die Kopfzeile im Feld: das Release als Knopf zur Karte, daneben der
+## Milestone, dessen Feld zu sehen ist – oder auf der Karte der Stand des Releases.
+func _show_head() -> void:
+	var in_field := field and not planning
+	_release_chip.visible = _release != null and in_field
+	_title.visible = true
+	if _release != null:
+		_release_chip.text = Release.label(_release)
+	if not in_field:
+		return
+	if _on_map():
+		_title.visible = false
+		var boss: Dictionary = _campaign._campaign.get("boss", {"total": 0, "done": 0})
+		_progress.visible = true
+		_progress.value = 100.0 * boss["done"] / maxf(boss["total"], 1.0)
+		_count.text = "%d/%d" % [boss["done"], boss["total"]]
+	elif _shown != null and (_milestone == null or _shown["id"] != _milestone["id"]):
+		var stats := Progress.milestone_stats(_ws, _shown)
+		_title.text = "◆ %s" % _shown["title"]
+		_progress.visible = true
+		_progress.value = Progress.milestone_progress_pct(_ws, _shown)
+		_count.text = "%d/%d" % [stats["done"], stats["total"]]
 
 
 func _goal() -> int:

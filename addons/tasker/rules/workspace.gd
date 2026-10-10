@@ -12,6 +12,9 @@ var marks: Array
 var groups: Array
 var milestones: Array
 var tasks: Array
+## Releases und ihre Kanäle – das Addon liest sie nur.
+var releases: Array
+var stages: Array
 
 var _task_by_id := {}
 var _milestone_by_id := {}
@@ -19,6 +22,9 @@ var _group_by_id := {}
 var _project_by_id := {}
 var _category_by_id := {}
 var _mark_by_id := {}
+var _release_by_id := {}
+## Je Milestone das Release, zu dem er zählt – siehe `_effective_releases`.
+var _release_of := {}
 ## Nur aktive Kinder, nach order sortiert.
 var _kids_of := {}
 ## Auch archivierte Kinder.
@@ -39,6 +45,10 @@ func _init(data: Dictionary) -> void:
 	groups = data.get("groups", [])
 	milestones = data.get("milestones", [])
 	tasks = data.get("tasks", [])
+	releases = data.get("releases", [])
+	stages = data.get("stages", [])
+	for r in releases:
+		_release_by_id[r["id"]] = r
 
 	for p in projects:
 		_project_by_id[p["id"]] = p
@@ -50,6 +60,7 @@ func _init(data: Dictionary) -> void:
 		_group_by_id[g["id"]] = g
 	for m in milestones:
 		_milestone_by_id[m["id"]] = m
+	_effective_releases()
 	for t in tasks:
 		_task_by_id[t["id"]] = t
 
@@ -87,6 +98,56 @@ func task(id: Variant) -> Variant:
 
 func milestone(id: Variant) -> Variant:
 	return _milestone_by_id.get(id) if id else null
+
+
+func release(id: Variant) -> Variant:
+	return _release_by_id.get(id) if id else null
+
+
+## Zu welchem Release ein Milestone zählt, nach Taskers `shared/releaseOf.ts`:
+## zu dem, dem er zugeordnet ist – und sonst zu dem, das ihn über
+## Abhängigkeiten braucht, über die ganze Kette.
+##
+## - Die ausdrückliche Zuordnung gilt immer; an ihr endet auch die Kette.
+## - Brauchen ihn mehrere Releases, zählt er zum frühesten.
+## - Über die Projektgrenze zählt nichts mit.
+func _effective_releases() -> void:
+	_release_of = {}
+	for m in milestones:
+		if m.get("releaseId"):
+			_release_of[m["id"]] = m["releaseId"]
+	var ordered := Model.stable_sort(releases.duplicate(), func(a: Dictionary, b: Dictionary) -> bool:
+		if a.get("order", 0) != b.get("order", 0):
+			return a.get("order", 0) < b.get("order", 0)
+		return str(a["id"]) < str(b["id"]))
+	for r in ordered:
+		var queue := milestones.filter(func(m: Dictionary) -> bool: return m.get("releaseId") == r["id"])
+		while queue.size() > 0:
+			var m: Dictionary = queue.pop_back()
+			for id in m.get("deps", []):
+				var dep = _milestone_by_id.get(id)
+				if dep == null or dep.get("projectId") != r.get("projectId") or _release_of.has(id):
+					continue
+				_release_of[id] = r["id"]
+				queue.append(dep)
+
+
+## Das Release, zu dem ein Milestone zählt, oder null.
+func release_of(m: Dictionary) -> Variant:
+	return release(_release_of.get(m["id"]))
+
+
+## Die Milestones eines Releases, ohne Archiviertes, in Plan-Reihenfolge –
+## auch die, die nur über eine Abhängigkeit dazugehören.
+func release_milestones(id: String) -> Array:
+	var list := milestones.filter(func(m: Dictionary) -> bool:
+		return _release_of.get(m["id"]) == id and not Model.is_archived(m))
+	return Model.stable_sort(list, func(a: Dictionary, b: Dictionary) -> bool: return a.get("qorder", 0) < b.get("qorder", 0))
+
+
+## Die Kanäle eines Releases.
+func release_stages(id: String) -> Array:
+	return stages.filter(func(s: Dictionary) -> bool: return s.get("releaseId") == id)
 
 
 func group(id: Variant) -> Variant:

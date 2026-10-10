@@ -12,6 +12,8 @@ var data := {
 	"groups": [],
 	"milestones": [],
 	"tasks": [],
+	"releases": [],
+	"stages": [],
 }
 var _n := 0
 var _ref := 1
@@ -35,6 +37,20 @@ func mark(id: String, project_id: String, o := {}) -> Builder:
 	var k := {"id": id, "version": 1, "projectId": project_id, "emoji": "*", "name": id, "order": data["marks"].size(), "coverImageId": null}
 	k.merge(o, true)
 	data["marks"].append(k)
+	return self
+
+
+func release(id: String, project_id: String, o := {}) -> Builder:
+	var r := {"id": id, "version": 1, "projectId": project_id, "name": id, "title": "", "desc": "", "order": data["releases"].size(), "archivedAt": null}
+	r.merge(o, true)
+	data["releases"].append(r)
+	return self
+
+
+func stage(id: String, release_id: String, o := {}) -> Builder:
+	var st := {"id": id, "version": 1, "releaseId": release_id, "name": id, "order": data["stages"].size(), "doneAt": null}
+	st.merge(o, true)
+	data["stages"].append(st)
 	return self
 
 

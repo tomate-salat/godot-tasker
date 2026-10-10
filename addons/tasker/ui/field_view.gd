@@ -16,6 +16,8 @@ signal graph_requested(task_id: String)
 signal change_requested(task_id: String, changes: Dictionary)
 ## Ein Zug geht nicht – mit dem Grund.
 signal refused(text: String)
+## Es wurde weiter herausgezoomt, als das Feld reicht: eine Ebene höher, zur Feldzugskarte.
+signal left
 
 const Model := preload("../rules/model.gd")
 const Field := preload("../rules/field.gd")
@@ -266,6 +268,10 @@ func _init() -> void:
 
 ## Zeigt den Stand. `milestone` ist der aktive Milestone oder null.
 func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
+	# Ein anderer Milestone ist ein anderes Feld: was vom alten noch liegt,
+	# verschwindet ohne Abgang – sonst fielen dessen Figuren im neuen um.
+	if milestone != null and _milestone != null and milestone["id"] != _milestone["id"]:
+		_clear_field()
 	_ws = ws
 	_milestone = milestone
 	_images = images
@@ -284,6 +290,21 @@ func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
 	_sync_cards()
 	_sync_bugs()
 	_back.queue_redraw()
+
+
+func _clear_field() -> void:
+	for group in [_cards, _pests, _ladies]:
+		for key in group:
+			if is_instance_valid(group[key]):
+				group[key].queue_free()
+		group.clear()
+	_held = null
+	_dragging = false
+	_hovered = ""
+	_focus = 0.0
+	_boss_done = -1
+	_city_shown = false
+	reset_view()
 
 
 ## Ein kurzer Hinweis am unteren Rand, etwa warum ein Zug nicht geht.
@@ -452,6 +473,8 @@ func _zoom_by(factor: float, at: Vector2) -> void:
 	var before := _zoom
 	_zoom = clampf(_zoom * factor, ZOOM_MIN, ZOOM_MAX)
 	if is_equal_approx(before, _zoom):
+		if factor < 1.0:
+			left.emit()
 		return
 	var ratio := _zoom / before
 	# Verschoben wird gegenüber der Mitte des Fensters – von dort aus rechnet auch der Zeiger.

@@ -21,6 +21,8 @@ const LISTS := {
 	"group": "groups",
 	"milestone": "milestones",
 	"task": "tasks",
+	"release": "releases",
+	"stage": "stages",
 }
 
 ## Tasker rechnet ohne Einstellung mit acht Aufgaben pro Woche.
