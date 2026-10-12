@@ -89,13 +89,17 @@ func show_task(ws: Workspace, task: Dictionary, images: Node = null, _crumb := f
 
 
 func set_selected(value: bool) -> void:
-	selected = value
-	queue_redraw()
+	if selected != value:
+		selected = value
+		queue_redraw()
 
 
+## Neu gezeichnet wird nur, wenn sich wirklich etwas ändert – sonst zeichnete
+## jede Bewegung des Feldes alle Abzeichen in jedem Bild neu.
 func set_lift(value: float) -> void:
-	lift = value
-	queue_redraw()
+	if not is_equal_approx(lift, value):
+		lift = value
+		queue_redraw()
 
 
 ## Die Karte schimmert beim Kippen; das Abzeichen lehnt sich nur mit.

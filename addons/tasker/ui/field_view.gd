@@ -22,9 +22,15 @@ signal left
 signal released(task_id: String, at: Vector2)
 ## Im Lageplan: die Aufgabe soll aus dem Milestone heraus (Menü).
 signal removal_requested(task_id: String)
+## Im Lageplan: ein Abzeichen wurde auf ein anderes gelegt. Das gezogene
+## blockiert das, worauf es liegt: `task_id` (das Ziel) soll auf `on_id` (das gezogene) warten.
+signal link_requested(task_id: String, on_id: String)
+## Im Lageplan: `task_id` soll nicht mehr auf `on_id` warten (Kreuz auf dem Weg).
+signal unlink_requested(task_id: String, on_id: String)
 
 const Model := preload("../rules/model.gd")
 const Field := preload("../rules/field.gd")
+const Dependency := preload("../rules/dependency.gd")
 const Tisch := preload("../rules/tisch.gd")
 const Workspace := preload("../rules/workspace.gd")
 const Palette := preload("palette.gd")
@@ -39,6 +45,8 @@ const MARGIN := 22.0
 ## Die Karten liegen kleiner auf dem Feld; unter dem Zeiger werden sie groß.
 ## So weit neben der Mitte eines Abzeichens stehen die Figuren.
 const BESIDE := 44.0
+## Das Kreuz auf einem Weg: so groß, und so lange bleibt es stehen, nachdem der Zeiger das Abzeichen verlassen hat.
+const KNOB := 11.0
 ## So viel Platz braucht ein Abzeichen auf dem Feld: der Schild mit seinem Band.
 const BOX := Vector2(74, 92)
 ## Der innerste Ring und der Abstand von Ring zu Ring – in der Breite mehr
@@ -93,6 +101,10 @@ const ZOOM_MIN := 0.5
 const ZOOM_MAX := 4.0
 const ZOOM_STEP := 1.12
 const MOVE_SECONDS := 0.3
+## Ordnet sich das Feld neu – etwa weil eine Abhängigkeit dazukam –, gleiten
+## Abzeichen und Blick in dieser Zeit an ihren neuen Platz; die Wege blenden
+## danach wieder ein.
+const SHIFT_SECONDS := 0.5
 ## So lange wartet ein Klick, ob ein zweiter folgt.
 const CLICK_WAIT := 0.25
 ## Ab so vielen Pixeln wird aus dem Drücken ein Ziehen.
@@ -120,14 +132,14 @@ var _milestone: Variant
 var _images: Node
 var _field := {}
 
-var _canvas: Control
+var _canvas: Node2D
 var _back: Control
 ## Die Stadt im Hintergrund und ob sie schon einmal gezeigt wurde.
 var _city: City
 ## Ob die Verbindungen den Straßen folgen, und die schon gerechneten Wege.
 static var street_ways := true
 var _routes := {}
-var _town: Control
+var _town: Node2D
 var _city_shown := false
 var _message: Label
 var _toast: Label
@@ -165,6 +177,27 @@ var drop_hint := false:
 ## Die Suche des Lageplans: nur diese Abzeichen bleiben voll sichtbar.
 var _spotlight := {}
 var _spotlit := false
+## Im Lageplan: das Abzeichen, auf dem das gezogene gerade liegt, und warum
+## es dort nicht abgelegt werden kann (leer: es kann).
+var _link_target := ""
+var _link_refusal := ""
+## Beim Neuordnen: wie lange Bewegungen gerade dauern, ob der Blick gleitet
+## statt springt und wohin, und wie deckend die Wege sind.
+var _move_time := MOVE_SECONDS
+var _glide := false
+var _fit_tween: Tween
+var _fit_goal := Transform2D()
+var _ways_fade := 1.0
+var _ways_tween: Tween
+## Beim Neuordnen wird erst gerechnet (Stadt, Wege) – das kostet ein, zwei
+## Bilder. Bewegungen, die dabei entstehen, warten hier, bis es wieder flüssig
+## läuft; sonst spränge ihr Anfang.
+var _stalled := false
+var _waiting: Array = []
+## Woran die gesuchten Wege hängen – ändert es sich, werden sie neu gesucht.
+var _routes_stamp := 0
+## Die Wege müssen noch gesucht werden – sobald die Abzeichen angekommen sind.
+var _routes_due := false
 var _held: Badge
 ## Die Karte zum Abzeichen unter dem Zeiger – seine Akte.
 var _peek: Card
@@ -198,8 +231,9 @@ func _init() -> void:
 	add_child(felt)
 
 	# Die Stadt liegt für sich: sie scheint durch die Kopfzeile des Tischs.
-	_town = Control.new()
-	_town.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Kein Bedienelement: die rasten auf ganze Pixel ein, und beim Gleiten des
+	# Blicks zitterte dadurch die Stadt gegen die Abzeichen.
+	_town = Node2D.new()
 	add_child(_town)
 	_city = City.new()
 	_town.add_child(_city)
@@ -217,8 +251,7 @@ func _init() -> void:
 	shift.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(shift)
 	# Die Mitte des Feldes ist der Ursprung von `_canvas`.
-	_canvas = Control.new()
-	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_canvas = Node2D.new()
 	shift.add_child(_canvas)
 	_back = Control.new()
 	_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -297,8 +330,10 @@ func _init() -> void:
 func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
 	# Ein anderer Milestone ist ein anderes Feld: was vom alten noch liegt,
 	# verschwindet ohne Abgang – sonst fielen dessen Figuren im neuen um.
-	if milestone != null and _milestone != null and milestone["id"] != _milestone["id"]:
+	var same: bool = milestone != null and _milestone != null and milestone["id"] == _milestone["id"]
+	if milestone != null and _milestone != null and not same:
 		_clear_field()
+	var before := _centers.duplicate() if same else {}
 	_ws = ws
 	_milestone = milestone
 	_images = images
@@ -310,11 +345,51 @@ func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
 		return
 	_field = Field.build(ws, milestone)
 	_layout()
-	_show_city()
+	_stalled = same
+	_show_city(same)
 	_clear_bridges()
-	_tell_city()
+	# Die Wege zu suchen ist das Teuerste am ganzen Abgleich. Neu gesucht wird
+	# nur, wenn sich an Plätzen, Verbindungen oder Stadt etwas geändert hat –
+	# sonst ruckte jede Antwort des Servers mitten in eine Bewegung.
+	var attacks := []
+	for card_id in _field["fronts"]:
+		if _centers.has(card_id):
+			attacks.append([card_id, _targets_of(card_id)])
+	var stamp := [_centers, _field["ways"], attacks, _city.get_instance_id(), _city.built].hash()
+	# Hat sich an den Plätzen etwas geändert, springt nichts: Abzeichen und
+	# Blick gleiten hin. Die Wege verschwinden so lange und werden erst
+	# gesucht und gezeigt, wenn alles angekommen ist – vorher lägen sie falsch,
+	# und die Suche fiele mitten in die Bewegung.
+	var moved := false
+	for id in before:
+		if _centers.has(id) and not _centers[id].is_equal_approx(before[id]):
+			moved = true
+			break
+	if moved:
+		_glide = true
+		_move_time = SHIFT_SECONDS
+		if _ways_tween != null and _ways_tween.is_valid():
+			_ways_tween.kill()
+		_ways_fade = 0.0
+		_routes_due = _routes_due or stamp != _routes_stamp
+		_routes_stamp = stamp
+		_ways_tween = create_tween()
+		_ways_tween.tween_interval(SHIFT_SECONDS + 0.08)
+		_ways_tween.tween_callback(_routes_now)
+		_ways_tween.tween_property(self, "_ways_fade", 1.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_wait(_ways_tween)
+	elif stamp != _routes_stamp:
+		_routes_stamp = stamp
+		# Läuft gerade ein Neuordnen, kommt die Suche an dessen Ende.
+		if _ways_fade <= 0.001:
+			_routes_due = true
+		else:
+			_tell_city()
 	_fit()
 	_sync_cards()
+	_move_time = MOVE_SECONDS
+	_stalled = false
+	_go_on()
 	_boss.visible = not plan
 	if plan:
 		# Auf dem Lageplan steht niemand.
@@ -326,6 +401,34 @@ func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
 	else:
 		_sync_bugs()
 	_back.queue_redraw()
+
+
+## Sucht die Wege, falls das noch aussteht – am Ende eines Neuordnens.
+func _routes_now() -> void:
+	if _routes_due:
+		_routes_due = false
+		_tell_city()
+
+
+## Hält eine Bewegung an, die beim Neuordnen entsteht, bis `_go_on` sie loslässt.
+func _wait(tween: Tween) -> void:
+	if _stalled and tween != null and tween.is_valid():
+		tween.pause()
+		_waiting.append(tween)
+
+
+## Lässt die angehaltenen Bewegungen laufen – zwei Bilder später, wenn das
+## Rechnen vorbei ist und die Bilder wieder gleichmäßig kommen.
+func _go_on() -> void:
+	if _waiting.is_empty() or not is_inside_tree():
+		return
+	var held := _waiting
+	_waiting = []
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for tween in held:
+		if tween != null and tween.is_valid():
+			tween.play()
 
 
 ## Nimmt einem Bedienelement und allem darin die Maus – es ist nur zum Ansehen.
@@ -347,6 +450,108 @@ func set_spotlight(ids: Dictionary, on: bool) -> void:
 		_cards[id].modulate = Color(0.55, 0.6, 0.57, 1.0) if dim else Color.WHITE
 		if on and not ids.has(id):
 			_cards[id].modulate.a = 0.22
+
+
+# ------------------------------------------------- Abhängigkeiten im Lageplan
+
+## Welches Abzeichen unter dem gezogenen liegt, und ob es auf das gezogene warten kann.
+func _aim_link(at: Vector2) -> void:
+	var target := ""
+	for id in _centers:
+		if _held != null and id == _held.task_id:
+			continue
+		var away: Vector2 = at - (_centers[id] + Vector2(0, -8))
+		if absf(away.x) < Badge.SHIELD.x / 2.0 + 6.0 and absf(away.y) < Badge.SHIELD.y / 2.0 + 6.0:
+			target = id
+			break
+	if target == _link_target:
+		return
+	_link_target = target
+	_link_refusal = ""
+	if target != "" and _held != null:
+		var a = _ws.task(_held.task_id)
+		var b = _ws.task(target)
+		_link_refusal = Dependency.link_refusal(_ws, b, a) if a != null and b != null else "Das geht hier nicht"
+		if _link_refusal == "Wartet schon darauf":
+			_link_refusal = "Blockiert es schon"
+
+
+## Die Kreuze auf den Wegen, an denen sich eine Abhängigkeit lösen lässt: je
+## `{ at, task, on }` – `task` wartet auf `on`. Sie stehen im Lageplan immer
+## da (Nutzer, 2026-10-12: sie sollen nicht verschwinden).
+func _knobs() -> Array:
+	var out := []
+	if not plan or _dragging or _field.is_empty() or _ways_fade < 0.99:
+		return out
+	for way in _field["ways"]:
+		if way["to"] == "" or not _centers.has(way["from"]) or not _centers.has(way["to"]):
+			continue
+		# Nur echte Abhängigkeiten lassen sich lösen, nicht der Weg einer Unteraufgabe zu ihrem Stapel.
+		var waiting = _ws.task(way["to"])
+		if waiting == null or not waiting.get("deps", []).has(way["from"]):
+			continue
+		out.append({"at": _middle(_route(way["from"], way["to"])), "task": way["to"], "on": way["from"]})
+	return out
+
+
+## Die Mitte eines Wegs, entlang seiner Länge gemessen.
+static func _middle(path: PackedVector2Array) -> Vector2:
+	var total := 0.0
+	for i in path.size() - 1:
+		total += path[i].distance_to(path[i + 1])
+	var left := total / 2.0
+	for i in path.size() - 1:
+		var piece := path[i].distance_to(path[i + 1])
+		if left <= piece and piece > 0.0:
+			return path[i].lerp(path[i + 1], left / piece)
+		left -= piece
+	return path[path.size() - 1] if path.size() > 0 else Vector2.ZERO
+
+
+## Was der Lageplan über den Abzeichen zeichnet: beim Ziehen das Ziel mit dem,
+## was gleich geschieht, sonst die Kreuze auf den Wegen.
+func _draw_links() -> void:
+	if _dragging and _held != null and _link_target != "" and _centers.has(_link_target):
+		var mid: Vector2 = _centers[_link_target] + Vector2(0, -8)
+		var bad := _link_refusal != ""
+		var tone := Palette.P1 if bad else Palette.OK
+		_fx.draw_arc(mid, 44.0, 0.0, TAU, 48, tone, 2.5, false)
+		_fx.draw_circle(mid, 44.0, Color(tone, 0.14), true, -1.0, false)
+		var a = _ws.task(_held.task_id)
+		var b = _ws.task(_link_target)
+		var text := _link_refusal if bad else "„%s“ blockiert dann „%s“" % [_short(a), _short(b)]
+		var font := Palette.sharp_body_font()
+		var wide := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 20.0
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(0.06, 0.13, 0.11, 0.95)
+		box.border_color = tone
+		box.set_border_width_all(1)
+		box.set_corner_radius_all(7)
+		var rect := Rect2(mid.x - wide / 2.0, mid.y - 84.0, wide, 24.0)
+		_fx.draw_style_box(box, rect)
+		_fx.draw_string(font, rect.position + Vector2(0, 16.5), text, HORIZONTAL_ALIGNMENT_CENTER, wide, 12, Palette.INK)
+		return
+	var mouse := (get_local_mouse_position() - _canvas.position) / _canvas.scale.x
+	for knob in _knobs():
+		var at: Vector2 = knob["at"]
+		var hot := mouse.distance_to(at) <= KNOB + 3.0
+		# Dezent, solange nichts darauf zeigt; kräftig unter dem Zeiger und an
+		# den Wegen des Abzeichens, auf dem er liegt.
+		var near: bool = hot or knob["task"] == _hovered or knob["on"] == _hovered
+		var size := KNOB if near else KNOB * 0.72
+		_fx.draw_circle(at, size + 1.5, Color(0.06, 0.08, 0.07, 1.0 if near else 0.8), true, -1.0, false)
+		_fx.draw_circle(at, size, Color(Palette.P1, 0.95 if hot else 0.7 if near else 0.38), true, -1.0, false)
+		var arm := size * 0.38
+		var ink := Color(1, 1, 1, 1.0 if near else 0.7)
+		_fx.draw_line(at + Vector2(-arm, -arm), at + Vector2(arm, arm), ink, 2.0, false)
+		_fx.draw_line(at + Vector2(arm, -arm), at + Vector2(-arm, arm), ink, 2.0, false)
+
+
+static func _short(task: Variant) -> String:
+	if task == null:
+		return "?"
+	var title: String = task["title"] if task.get("title") else "Ohne Titel"
+	return title if title.length() <= 22 else title.substr(0, 21) + "…"
 
 
 ## Wo das Abzeichen der Aufgabe in dieser Ansicht liegt – oder null.
@@ -420,18 +625,35 @@ func say(text: String, color := Palette.P2) -> void:
 
 ## Die Stadt hinter den Karten: eingenommen ist sie von außen bis zu dem Ring,
 ## auf dem noch etwas offen ist.
-func _show_city() -> void:
+func _show_city(blend := false) -> void:
+	var seed_value := hash(str(_milestone["id"]))
+	# Ändert sich die Stadt beim Neuordnen (der Fluss liegt an den Ringen),
+	# entsteht die neue unter der alten, und die alte blendet weg.
+	if blend and _city_shown and not _city.same_as(seed_value, RING * _grow, STEP * _grow, MOAT, _rings, MOAT_AFTER):
+		var old := _city
+		_city = City.new()
+		_city.front = old.front
+		_town.add_child(_city)
+		_town.move_child(_city, old.get_index())
+		var fade := old.create_tween()
+		fade.tween_property(old, "modulate:a", 0.0, SHIFT_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		fade.tween_callback(old.queue_free)
+		_wait(fade)
 	_city.calm = plan
-	_city.build(hash(str(_milestone["id"])), RING * _grow, STEP * _grow, MOAT, _rings, MOAT_AFTER)
-	_routes.clear()
+	_city.build(seed_value, RING * _grow, STEP * _grow, MOAT, _rings, MOAT_AFTER)
 	# Die Grenze liegt zwischen diesem Ring und dem nächsten weiter außen.
 	var ring_no: int = _field["front"]
 	var target := ring_no - 0.5 if ring_no > 0 else -3.0
 	if not _city_shown:
 		_city_shown = true
 		_city.front = target
+	elif plan:
+		# Der Lageplan zeigt die Front nicht; sie wandert dort nicht sichtbar.
+		_city.front = target
 	elif not is_equal_approx(_city.front, target):
-		_city.create_tween().tween_property(_city, "front", target, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		var march := _city.create_tween()
+		march.tween_property(_city, "front", target, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		march.tween_callback(_city.settle_front)
 
 
 ## Verteilt die Karten auf ihre Ringe. Jede Karte bekommt einen Winkelbereich,
@@ -553,7 +775,6 @@ func _fit() -> void:
 	if room.x <= 0.0 or room.y <= 0.0:
 		return
 	var s := clampf(minf(room.x / _bounds.size.x, room.y / _bounds.size.y), MIN_SCALE, 1.0) * _zoom
-	_canvas.scale = Vector2(s, s)
 	var middle := Vector2(size.x / 2.0, TOP + room.y / 2.0)
 	# Verschieben geht nur, so weit die Stadt reicht: der Blick bleibt in ihr.
 	# Ist das Fenster größer als sie, bleibt sie in der Mitte.
@@ -562,9 +783,25 @@ func _fit() -> void:
 	var free := (City.EXTENT * CITY_EDGE - size / (2.0 * s)).max(Vector2.ZERO)
 	look = look.clamp((-free).min(home), free.max(home))
 	_pan = (home - look) * s
-	_canvas.position = (middle - home * s + _pan).round()
-	_town.position = _canvas.position
-	_town.scale = _canvas.scale
+	var goal := Transform2D(Vector2(s, 0), Vector2(0, s), (middle - home * s + _pan).round())
+	var gliding := _fit_tween != null and _fit_tween.is_valid()
+	# Läuft schon ein Gleiten genau dorthin, bleibt es ungestört.
+	if gliding and not _glide and goal.is_equal_approx(_fit_goal):
+		return
+	if gliding:
+		_fit_tween.kill()
+	_fit_goal = goal
+	if _glide:
+		_glide = false
+		_fit_tween = create_tween().set_parallel().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		for node in [_canvas, _town]:
+			_fit_tween.tween_property(node, "position", goal.origin, SHIFT_SECONDS)
+			_fit_tween.tween_property(node, "scale", Vector2(s, s), SHIFT_SECONDS)
+		_wait(_fit_tween)
+		return
+	for node in [_canvas, _town]:
+		node.position = goal.origin
+		node.scale = Vector2(s, s)
 
 
 ## Vergrößert oder verkleinert um `factor`; was unter `at` liegt, bleibt dort.
@@ -596,8 +833,17 @@ func reset_view() -> void:
 ## nur mit der mittleren Taste (siehe `_input`): mit der linken greift man
 ## Karten, und wer knapp daneben greift, soll nicht das Feld wegziehen.
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and event.double_click:
-		reset_view()
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		# Im Lageplan: ein Klick auf das Kreuz eines Wegs löst die Abhängigkeit.
+		if plan:
+			var at: Vector2 = (event.position - _canvas.position) / _canvas.scale.x
+			for knob in _knobs():
+				if at.distance_to(knob["at"]) <= KNOB + 3.0:
+					unlink_requested.emit(knob["task"], knob["on"])
+					accept_event()
+					return
+		if event.double_click:
+			reset_view()
 
 
 # -------------------------------------------------------------- Karten
@@ -644,8 +890,29 @@ func _settle(card: Badge) -> void:
 	var big := id == _hovered
 	var s := 1.12 if big else 1.0
 	card.z_index = 60 if big else 8 if tapped else 5
+	# Der Weg an den Platz: je Abzeichen nur eine Bewegung. Läuft schon eine
+	# dorthin, bleibt sie ungestört – sonst risse jeder neue Stand an ihr.
+	var goal: Vector2 = _centers[id] - Badge.SIZE / 2.0
+	var going: Variant = card.get_meta("going") if card.has_meta("going") else null
+	var running: bool = going is Tween and going.is_valid() and going.is_running() or _waiting.has(going)
+	if not (running and card.get_meta("goal", Vector2.INF).is_equal_approx(goal)):
+		if going is Tween and going.is_valid():
+			going.kill()
+		if card.position.distance_to(goal) < 0.5:
+			card.position = goal
+		else:
+			var slow := _move_time > MOVE_SECONDS
+			var move := card.create_tween()
+			move.tween_property(card, "position", goal, _move_time).set_trans(Tween.TRANS_SINE if slow else Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT if slow else Tween.EASE_OUT)
+			card.set_meta("going", move)
+			card.set_meta("goal", goal)
+			_wait(move)
+	# Größe und Anheben für sich, damit ein Überfahren die Reise nicht stört.
+	var look: Variant = card.get_meta("look") if card.has_meta("look") else null
+	if look is Tween and look.is_valid():
+		look.kill()
 	var tween := card.create_tween().set_parallel().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(card, "position", _centers[id] - Badge.SIZE / 2.0, MOVE_SECONDS)
+	card.set_meta("look", tween)
 	tween.tween_property(card, "scale", Vector2(s, s), MOVE_SECONDS * 0.6)
 	tween.tween_property(card, "rotation", 0.0, MOVE_SECONDS)
 	# Was in Arbeit ist, hebt sich von selbst (`selected`); sonst nur, was unter dem Zeiger liegt.
@@ -737,7 +1004,7 @@ func _sync_bugs() -> void:
 			bug.wall = p["wall"]
 			bug.hurt = p["damage"]
 			bug.set_meta("home", spot)
-			bug.create_tween().tween_property(bug, "position", spot, MOVE_SECONDS)
+			bug.create_tween().tween_property(bug, "position", spot, _move_time)
 	for key in _pests.keys():
 		if not wanted.has(key):
 			_fall(_pests[key])
@@ -957,6 +1224,8 @@ func _process(delta: float) -> void:
 	_focus = move_toward(_focus, 1.0 if _hovered != "" else 0.0, delta / FOCUS_SECONDS)
 	# Über die Ringe wandert ein Schimmer, auch wenn niemand kämpft.
 	_back.queue_redraw()
+	if plan:
+		_fx.queue_redraw()
 	if _ladies.is_empty():
 		return
 	# Die Striche der Angriffe wandern, und geschossen wird auch.
@@ -991,6 +1260,9 @@ func set_style(value: String) -> void:
 ## Gegner, auf den er schießt, zurück. Alles ergibt sich aus der Zeit – es gibt
 ## keine Geschosse, die man verwalten müsste.
 func _draw_fx() -> void:
+	if plan:
+		_draw_links()
+		return
 	if Bug.style != Bug.SOLDIERS:
 		return
 	for key in _ladies:
@@ -1078,14 +1350,14 @@ func _draw_back() -> void:
 
 	# Die Wege nach innen: grün, wo die Karte erledigt ist, sonst blass.
 	for way in _field["ways"]:
-		if not _centers.has(way["from"]):
+		if not _centers.has(way["from"]) or _ways_fade <= 0.001:
 			continue
 		var from: Vector2 = _centers[way["from"]]
 		var to: Vector2 = _centers.get(way["to"], Vector2.ZERO)
 		if way["to"] == "":
 			to = from.normalized() * BOSS_RADIUS
 		var color := Color(Palette.OK, 0.6) if done[way["from"]] and not plan else Color(1, 1, 1, 0.26)
-		color.a *= _shown(way["from"], way["to"])
+		color.a *= _shown(way["from"], way["to"]) * _ways_fade
 		# Gehört der Weg zur Karte unter dem Zeiger, wird er kräftiger und breiter.
 		var raised := _focus if way["from"] == _focus_id or way["to"] == _focus_id else 0.0
 		color.a = minf(color.a + FOCUS_RAISE * raised, 1.0)
@@ -1111,10 +1383,10 @@ func _draw_back() -> void:
 	# Die Angriffe: von jeder getappten Karte laufen Striche zu dem, was sie
 	# angreift – zur Karte mit ihrem Schädling oder zum großen Käfer.
 	for card_id in _field["fronts"]:
-		if not _centers.has(card_id) or plan:
+		if not _centers.has(card_id) or plan or _ways_fade <= 0.001:
 			continue
 		for target in _targets_of(card_id):
-			_draw_attack(_route(card_id, target), _shown(card_id, target))
+			_draw_attack(_route(card_id, target), _shown(card_id, target) * _ways_fade)
 
 	if plan:
 		# Die Mitte des Lageplans: das Ziel mit Fahne und Stand. Schwebt eine
@@ -1382,6 +1654,8 @@ func _input(event: InputEvent) -> void:
 		_held = null
 		_dragging = false
 		_over_boss = false
+		_link_target = ""
+		_link_refusal = ""
 		_back.queue_redraw()
 		_settle(back)
 		get_viewport().set_input_as_handled()
@@ -1404,6 +1678,8 @@ func _input(event: InputEvent) -> void:
 			# Wie schnell es geht, bestimmt, wie weit die Karte kippt.
 			_velocity = _velocity.lerp(event.velocity, 0.5)
 			_last_move = Time.get_ticks_msec()
+			if plan:
+				_aim_link(at)
 			var over := at.length() < BOSS_RADIUS + 10.0 and not plan
 			if over != _over_boss:
 				_over_boss = over
@@ -1422,8 +1698,19 @@ func _input(event: InputEvent) -> void:
 		_over_boss = false
 		_back.queue_redraw()
 		_settle(card)
+		var target := _link_target
+		var why := _link_refusal
+		_link_target = ""
+		_link_refusal = ""
 		if plan and not clicked:
-			released.emit(id, get_local_mouse_position())
+			# Auf einem anderen Abzeichen losgelassen: das gezogene blockiert nun
+			# jenes – das Ziel wartet auf das gezogene, das einen Ring nach außen rückt.
+			if target == "":
+				released.emit(id, get_local_mouse_position())
+			elif why != "":
+				refused.emit(why)
+			else:
+				link_requested.emit(target, id)
 		if dropped:
 			_finish(id)
 		elif clicked:

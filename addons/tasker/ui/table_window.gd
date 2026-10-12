@@ -206,6 +206,7 @@ func _build() -> void:
 	_plan_map = PlanMap.new()
 	_plan_map.visible = false
 	_plan_map.mover = _move
+	_plan_map.patcher = _patch
 	_plan_map.task_requested.connect(func(id: String) -> void:
 		if store != null and store.state == "ready":
 			task_requested.emit(id))
@@ -610,6 +611,14 @@ func _say(text: String, color := Palette.P2) -> void:
 		_plan_map.say(text, color)
 	else:
 		_field.say(text, color)
+
+
+## Eine Änderung aus dem Lageplan an einer Aufgabe – etwa worauf sie wartet.
+func _patch(id: String, changes: Dictionary) -> Dictionary:
+	_sounds.play("play")
+	var ok := await _change(id, changes)
+	_sync()
+	return {"ok": ok, "error": ""}
 
 
 ## Ein Zug im Lageplan: eine Aufgabe einem Milestone zuteilen oder zurück in

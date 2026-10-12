@@ -21,6 +21,7 @@ signal refused(text: String)
 
 const Model := preload("../rules/model.gd")
 const Planning := preload("../rules/planning.gd")
+const Dependency := preload("../rules/dependency.gd")
 const Progress := preload("../rules/progress.gd")
 const Workspace := preload("../rules/workspace.gd")
 const Palette := preload("palette.gd")
@@ -48,6 +49,8 @@ const EDGE_SPEED := 520.0
 ## Führt einen Zug aus: `mover.call(task_id, body, local)` – was Taskers
 ## `/api/move` bekommt und was sich sofort am Stand ändert. Gibt `{ ok, error }`.
 var mover: Callable
+## Ändert Felder einer Aufgabe: `patcher.call(task_id, changes)`. Gibt `{ ok, error }`.
+var patcher: Callable
 
 var _ws: Workspace
 var _project := ""
@@ -126,6 +129,8 @@ func _init() -> void:
 	_field.refused.connect(func(text: String) -> void: refused.emit(text))
 	_field.released.connect(_on_badge_released)
 	_field.removal_requested.connect(_unassign)
+	_field.link_requested.connect(_link)
+	_field.unlink_requested.connect(_unlink)
 	add_child(_field)
 
 	# Die Reserve: eine Leiste links, mit Rollbalken, wenn sie nicht reicht.
@@ -764,7 +769,47 @@ func _go(id: String, place: Dictionary, index: int, remember := true) -> Diction
 	return res
 
 
-## Nimmt den letzten Zug zurück: die Aufgabe liegt wieder, wo sie war.
+## Ein Abzeichen wurde auf ein anderes gelegt: das gezogene (`on_id`) blockiert
+## nun das, worauf es liegt (`id`) – `id` wartet auf `on_id`.
+func _link(id: String, on_id: String) -> void:
+	var task = _ws.task(id)
+	var on = _ws.task(on_id)
+	if task == null or on == null:
+		return
+	var refusal := Dependency.link_refusal(_ws, task, on)
+	if refusal != "":
+		refused.emit(refusal)
+		return
+	if await _set_deps(task, Dependency.with_dep(task, on_id)):
+		say("„%s“ blockiert jetzt „%s“" % [FieldView._short(on), FieldView._short(task)], Palette.OK)
+
+
+## Das Kreuz auf einem Weg: `id` wartet nicht mehr auf `on_id`.
+func _unlink(id: String, on_id: String) -> void:
+	var task = _ws.task(id)
+	if task == null:
+		return
+	if await _set_deps(task, Dependency.without_dep(task, on_id)):
+		say("Gelöst: „%s“ blockiert „%s“ nicht mehr" % [FieldView._short(_ws.task(on_id)), FieldView._short(task)], Palette.OK)
+
+
+## Setzt die Abhängigkeiten einer Aufgabe und merkt sich die alten für `undo`.
+func _set_deps(task: Dictionary, deps: Array, remember := true) -> bool:
+	var before: Array = task.get("deps", []).duplicate()
+	var res: Dictionary = await patcher.call(task["id"], {"deps": deps})
+	if not res.get("ok", false):
+		refused.emit(str(res.get("error", "Das ging nicht.")))
+		return false
+	if remember:
+		_undo.append({"id": task["id"], "deps": before, "title": task["title"] if task.get("title") else "Ohne Titel"})
+		if _undo.size() > 50:
+			_undo.pop_front()
+		_show_undo()
+	return true
+
+
+## Nimmt den letzten Zug zurück: die Aufgabe liegt wieder, wo sie war, oder
+## wartet wieder auf das, worauf sie vorher gewartet hat.
 func undo() -> void:
 	if _undo.is_empty() or _ws == null:
 		return
@@ -772,6 +817,10 @@ func undo() -> void:
 	_show_undo()
 	if _ws.task(step["id"]) == null:
 		say("Die Aufgabe gibt es nicht mehr")
+		return
+	if step.has("deps"):
+		if await _set_deps(_ws.task(step["id"]), step["deps"], false):
+			say("Zurückgenommen: %s" % step["title"], Palette.OK)
 		return
 	var res: Dictionary = await _go(step["id"], step["place"], step["index"], false)
 	if res.get("ok", false):

@@ -91,9 +91,28 @@ static var detail := 1
 ## Ringe, der innerste ist 0; Zwischenwerte liegen zwischen zwei Ringen.
 var front := 99.0:
 	set(value):
-		if not is_equal_approx(front, value):
-			front = value
+		if is_equal_approx(front, value):
+			return
+		front = value
+		# Die Stadt neu zu zeichnen ist teuer – tausende Flächen. Als Lageplan
+		# zeigt sie die Front gar nicht; sonst wird beim Wandern der Front nur
+		# in Stufen neu gezeichnet statt in jedem Bild.
+		if calm:
+			return
+		if absf(front - _drawn_front) >= FRONT_STEP:
+			_drawn_front = front
 			queue_redraw()
+
+## Die Front, mit der zuletzt gezeichnet wurde, und ab welchem Unterschied neu gezeichnet wird.
+var _drawn_front := 99.0
+const FRONT_STEP := 0.06
+
+
+## Zeichnet mit dem jetzigen Stand der Front – nach einer Bewegung, die in Stufen lief.
+func settle_front() -> void:
+	if not is_equal_approx(front, _drawn_front):
+		_drawn_front = front
+		queue_redraw()
 
 ## Als Lageplan ist die Stadt ruhig und einfarbig, wie eine Blaupause: noch
 ## wird nicht gekämpft, also gehört auch nichts dem einen oder dem anderen.
@@ -103,6 +122,8 @@ var calm := false:
 			calm = value
 			queue_redraw()
 
+## Zählt mit, wie oft die Stadt gebaut wurde – daran erkennt das Feld, dass sie sich geändert hat.
+var built := 0
 var _seed := -1
 var _ring := Vector2.ONE
 var _step := Vector2.ONE
@@ -132,8 +153,13 @@ var _used := {}
 
 ## Baut die Stadt zu diesem Milestone. `ring` und `step` sind der innerste
 ## Ring und der Abstand der Ringe, wie das Feld sie gerade zeichnet.
+## Ob die Stadt schon genau so gebaut ist.
+func same_as(seed_value: int, ring: Vector2, step: Vector2, moat := Vector2.ZERO, rings := 1, moat_after := 1) -> bool:
+	return moat_after == _moat_after and rings == _rings and seed_value == _seed and ring.is_equal_approx(_ring) and step.is_equal_approx(_step) and moat.is_equal_approx(_moat)
+
+
 func build(seed_value: int, ring: Vector2, step: Vector2, moat := Vector2.ZERO, rings := 1, moat_after := 1) -> void:
-	if moat_after == _moat_after and rings == _rings and seed_value == _seed and ring.is_equal_approx(_ring) and step.is_equal_approx(_step) and moat.is_equal_approx(_moat):
+	if same_as(seed_value, ring, step, moat, rings, moat_after):
 		return
 	_seed = seed_value
 	_ring = ring
@@ -179,6 +205,7 @@ func _ring_at(p: Vector2) -> float:
 
 
 func _generate() -> void:
+	built += 1
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _seed
 	_blocks = []
