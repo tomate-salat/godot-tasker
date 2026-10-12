@@ -25,14 +25,16 @@ const Sounds := preload("sounds.gd")
 const Shelf := preload("shelf.gd")
 const Burnup := preload("../rules/burnup.gd")
 const PlanView := preload("plan_view.gd")
+const PlanMap := preload("plan_map.gd")
+const Planning := preload("../rules/planning.gd")
 const FieldView := preload("field_view.gd")
 const CampaignView := preload("campaign_view.gd")
 const Release := preload("../rules/release.gd")
 const DepGraphView := preload("dep_graph_view.gd")
 
 const MARGIN := 28.0
-## So breit ist der Umschalter „Feld / Planen“ links oben.
-const MODES_WIDTH := 176.0
+## So breit ist der Umschalter „Feld / Planen / Ordner“ links oben.
+const MODES_WIDTH := 264.0
 ## So hoch ist der Streifen am oberen Rand, an dem man das Fenster verschiebt.
 const HEADER_HEIGHT := 58.0
 
@@ -81,7 +83,12 @@ var _plan: PlanView
 var _graph: DepGraphView
 var _mode_field: Button
 var _mode_plan: Button
+## „Planen“ ist der Lageplan (`lage`); der Ordner von früher (`planning`)
+## bleibt daneben, bis der Lageplan alles kann, was er konnte.
+var lage := false: set = set_lage
 var planning := false: set = set_planning
+var _plan_map: PlanMap
+var _mode_binder: Button
 var _field: FieldView
 
 
@@ -144,7 +151,9 @@ func _build() -> void:
 		chip.content_margin_top = 3
 		chip.content_margin_bottom = 3
 		_release_chip.add_theme_stylebox_override(state, chip)
-	_release_chip.pressed.connect(func() -> void: _set_map(true))
+	_release_chip.pressed.connect(func() -> void:
+		lage = false
+		_set_map(true))
 	bar.add_child(_release_chip)
 	# Der Milestone selbst: ein Klick öffnet sein Fenster.
 	_title = Button.new()
@@ -198,6 +207,20 @@ func _build() -> void:
 	add_child(_field)
 	move_child(_field, bar.get_index())
 	_field.left.connect(func() -> void: _set_map(true))
+	# Der Lageplan liegt an derselben Stelle.
+	_plan_map = PlanMap.new()
+	_plan_map.visible = false
+	_plan_map.mover = _move
+	_plan_map.task_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	_plan_map.graph_requested.connect(_open_graph)
+	_plan_map.refused.connect(_refuse)
+	_plan_map.milestone_chosen.connect(func(id: String) -> void:
+		_chosen = id
+		_sync())
+	add_child(_plan_map)
+	move_child(_plan_map, bar.get_index())
 	# Die Feldzugskarte liegt an derselben Stelle wie das Feld, eine Ebene höher.
 	_campaign = CampaignView.new()
 	_campaign.visible = false
@@ -245,12 +268,21 @@ func _build() -> void:
 	modes.add_theme_constant_override("separation", 0)
 	add_child(modes)
 	_mode_field = _mode_button("Feld", "Der laufende Milestone als Schlachtfeld, darüber die Feldzugskarte des Releases")
-	_mode_field.pressed.connect(func() -> void: planning = false)
+	_mode_field.pressed.connect(func() -> void:
+		planning = false
+		lage = false)
 	modes.add_child(_mode_field)
-	_mode_plan = _mode_button("Planen", "Die Decks ansehen: was in welchem Milestone liegt und was im Vorrat")
-	_mode_plan.pressed.connect(func() -> void: planning = true)
+	_mode_plan = _mode_button("Planen", "Der Lageplan: die Stadt des Milestones, links die Reserve – Karten hineinziehen teilt sie zu")
+	_mode_plan.pressed.connect(func() -> void:
+		planning = false
+		lage = true)
 	modes.add_child(_mode_plan)
-	_round_modes([_mode_field, _mode_plan])
+	_mode_binder = _mode_button("Ordner", "Die Planung von früher: Decks und Vorrat als Ordner, mit Reihenfolge und Seiten")
+	_mode_binder.pressed.connect(func() -> void:
+		lage = false
+		planning = true)
+	modes.add_child(_mode_binder)
+	_round_modes([_mode_field, _mode_plan, _mode_binder])
 
 	# Die Ablage legt sich über alles, mit einem Schleier dahinter.
 	_dim = ColorRect.new()
@@ -296,7 +328,7 @@ func _mode_button(text: String, tip: String) -> Button:
 	b.tooltip_text = tip
 	b.toggle_mode = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size.x = MODES_WIDTH / 2.0 - 8.0
+	b.custom_minimum_size.x = MODES_WIDTH / 3.0 - 8.0
 	# Eigenes Aussehen statt des Editor-Themas: dunkel und flach, der gewählte
 	# Reiter fast schwarz. Die Ecken rundet `_round_modes`, wenn alle da sind.
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
@@ -327,7 +359,18 @@ func _round_modes(buttons: Array) -> void:
 				box.corner_radius_bottom_right = 7
 
 
-## Wechselt zwischen Feld und Planen.
+## Wechselt auf den Lageplan und zurück.
+func set_lage(value: bool) -> void:
+	lage = value
+	if _plan == null:
+		return
+	_shelf = false
+	_graph.close()
+	_show_mode()
+	_sync()
+
+
+## Wechselt auf den Ordner und zurück.
 func set_planning(value: bool) -> void:
 	planning = value
 	if _plan == null:
@@ -372,10 +415,12 @@ func _on_map() -> bool:
 
 func _show_mode() -> void:
 	_plan.visible = planning
-	_field.visible = not planning and not _on_map()
-	_campaign.visible = not planning and _on_map()
-	_mode_field.set_pressed_no_signal(not planning)
-	_mode_plan.set_pressed_no_signal(planning)
+	_plan_map.visible = lage and not planning
+	_field.visible = not planning and not lage and not _on_map()
+	_campaign.visible = not planning and not lage and _on_map()
+	_mode_field.set_pressed_no_signal(not planning and not lage)
+	_mode_plan.set_pressed_no_signal(lage and not planning)
+	_mode_binder.set_pressed_no_signal(planning)
 
 
 ## Die Ablage füllt das Fenster bis auf einen Rand.
@@ -422,8 +467,15 @@ func _sync() -> void:
 	if _shown == null and _release != null:
 		_shown = _ws.release_milestones(_release["id"])[0]
 	_milestone = chosen if chosen != null and chosen.get("status") == "progress" else active
+	# Zum Planen braucht es keinen laufenden Milestone: dann eben den ersten im Plan.
+	if _shown == null and lage:
+		var decks := Planning.decks(_ws, _project)
+		if decks.size() > 0:
+			_shown = decks[0]
 	_show_mode()
-	if not planning:
+	if lage and not planning:
+		_plan_map.show_plan(_ws, _project, _shown, images if not demo else null)
+	elif not planning:
 		if _on_map():
 			_campaign.show_campaign(_ws, _release)
 		else:
@@ -463,7 +515,7 @@ func _show_head(demo: bool) -> void:
 	_release_chip.visible = _release != null and not planning
 	if _release != null:
 		_release_chip.text = Release.label(_release)
-	if not planning and _on_map():
+	if not planning and not lage and _on_map():
 		_title.visible = false
 		var boss: Dictionary = _campaign._campaign.get("boss", {"total": 0, "done": 0})
 		_progress.visible = true
@@ -596,7 +648,25 @@ func _refuse(text: String) -> void:
 
 
 func _say(text: String, color := Palette.P2) -> void:
-	_field.say(text, color)
+	if lage:
+		_plan_map.say(text, color)
+	else:
+		_field.say(text, color)
+
+
+## Ein Zug im Lageplan: eine Aufgabe einem Milestone zuteilen oder zurück in
+## die Reserve. `body` bekommt Taskers `/api/move`, `local` gilt sofort.
+func _move(id: String, body: Dictionary, local: Dictionary) -> Dictionary:
+	_sounds.play("play")
+	if store != null and store.state == "ready":
+		return await store.move(id, body, local)
+	# Ohne Verbindung ändert sich nur das Beispiel.
+	for t in _demo_data["tasks"]:
+		if local.has(t["id"]):
+			t.merge(local[t["id"]], true)
+	_ws = Workspace.new(_demo_data)
+	_sync()
+	return {"ok": true, "error": ""}
 
 
 # ------------------------------------------------------------ Effekte

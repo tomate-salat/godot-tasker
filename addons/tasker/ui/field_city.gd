@@ -79,6 +79,9 @@ const OWN_GROUND := Color("1b3129")
 const OWN_ROOFS := [Color("254539"), Color("294b3f"), Color("224035"), Color("2e5144")]
 const FOE_PARK := Color("2f2a1f")
 const OWN_PARK := Color("224836")
+const CALM_GROUND := Color("22393a")
+const CALM_ROOF := Color("2b4748")
+const CALM_PARK := Color("27453f")
 
 ## Wie viel zu sehen ist: 0 nur die Blöcke, 1 mit Gebäuden, 2 dazu Schatten und Bäume.
 static var detail := 1
@@ -90,6 +93,14 @@ var front := 99.0:
 	set(value):
 		if not is_equal_approx(front, value):
 			front = value
+			queue_redraw()
+
+## Als Lageplan ist die Stadt ruhig und einfarbig, wie eine Blaupause: noch
+## wird nicht gekämpft, also gehört auch nichts dem einen oder dem anderen.
+var calm := false:
+	set(value):
+		if calm != value:
+			calm = value
 			queue_redraw()
 
 var _seed := -1
@@ -773,14 +784,14 @@ func _draw() -> void:
 		var t := _taken(b["at"])
 		var solid: float = b["solid"]
 		if b["kind"] == "park":
-			var grass: Color = Color(FOE_PARK.lerp(OWN_PARK, t), solid)
+			var grass: Color = Color(CALM_PARK if calm else FOE_PARK.lerp(OWN_PARK, t), solid)
 			draw_colored_polygon(b["poly"], grass)
 			if detail >= 2:
 				for k in 4:
 					var tree: Vector2 = b["mid"] + Vector2(-14.0 + 28.0 * (k % 2), -14.0 + 28.0 * (k / 2))
 					draw_circle(tree, 7.0, grass.lightened(0.12), true, -1.0, false)
 			continue
-		draw_colored_polygon(b["poly"], Color(FOE_GROUND.lerp(OWN_GROUND, t), solid))
+		draw_colored_polygon(b["poly"], Color(CALM_GROUND if calm else FOE_GROUND.lerp(OWN_GROUND, t), solid))
 		if detail < 1:
 			continue
 		for roof in b["roofs"]:
@@ -791,7 +802,7 @@ func _draw() -> void:
 				for p in poly:
 					shade.append(p + Vector2(3.0, 3.5))
 				draw_colored_polygon(shade, Color(0, 0, 0, 0.35 * solid))
-			draw_colored_polygon(poly, Color(FOE_ROOFS[roof["tone"]].lerp(OWN_ROOFS[roof["tone"]], own), solid))
+			draw_colored_polygon(poly, Color(CALM_ROOF.lightened(0.03 * roof["tone"]) if calm else FOE_ROOFS[roof["tone"]].lerp(OWN_ROOFS[roof["tone"]], own), solid))
 
 
 ## Der Grund der Stadt, die Farbe ihrer Straßen: innen deckend, zum Rand hin

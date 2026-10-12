@@ -21,7 +21,7 @@ func _process(delta: float) -> bool:
 	elif _elapsed > 2.0:
 		_table.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://.godot/tasker_tisch_%d.png" % _step))
 		if _step == 1:
-			_table.planning = true
+			_table.lage = true
 		else:
 			quit()
 		_step += 1

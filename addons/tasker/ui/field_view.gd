@@ -18,6 +18,10 @@ signal change_requested(task_id: String, changes: Dictionary)
 signal refused(text: String)
 ## Es wurde weiter herausgezoomt, als das Feld reicht: eine Ebene höher, zur Feldzugskarte.
 signal left
+## Im Lageplan wurde ein Abzeichen losgelassen, an dieser Stelle der Ansicht.
+signal released(task_id: String, at: Vector2)
+## Im Lageplan: die Aufgabe soll aus dem Milestone heraus (Menü).
+signal removal_requested(task_id: String)
 
 const Model := preload("../rules/model.gd")
 const Field := preload("../rules/field.gd")
@@ -25,6 +29,7 @@ const Tisch := preload("../rules/tisch.gd")
 const Workspace := preload("../rules/workspace.gd")
 const Palette := preload("palette.gd")
 const Card := preload("card.gd")
+const Badge := preload("badge.gd")
 const Bug := preload("field_bug.gd")
 const City := preload("field_city.gd")
 
@@ -32,7 +37,10 @@ const City := preload("field_city.gd")
 const TOP := 62.0
 const MARGIN := 22.0
 ## Die Karten liegen kleiner auf dem Feld; unter dem Zeiger werden sie groß.
-const CARD_SCALE := 0.68
+## So weit neben der Mitte eines Abzeichens stehen die Figuren.
+const BESIDE := 44.0
+## So viel Platz braucht ein Abzeichen auf dem Feld: der Schild mit seinem Band.
+const BOX := Vector2(74, 92)
 ## Der innerste Ring und der Abstand von Ring zu Ring – in der Breite mehr
 ## als in der Höhe, weil das Fenster breiter ist als hoch.
 const RING := Vector2(214.0, 172.0)
@@ -89,8 +97,6 @@ const MOVE_SECONDS := 0.3
 const CLICK_WAIT := 0.25
 ## Ab so vielen Pixeln wird aus dem Drücken ein Ziehen.
 const DRAG_START := 8.0
-## Eine getappte Karte liegt quer.
-const TAP_TILT := PI / 2.0
 ## Das Kippen beim Ziehen – dieselben Werte wie am Spieltisch.
 const MAX_TILT := 22.0
 const TILT_STRENGTH := 0.5
@@ -147,7 +153,22 @@ var _boss_done := -1
 var _time := 0.0
 
 var _click_ticket := 0
-var _held: Card
+## Als Lageplan: dieselbe Stadt, aber ruhig – ohne Kampf, ohne Tappen und
+## Erledigen. Hier wird nur verteilt (`ui/plan_map.gd`).
+var plan := false
+## Im Lageplan: eine Karte aus der Reserve schwebt über der Stadt.
+var drop_hint := false:
+	set(value):
+		if drop_hint != value:
+			drop_hint = value
+			_back.queue_redraw()
+## Die Suche des Lageplans: nur diese Abzeichen bleiben voll sichtbar.
+var _spotlight := {}
+var _spotlit := false
+var _held: Badge
+## Die Karte zum Abzeichen unter dem Zeiger – seine Akte.
+var _peek: Card
+var _peek_tween: Tween
 var _held_at := Vector2.ZERO
 var _dragging := false
 var _over_boss := false
@@ -263,6 +284,12 @@ func _init() -> void:
 	_menu = PopupMenu.new()
 	_menu.id_pressed.connect(_on_menu)
 	add_child(_menu)
+	_peek = Card.new()
+	_peek.visible = false
+	_peek.modulate.a = 0.0
+	_peek.z_index = 90
+	add_child(_peek)
+	_no_mouse(_peek)
 	resized.connect(_fit)
 
 
@@ -288,8 +315,78 @@ func show_field(ws: Workspace, milestone: Variant, images: Node) -> void:
 	_tell_city()
 	_fit()
 	_sync_cards()
-	_sync_bugs()
+	_boss.visible = not plan
+	if plan:
+		# Auf dem Lageplan steht niemand.
+		for group in [_pests, _ladies]:
+			for key in group:
+				if is_instance_valid(group[key]):
+					group[key].queue_free()
+			group.clear()
+	else:
+		_sync_bugs()
 	_back.queue_redraw()
+
+
+## Nimmt einem Bedienelement und allem darin die Maus – es ist nur zum Ansehen.
+static func _no_mouse(node: Node) -> void:
+	if node is Control:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_no_mouse(child)
+
+
+## Hebt hervor, was eine Suche gefunden hat: `ids` bleiben voll sichtbar, alle
+## anderen Abzeichen treten zurück. Mit `on` false ist wieder alles da.
+func set_spotlight(ids: Dictionary, on: bool) -> void:
+	_spotlight = ids
+	_spotlit = on
+	for id in _cards:
+		var task = _ws.task(id) if _ws != null else null
+		var dim: bool = task != null and Model.is_done(task)
+		_cards[id].modulate = Color(0.55, 0.6, 0.57, 1.0) if dim else Color.WHITE
+		if on and not ids.has(id):
+			_cards[id].modulate.a = 0.22
+
+
+## Wo das Abzeichen der Aufgabe in dieser Ansicht liegt – oder null.
+func spot_of(id: String) -> Variant:
+	if not _centers.has(id):
+		return null
+	return _canvas.position + _centers[id] * _canvas.scale.x
+
+
+## Ein Abzeichen ist eben erst entstanden: es bleibt unsichtbar, bis `land` es zeigt.
+func hold_back(id: String) -> void:
+	if _cards.has(id):
+		_cards[id].modulate.a = 0.0
+
+
+## Lässt das Abzeichen aufsetzen: es wächst aus dem Bild der Karte, federt
+## kurz nach, und ein Lichtkreis läuft von ihm weg.
+func land(id: String) -> void:
+	var badge: Badge = _cards.get(id)
+	if badge == null:
+		return
+	badge.scale = Vector2(1.5, 1.5)
+	var tween := badge.create_tween()
+	tween.tween_property(badge, "modulate:a", 1.0, 0.12)
+	tween.parallel().tween_property(badge, "scale", Vector2(0.92, 0.92), 0.16).set_ease(Tween.EASE_IN)
+	tween.tween_property(badge, "scale", Vector2(1.06, 1.06), 0.1)
+	tween.tween_property(badge, "scale", Vector2.ONE, 0.1)
+	var ring := Node2D.new()
+	ring.position = _centers[id]
+	ring.z_index = 4
+	ring.set_meta("r", 30.0)
+	ring.draw.connect(func() -> void:
+		ring.draw_arc(Vector2.ZERO, ring.get_meta("r"), 0.0, TAU, 64, Palette.OK, 2.0, false))
+	_canvas.add_child(ring)
+	var wave := ring.create_tween()
+	wave.tween_method(func(r: float) -> void:
+		ring.set_meta("r", r)
+		ring.queue_redraw(), 30.0, 80.0, 0.45).set_ease(Tween.EASE_OUT)
+	wave.parallel().tween_property(ring, "modulate:a", 0.0, 0.45)
+	wave.tween_callback(ring.queue_free)
 
 
 func _clear_field() -> void:
@@ -324,6 +421,7 @@ func say(text: String, color := Palette.P2) -> void:
 ## Die Stadt hinter den Karten: eingenommen ist sie von außen bis zu dem Ring,
 ## auf dem noch etwas offen ist.
 func _show_city() -> void:
+	_city.calm = plan
 	_city.build(hash(str(_milestone["id"])), RING * _grow, STEP * _grow, MOAT, _rings, MOAT_AFTER)
 	_routes.clear()
 	# Die Grenze liegt zwischen diesem Ring und dem nächsten weiter außen.
@@ -350,9 +448,10 @@ func _layout() -> void:
 	_weigh("", outer, weight)
 
 	# Viele Enden brauchen einen größeren innersten Ring, sonst liegen die Karten übereinander.
-	var card := Card.SIZE * CARD_SCALE
+	var card := BOX
 	var around := TAU * sqrt((RING.x * RING.x + RING.y * RING.y) / 2.0)
-	var grow := maxf(1.0, weight[""] * (card.x + 18.0) / around)
+	# Die Bänder mit den Titeln sind breiter als die Schilde; dafür bleibt Luft.
+	var grow := maxf(1.0, weight[""] * (card.x + 34.0) / around)
 	_grow = grow
 	_rings = 0
 	for id in ring:
@@ -374,7 +473,7 @@ func _layout() -> void:
 
 ## Wie viel Platz das Feld braucht: alle Karten und die Mitte.
 func _measure() -> void:
-	var card := Card.SIZE * CARD_SCALE
+	var card := BOX
 	var box := Rect2(-BOSS_RADIUS, -BOSS_RADIUS, BOSS_RADIUS * 2.0, BOSS_RADIUS * 2.0)
 	for id in _centers:
 		box = box.merge(Rect2(_centers[id] - card / 2.0, card))
@@ -384,7 +483,7 @@ func _measure() -> void:
 ## Auf einer Brücke und im Wasser liegt keine Karte: wer dort landen würde, rückt auf seinem
 ## Ring zur Seite – so wenig wie nötig, und nicht auf eine andere Karte.
 func _clear_bridges() -> void:
-	var card := Card.SIZE * CARD_SCALE
+	var card := BOX
 	# Getappt liegt die Karte quer; frei bleiben muss die Brücke in beiden Lagen.
 	var half := Vector2.ONE * (maxf(card.x, card.y) / 2.0 + BRIDGE_ROOM)
 	var moved := false
@@ -516,40 +615,40 @@ func _sync_cards() -> void:
 		var task = _ws.task(id)
 		if task == null:
 			continue
-		var card: Card = _cards.get(id)
+		var card: Badge = _cards.get(id)
 		if card == null:
-			card = Card.new()
-			card.sharp = true
-			card.scale = Vector2(CARD_SCALE, CARD_SCALE)
-			card.position = _centers[id] - Card.SIZE / 2.0
+			card = Badge.new()
+			card.position = _centers[id] - Badge.SIZE / 2.0
 			card.pressed.connect(_on_card)
 			card.mouse_entered.connect(_on_hover.bind(id, true))
 			card.mouse_exited.connect(_on_hover.bind(id, false))
 			_canvas.add_child(card)
 			_cards[id] = card
 		card.show_task(_ws, task, _images, false)
-		card.selected = Field.is_tapped(task)
+		card.selected = Field.is_tapped(task) and not plan
 		# Erledigte Karten sind hier abgedunkelt statt durchscheinend: vor der Stadt bliebe sonst wenig von ihnen.
 		card.modulate = Color(0.55, 0.6, 0.57, 1.0) if Model.is_done(task) else Color.WHITE
+		if _spotlit and not _spotlight.has(id):
+			card.modulate.a = 0.22
 		if card != _held or not _dragging:
 			_settle(card)
 
 
-## Legt die Karte an ihren Platz – groß, wenn der Zeiger auf ihr ruht.
-func _settle(card: Card) -> void:
+## Legt das Abzeichen an seinen Platz – etwas größer, wenn der Zeiger auf ihm ruht.
+func _settle(card: Badge) -> void:
 	var id: String = card.task_id
 	if not _centers.has(id):
 		return
 	var task = _ws.task(id)
 	var tapped: bool = task != null and Field.is_tapped(task)
 	var big := id == _hovered
-	var s := maxf(1.0 / maxf(_canvas.scale.x, 0.01), CARD_SCALE) if big else CARD_SCALE
+	var s := 1.12 if big else 1.0
 	card.z_index = 60 if big else 8 if tapped else 5
 	var tween := card.create_tween().set_parallel().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(card, "position", _centers[id] - Card.SIZE / 2.0, MOVE_SECONDS)
+	tween.tween_property(card, "position", _centers[id] - Badge.SIZE / 2.0, MOVE_SECONDS)
 	tween.tween_property(card, "scale", Vector2(s, s), MOVE_SECONDS * 0.6)
-	tween.tween_property(card, "rotation", TAP_TILT if tapped and not big else 0.0, MOVE_SECONDS)
-	# Angehoben ist nur die Karte unter dem Zeiger; eine getappte liegt flach auf dem Tisch.
+	tween.tween_property(card, "rotation", 0.0, MOVE_SECONDS)
+	# Was in Arbeit ist, hebt sich von selbst (`selected`); sonst nur, was unter dem Zeiger liegt.
 	tween.tween_property(card, "lift", 1.0 if big else 0.0, MOVE_SECONDS)
 
 
@@ -565,15 +664,40 @@ func _on_hover(id: String, on: bool) -> void:
 		_hovered = ""
 	if _cards.has(id):
 		_settle(_cards[id])
+	_show_peek()
+
+
+## Zeigt neben dem Abzeichen unter dem Zeiger seine Karte – in voller Größe,
+## gleich wie weit das Feld verkleinert ist.
+func _show_peek() -> void:
+	if _peek_tween != null and _peek_tween.is_valid():
+		_peek_tween.kill()
+	var task = _ws.task(_hovered) if _ws != null and _hovered != "" else null
+	if task == null or not _centers.has(_hovered) or _dragging:
+		_peek_tween = _peek.create_tween()
+		_peek_tween.tween_property(_peek, "modulate:a", 0.0, 0.1)
+		_peek_tween.tween_callback(_peek.hide)
+		return
+	_peek.show_task(_ws, task, _images, true)
+	# Rechts vom Abzeichen, wenn dort Platz ist, sonst links; nie unter der Kopfzeile, nie über den Rand.
+	var s := _canvas.scale.x
+	var at: Vector2 = _canvas.position + _centers[_hovered] * s
+	var reach := BOX.x / 2.0 * s + 16.0
+	var left := at.x + reach + Card.SIZE.x > size.x - 8.0
+	var spot := Vector2(at.x - reach - Card.SIZE.x if left else at.x + reach, at.y - Card.SIZE.y / 2.0)
+	spot.y = clampf(spot.y, HEAD + 6.0, maxf(size.y - Card.SIZE.y - 8.0, HEAD + 6.0))
+	_peek.position = spot.round()
+	_peek.visible = true
+	_peek_tween = _peek.create_tween()
+	_peek_tween.tween_property(_peek, "modulate:a", 1.0, 0.12)
 
 
 # --------------------------------------------------------------- Käfer
 
-## Wie viel Platz die Karte auf dem Feld einnimmt – quer, wenn sie getappt ist.
-func _card_box(id: String) -> Vector2:
-	var box := Card.SIZE * CARD_SCALE
-	var task = _ws.task(id) if _ws != null else null
-	return Vector2(box.y, box.x) if task != null and Field.is_tapped(task) else box
+## Wie viel Platz das Abzeichen auf dem Feld einnimmt. Anders als früher die
+## Karte liegt es nie quer.
+func _card_box(_id: String) -> Vector2:
+	return BOX
 
 
 ## Wo der `index`-te von `count` Gegnern an einer Karte steht: am rechten
@@ -582,8 +706,9 @@ func _pest_spot(card_id: String, index: int, count: int) -> Variant:
 	if not _centers.has(card_id):
 		return null
 	var card := _card_box(card_id)
-	var apart := minf(34.0, (card.y - 30.0) / maxf(count - 1, 1.0))
-	return _centers[card_id] + Vector2(card.x / 2.0 - 2.0, (index - (count - 1) / 2.0) * apart + 8.0)
+	var apart := minf(30.0, (card.y - 30.0) / maxf(count - 1, 1.0))
+	# Neben dem Schild, nicht darauf – und auf seiner Höhe, nicht auf der des Bands.
+	return _centers[card_id] + Vector2(BESIDE, (index - (count - 1) / 2.0) * apart - 8.0)
 
 
 func _sync_bugs() -> void:
@@ -634,7 +759,7 @@ func _sync_bugs() -> void:
 				continue
 			var pest_at: Vector2 = at[pest_key]
 			# Von der eigenen Karte her an den Schädling heran.
-			var across := Vector2(_card_box(f["on"]).x - 4.0, 0.0)
+			var across := Vector2(BESIDE * 2.0, 0.0)
 			_want_lady("%s|%s" % [card_id, pest_key], card_id, f["on"], pest_at - across, pest_at, keep)
 	for key in _ladies.keys():
 		if not keep.has(key):
@@ -815,7 +940,7 @@ func _tilt_held(delta: float) -> void:
 	var target := Vector2(tanh(_velocity.x / TILT_SPEED), tanh(_velocity.y / TILT_SPEED)) * MAX_TILT * TILT_STRENGTH
 	_tilt += (target - _tilt) * k
 	var squash := Vector2(cos(deg_to_rad(_tilt.x * 1.7)), cos(deg_to_rad(_tilt.y * 1.7)))
-	_held.scale = squash * CARD_SCALE * 1.25
+	_held.scale = squash * 1.2
 	_held.rotation = deg_to_rad(_tilt.x) * 0.22
 	_held.set_tilt(-_tilt / MAX_TILT)
 
@@ -925,6 +1050,13 @@ func _draw_back() -> void:
 	var front_ring: int = _field["front"]
 	for k in _rings:
 		var reach := _reach(k + 1, _grow)
+		if plan:
+			for i in 72:
+				var a0 := TAU * i / 72.0
+				var a1 := TAU * (i + 0.6) / 72.0
+				_back.draw_line(Vector2(cos(a0) * reach.x, sin(a0) * reach.y), Vector2(cos(a1) * reach.x, sin(a1) * reach.y), Color(1, 1, 1, 0.3), 1.4, false)
+			_back.draw_string(Palette.sharp_body_font(), Vector2(8.0, -reach.y - 7.0), "Ring %d" % (k + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.5))
+			continue
 		var at_front := k + 1 == front_ring
 		var tone := Palette.OK if k + 1 > front_ring else Palette.P2 if at_front else Palette.P1
 		var base := RING_FRONT + 0.14 * sin(_time * 1.8) if at_front else RING_QUIET
@@ -952,7 +1084,7 @@ func _draw_back() -> void:
 		var to: Vector2 = _centers.get(way["to"], Vector2.ZERO)
 		if way["to"] == "":
 			to = from.normalized() * BOSS_RADIUS
-		var color := Color(Palette.OK, 0.6) if done[way["from"]] else Color(1, 1, 1, 0.26)
+		var color := Color(Palette.OK, 0.6) if done[way["from"]] and not plan else Color(1, 1, 1, 0.26)
 		color.a *= _shown(way["from"], way["to"])
 		# Gehört der Weg zur Karte unter dem Zeiger, wird er kräftiger und breiter.
 		var raised := _focus if way["from"] == _focus_id or way["to"] == _focus_id else 0.0
@@ -960,6 +1092,8 @@ func _draw_back() -> void:
 		var width := 2.0 + raised
 		var path := _route(way["from"], way["to"] if _centers.has(way["to"]) else "")
 		_back.draw_polyline(path, color, width, false)
+		if plan:
+			continue
 		# Helle Striche wandern nach innen – dezenter als bei den Angriffen.
 		_draw_flow(path, Color(color.lightened(0.45 + 0.3 * raised), minf(color.a + WAY_GLOW, 1.0)), width, WAY_SPEED, WAY_GAP, WAY_DASH)
 
@@ -971,16 +1105,31 @@ func _draw_back() -> void:
 		slot.bg_color = Color(0, 0, 0, 0.28)
 		slot.border_color = Color(1, 1, 1, 0.3)
 		slot.set_border_width_all(1)
-		slot.set_corner_radius_all(int(Card.RADIUS * CARD_SCALE))
+		slot.set_corner_radius_all(8)
 		_back.draw_style_box(slot, Rect2(_centers[_held.task_id] - card / 2.0, card))
 
 	# Die Angriffe: von jeder getappten Karte laufen Striche zu dem, was sie
 	# angreift – zur Karte mit ihrem Schädling oder zum großen Käfer.
 	for card_id in _field["fronts"]:
-		if not _centers.has(card_id):
+		if not _centers.has(card_id) or plan:
 			continue
 		for target in _targets_of(card_id):
 			_draw_attack(_route(card_id, target), _shown(card_id, target))
+
+	if plan:
+		# Die Mitte des Lageplans: das Ziel mit Fahne und Stand. Schwebt eine
+		# Karte aus der Reserve über der Stadt, leuchtet es grün: hierher.
+		_back.draw_circle(Vector2.ZERO, BOSS_RADIUS, Color(0.06, 0.12, 0.12, 0.9), true, -1.0, false)
+		_back.draw_arc(Vector2.ZERO, BOSS_RADIUS, 0.0, TAU, 96, Color(Palette.OK, 0.9) if drop_hint else Color(1, 1, 1, 0.35), 3.0 if drop_hint else 2.0, false)
+		if drop_hint:
+			_back.draw_circle(Vector2.ZERO, BOSS_RADIUS, Color(Palette.OK, 0.14), true, -1.0, false)
+		_back.draw_line(Vector2(-16, 2), Vector2(16, 2), Color(1, 1, 1, 0.7), 2.4, false)
+		_back.draw_line(Vector2(0, 2), Vector2(0, -36), Color(1, 1, 1, 0.7), 2.4, false)
+		_back.draw_colored_polygon(PackedVector2Array([Vector2(0, -36), Vector2(19, -36), Vector2(14, -30), Vector2(19, -24), Vector2(0, -24)]), Palette.P1)
+		var name: String = str(_milestone.get("title", "")) if _milestone != null else ""
+		_back.draw_string(Palette.sharp_title_font(), Vector2(-BOSS_RADIUS, 24.0), name, HORIZONTAL_ALIGNMENT_CENTER, BOSS_RADIUS * 2.0, 13, Palette.INK)
+		_back.draw_string(Palette.sharp_body_font(), Vector2(-BOSS_RADIUS, 40.0), "%d Karten · %d fertig" % [_field["boss"]["total"], _field["boss"]["done"]], HORIZONTAL_ALIGNMENT_CENTER, BOSS_RADIUS * 2.0, 10, Color(1, 1, 1, 0.6))
+		return
 
 	# Die Mitte: der Bau des großen Käfers, außen herum sein Leben.
 	_back.draw_circle(Vector2.ZERO, BOSS_RADIUS, Color(0, 0, 0, 0.3), true, -1.0, false)
@@ -1140,7 +1289,7 @@ func _tell_city() -> void:
 	var boxes := [Rect2(-BOSS_RADIUS, -BOSS_RADIUS, BOSS_RADIUS * 2.0, BOSS_RADIUS * 2.0)]
 	# Jede Karte zählt mit der Fläche beider Lagen, hochkant und quer: sonst
 	# änderten sich die Wege, sobald man eine tappt.
-	var card := Card.SIZE * CARD_SCALE
+	var card := BOX
 	var both := Vector2.ONE * maxf(card.x, card.y)
 	for id in _centers:
 		boxes.append(Rect2(_centers[id] - both / 2.0, both).grow(CARD_ROOM))
@@ -1192,7 +1341,8 @@ func _on_card(card: Control, event: InputEventMouseButton) -> void:
 	# Getappt wird mit dem Doppelklick: ein einzelner Klick soll nichts ändern,
 	# er rutscht zu leicht heraus.
 	if event.double_click:
-		_toggle(id)
+		if not plan:
+			_toggle(id)
 		return
 	# Ob daraus ein Klick oder ein Ziehen wird, zeigt sich in `_input`.
 	_held = card
@@ -1224,6 +1374,18 @@ func _input(event: InputEvent) -> void:
 		return
 	if _held == null or not is_instance_valid(_held) or not is_visible_in_tree():
 		return
+	# Escape bricht das Ziehen ab: das Abzeichen geht an seinen Platz zurück, nichts ändert sich.
+	if _dragging and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		var back := _held
+		_velocity = Vector2.ZERO
+		_tilt = Vector2.ZERO
+		_held = null
+		_dragging = false
+		_over_boss = false
+		_back.queue_redraw()
+		_settle(back)
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseMotion:
 		var mouse := get_local_mouse_position()
 		if not _dragging and mouse.distance_to(_held_at) > DRAG_START:
@@ -1232,16 +1394,17 @@ func _input(event: InputEvent) -> void:
 			_hovered = ""
 			_held.z_index = 80
 			var tween := _held.create_tween().set_parallel()
-			tween.tween_property(_held, "scale", Vector2(CARD_SCALE, CARD_SCALE) * 1.25, 0.12)
+			tween.tween_property(_held, "scale", Vector2(1.2, 1.2), 0.12)
+			_show_peek()
 			tween.tween_property(_held, "rotation", 0.0, 0.12)
 			tween.tween_property(_held, "lift", 1.0, 0.12)
 		if _dragging:
 			var at := (mouse - _canvas.position) / _canvas.scale.x
-			_held.position = at - Card.SIZE / 2.0
+			_held.position = at - Badge.SIZE / 2.0
 			# Wie schnell es geht, bestimmt, wie weit die Karte kippt.
 			_velocity = _velocity.lerp(event.velocity, 0.5)
 			_last_move = Time.get_ticks_msec()
-			var over := at.length() < BOSS_RADIUS + 10.0
+			var over := at.length() < BOSS_RADIUS + 10.0 and not plan
 			if over != _over_boss:
 				_over_boss = over
 				_back.queue_redraw()
@@ -1259,6 +1422,8 @@ func _input(event: InputEvent) -> void:
 		_over_boss = false
 		_back.queue_redraw()
 		_settle(card)
+		if plan and not clicked:
+			released.emit(id, get_local_mouse_position())
 		if dropped:
 			_finish(id)
 		elif clicked:
@@ -1299,7 +1464,10 @@ func _open_menu(id: String) -> void:
 		return
 	_menu_task = id
 	_menu.clear()
-	if Model.is_done(task):
+	if plan:
+		# Auf dem Lageplan wird verteilt, nicht gespielt.
+		_menu.add_item("Aus dem Milestone nehmen (zurück in die Reserve)", 6)
+	elif Model.is_done(task):
 		_menu.add_item("Wieder öffnen", 3)
 	else:
 		_menu.add_item("Zurück auf offen" if Field.is_tapped(task) else "Tappen: in Arbeit", 0)
@@ -1313,6 +1481,8 @@ func _open_menu(id: String) -> void:
 
 func _on_menu(item: int) -> void:
 	match item:
+		6:
+			removal_requested.emit(_menu_task)
 		0:
 			_toggle(_menu_task)
 		1:
