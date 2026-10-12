@@ -24,6 +24,8 @@ const OrphansWindow := preload("ui/orphans_window.gd")
 
 const MENU_SETUP := "Tasker einrichten …"
 const MENU_TABLE := "Tasker-Tisch"
+## Der Knopf oben in der Leiste neben „Asset Store" (Nutzer, 2026-10-12).
+const SCREEN_TABLE := "Tisch"
 const MENU_ORPHANS := "Tasker: Verknüpfungen prüfen …"
 ## Der Eintrag „Erledigtes einblenden“ im Filter-Menü.
 const FILTER_DONE := 100
@@ -51,6 +53,8 @@ var _panel: Dock
 var _search: SearchPopup
 var _setup: SetupDialog
 var _table: TableWindow
+## Die Ansicht, die vor dem Klick auf „Tisch" offen war – dorthin geht es gleich zurück.
+var _screen := "3D"
 ## Die Suche, die eine Aufgabe für die ausgewählten Nodes aussucht.
 var _attach: SearchPopup
 var _attach_nodes: Array = []
@@ -145,6 +149,7 @@ func _enter_tree() -> void:
 
 	add_tool_menu_item(MENU_SETUP, _open_setup)
 	add_tool_menu_item(MENU_TABLE, _open_table)
+	main_screen_changed.connect(_on_main_screen_changed)
 	add_tool_menu_item(MENU_ORPHANS, _open_orphans)
 	_register_commands()
 
@@ -233,6 +238,33 @@ func _open_setup() -> void:
 		_setup.saved.connect(_connect_to_server)
 		EditorInterface.get_base_control().add_child(_setup)
 	_setup.open()
+
+
+# Der Tisch als Knopf in der Leiste der Hauptansichten. Er ist ein eigenes
+# Fenster, keine Ansicht: der Knopf öffnet es, und der Editor bleibt, wo er war.
+func _has_main_screen() -> bool:
+	return true
+
+
+func _get_plugin_name() -> String:
+	return SCREEN_TABLE
+
+
+func _get_plugin_icon() -> Texture2D:
+	var theme := EditorInterface.get_editor_theme()
+	return theme.get_icon("GridMap" if theme.has_icon("GridMap", "EditorIcons") else "Node", "EditorIcons")
+
+
+func _make_visible(visible: bool) -> void:
+	if not visible:
+		return
+	_open_table()
+	EditorInterface.set_main_screen_editor.call_deferred(_screen)
+
+
+func _on_main_screen_changed(screen_name: String) -> void:
+	if screen_name != SCREEN_TABLE:
+		_screen = screen_name
 
 
 func _open_table() -> void:

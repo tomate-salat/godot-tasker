@@ -1014,6 +1014,7 @@ func _sync_bugs() -> void:
 	# Wohin jeder Gegner schaut, und welche gerade erst aufgetaucht sind.
 	var face := {}
 	var born := {}
+	var beaten := {}
 	for card_id in _field["pests"]:
 		var list: Array = _field["pests"][card_id]
 		for i in list.size():
@@ -1045,6 +1046,12 @@ func _sync_bugs() -> void:
 			face[key] = facing
 			bug.wall = p["wall"]
 			bug.hurt = p["damage"]
+			# Hält er nichts mehr aus – alle Kästchen und Unteraufgaben sind durch,
+			# nur der Haken an der Aufgabe fehlt noch –, liegt er schon am Boden
+			# (Nutzer, 2026-10-12). Weg ist er erst, wenn sie erledigt ist.
+			bug.dead = not p["wall"] and p["damage"] >= 0.999
+			if bug.dead:
+				beaten[key] = true
 			bug.set_meta("home", spot)
 			bug.create_tween().tween_property(bug, "position", spot, _move_time)
 	for key in _pests.keys():
@@ -1082,6 +1089,8 @@ func _sync_bugs() -> void:
 				_want_lady("%s|%s" % [card_id, pest_key], card_id, f["on"], lady_at, pest_at, keep, stand[2])
 			else:
 				_want_lady("%s|%s" % [card_id, pest_key], card_id, f["on"], lady_at, pest_at, keep)
+			# Auf einen, der schon liegt, wird nicht mehr geschossen.
+			_ladies["%s|%s" % [card_id, pest_key]].set_meta("won", beaten.has(pest_key))
 			# Der Gegner schaut den an, der ihn stellt – nicht bloß die Straße
 			# hinunter, die bis zu ihm noch eine Kurve machen kann.
 			if not stood.has(pest_key):
@@ -1341,7 +1350,7 @@ func _draw_fx() -> void:
 		return
 	for key in _ladies:
 		var own: Bug = _ladies[key]
-		if own.get_meta("busy", false):
+		if own.get_meta("busy", false) or own.get_meta("won", false):
 			continue
 		var target: Vector2 = own.get_meta("target", own.position)
 		var phase := float(hash(key) % 1000) / 1000.0 * SHOT_EVERY

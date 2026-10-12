@@ -62,7 +62,14 @@ func set_hurt(value: float) -> void:
 
 func set_dead(value: bool) -> void:
 	dead = value
+	# Das Grabkreuz steht aufrecht: dreht sich der Gefallene, wird neu gezeichnet.
+	set_notify_transform(value)
 	queue_redraw()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSFORM_CHANGED and dead:
+		queue_redraw()
 
 
 func set_wall(value: bool) -> void:
@@ -81,6 +88,8 @@ func _draw() -> void:
 			_draw_soldier(kind == PEST)
 			if kind == PEST and not dead and hurt > 0.0:
 				_draw_health()
+			elif kind == PEST and dead:
+				_draw_grave()
 	elif kind == BOSS:
 		_draw_boss()
 	elif kind == LADY:
@@ -353,6 +362,20 @@ func _limb(points: PackedVector2Array, width: float, color: Color) -> void:
 
 
 ## Wie viel ein Gegner noch aushält – ein Balken, der nicht mitdreht.
+## Ein Grabkreuz über dem Gefallenen – der graue Körper allein geht in der
+## Stadt unter (Nutzer, 2026-10-12). Es steht aufrecht, wie auch immer er lag.
+func _draw_grave() -> void:
+	draw_set_transform(Vector2.ZERO, -rotation, Vector2(girth, girth))
+	_ellipse_plain(Vector2(0, 9), Vector2(11.0, 4.5), Color(0, 0, 0, 0.5))
+	var wood := Color("e9e2cf")
+	var edge := Color("15181b")
+	draw_rect(Rect2(-3.5, -15, 7, 26), edge)
+	draw_rect(Rect2(-9.5, -9.5, 19, 7), edge)
+	draw_rect(Rect2(-2, -13.5, 4, 23), wood)
+	draw_rect(Rect2(-8, -8, 16, 4), wood)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(girth, girth))
+
+
 func _draw_health() -> void:
 	draw_set_transform(Vector2.ZERO, -rotation, Vector2(girth, girth))
 	var bar := Rect2(-9, 12, 18, 3)
