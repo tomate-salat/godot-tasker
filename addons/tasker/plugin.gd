@@ -240,11 +240,9 @@ func _open_table() -> void:
 		_table = TableWindow.new()
 		_table.store = store
 		_table.images = images
-		_table.memory = memory
 		_table.visible = false
 		_table.task_requested.connect(_open_task)
 		EditorInterface.get_base_control().add_child(_table)
-	_table.hand_size = Config.hand_size()
 	_table.sound_enabled = Config.sound()
 	_table.set_field_style(Config.field_style())
 	if _table.visible:
