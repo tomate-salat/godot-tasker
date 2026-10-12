@@ -46,8 +46,26 @@ const GREEN := [Color("2f5a49"), Color("376655"), Color("3f7160")]
 const RED := [Color("5a3a33"), Color("66413a"), Color("714a41")]
 const GROUND := Color("1a2a26")
 ## Panzer rollen so schnell (Pixel je Sekunde), Flieger so viel schneller.
-const TANK_SPEED := 22.0
+const TANK_SPEED := 34.0
 const PLANE_SPEED := 70.0
+## Das Gefecht auf einer Landstraße: so weit vor der Stadt steht der Gegner,
+## so weit davor hält die Spitze der eigenen Kolonne, so dicht folgen die anderen.
+const FOE_STAND := 30.0
+const FRONT_GAP := 34.0
+const COLUMN := 24.0
+## So lange wird geschossen, bis der Gegner fällt; so lange braucht ein neuer aus der Stadt.
+const BATTLE_SECONDS := 5.0
+const BOOM_SECONDS := 0.6
+const FOE_OUT_SECONDS := 1.5
+## Der Flieger kreist: so weit neben der Straße, so weit über die Städte hinaus.
+const PLANE_SIDE := 30.0
+const PLANE_OVER := 60.0
+const PLANE_LIFT := Vector2(0, -42.0)
+const BOMB_FALL := 0.55
+## Er wirft eine Reihe ab: so viele Bomben, in diesem Abstand nacheinander und am Boden.
+const BOMBS := 4
+const BOMB_EVERY := 0.13
+const BOMB_APART := 15.0
 
 var _campaign := {}
 var _release: Variant
@@ -331,6 +349,7 @@ func _draw() -> void:
 	for attack in _campaign["attacks"]:
 		attacking["%s>%s" % [attack["from"], attack["to"]]] = true
 	var units := []
+	var goals := []
 	for way in _campaign["ways"]:
 		if not _centers.has(way["from"]):
 			continue
@@ -346,6 +365,7 @@ func _draw() -> void:
 			var side := dir.orthogonal()
 			draw_colored_polygon(PackedVector2Array([tip, tip - dir * 12.0 + side * 6.5, tip - dir * 12.0 - side * 6.5]), Color(ATTACK, shown))
 			units.append(path)
+			goals.append(_centers[way["to"]] if way["to"] != "" and _centers.has(way["to"]) else Vector2.ZERO)
 		else:
 			var tone := Color(Palette.OK, 0.6) if from_node["state"] == Campaign.DONE else Color(1, 1, 1, 0.26)
 			tone.a *= shown
@@ -356,22 +376,148 @@ func _draw() -> void:
 	for id in _centers:
 		_draw_city(view, _nodes[id])
 
-	# Panzer rollen nach innen, vor dem Ziel hält ein gegnerischer; Flieger darüber.
+	# Auf jeder Angriffsstraße ein Gefecht, darüber kreist ein Flieger.
 	for path in units:
-		var length := _length(path)
-		var count := clampi(int(length / 110.0), 1, 4)
-		for k in count:
-			var way := fposmod(_time * TANK_SPEED + k * length / count, length)
-			# Kurz vor dem Ziel ist Schluss: dort steht der Gegner.
-			if way < length - 52.0:
-				_draw_tank(view, _along(path, way), OWN, 1.0)
-		var stand := _along(path, length - 30.0)
-		_draw_tank(view, Transform2D(stand.get_rotation() + PI, stand.origin), FOE, 1.0)
-	for path in units:
-		var length := _length(path)
-		var spot := _along(path, fposmod(_time * PLANE_SPEED, length + 160.0) - 80.0)
-		_draw_plane(view, Transform2D(spot.get_rotation(), spot.origin + Vector2(0, -42.0)))
+		_draw_battle(view, path)
+	for k in units.size():
+		_draw_sortie(view, units[k], goals[k])
 	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+## Das Gefecht auf einer Angriffsstraße, als Schleife: eine Kolonne rollt aus
+## der Stadt heran und hält vor dem Gegner, beide schießen, der Gegner fällt,
+## die Kolonne rückt in die Stadt ein – und aus ihr kommt der nächste Gegner,
+## während hinten schon die nächste Kolonne aufbricht. Nichts verschwindet
+## einfach (Nutzer, 2026-10-12). Alles folgt allein aus der Zeit.
+func _draw_battle(view: Transform2D, path: PackedVector2Array) -> void:
+	var length := _length(path)
+	var front_slot := length - FOE_STAND - FRONT_GAP
+	var count := clampi(mini(int(length / 110.0), int((front_slot - 10.0) / COLUMN) + 1), 1, 4)
+	var roll_in := (FOE_STAND + FRONT_GAP + COLUMN * (count - 1)) / TANK_SPEED
+	# Die Kolonne kommt erst an, wenn der neue Gegner steht.
+	var wait := maxf(0.0, roll_in + FOE_OUT_SECONDS + 0.2 - front_slot / TANK_SPEED)
+	var arrive := wait + front_slot / TANK_SPEED
+	var fall := arrive + BATTLE_SECONDS
+	var period := fall + BOOM_SECONDS
+	# Jede Straße in ihrem eigenen Takt.
+	var t := fposmod(_time + float(hash(path[0]) % 977) / 31.0, period)
+	var foe_stand := _along(path, length - FOE_STAND)
+	var foe_at := foe_stand.origin
+	var fighting := t >= arrive and t < fall
+
+	# Die Kolonne davor rückt noch in die Stadt ein.
+	for j in count:
+		var way := front_slot - COLUMN * j + TANK_SPEED * t
+		if way < length:
+			_draw_tank(view, _along(path, way), OWN, 1.0, clampf((length - way) / 16.0, 0.0, 1.0))
+	# Der Gegner: kommt aus der Stadt, steht, schießt, fällt.
+	if t >= roll_in and t < fall:
+		var out := clampf((t - roll_in) / FOE_OUT_SECONDS, 0.0, 1.0)
+		var spot := _along(path, length - FOE_STAND * out)
+		var kick := 0.0
+		if fighting:
+			var shot := fposmod(t - arrive, 1.15)
+			kick = 2.5 * maxf(0.0, 1.0 - shot / 0.25)
+			_draw_shot(spot.origin - spot.x * 14.0, _along(path, front_slot).origin, shot)
+		_draw_tank(view, Transform2D(spot.get_rotation() + PI, spot.origin + spot.x * kick), FOE, 1.0, out)
+	elif t >= fall:
+		_draw_tank(view, Transform2D(foe_stand.get_rotation() + PI, foe_at), Color("3a2a26"), 1.0, 1.0 - (t - fall) / BOOM_SECONDS)
+	# Die eigene Kolonne: aus der Stadt heraus, bis jeder an seinem Platz hält.
+	for j in count:
+		var slot := front_slot - COLUMN * j
+		var way := minf(-COLUMN * j + TANK_SPEED * maxf(t - wait, 0.0), slot)
+		if way <= 0.0:
+			continue
+		var spot := _along(path, way)
+		var kick := 0.0
+		if fighting:
+			var shot := fposmod(t - arrive + j * 0.45, 1.35)
+			kick = 2.5 * maxf(0.0, 1.0 - shot / 0.25)
+			_draw_shot(spot.origin + spot.x * 14.0, foe_at, shot)
+		_draw_tank(view, Transform2D(spot.get_rotation(), spot.origin - spot.x * kick), OWN, 1.0, clampf(way / 14.0, 0.0, 1.0))
+	# Der Gegner geht hoch; der Rauch steht noch, wenn die Kolonne schon rollt.
+	if t >= fall:
+		_draw_boom(foe_at, t - fall)
+	elif t < 1.6 - BOOM_SECONDS:
+		_draw_boom(foe_at, t + BOOM_SECONDS)
+
+
+## Ein Schuss, `age` Sekunden alt: Mündungsfeuer, Leuchtspur, Einschlag.
+func _draw_shot(from: Vector2, to: Vector2, age: float) -> void:
+	var glow := Color(1.0, 0.93, 0.69)
+	if age < 0.07:
+		draw_circle(from, 4.0, glow)
+	if age < 0.16:
+		var dir := (to - from).normalized()
+		var at := from.lerp(to, age / 0.16)
+		draw_line(at - dir * 9.0, at, glow, 1.6, true)
+	elif age < 0.34:
+		var fade := 1.0 - (age - 0.16) / 0.18
+		draw_circle(to, 2.0 + 5.0 * (1.0 - fade), Color(1.0, 0.72, 0.4, fade))
+
+
+## Eine Explosion, `age` Sekunden alt: Blitz, Feuerring, dann Rauch, der abzieht.
+func _draw_boom(at: Vector2, age: float) -> void:
+	if age < 0.0 or age >= 1.6:
+		return
+	for k in 4:
+		var a := 1.3 * k + 0.4
+		var drift := Vector2(cos(a) * 9.0, sin(a) * 6.0) * (0.4 + age) + Vector2(4.0, -11.0) * age
+		draw_circle(at + drift, 5.0 + 5.0 * age + k, Color(0.12, 0.12, 0.12, 0.42 * (1.0 - age / 1.6)))
+	if age < 0.7:
+		draw_arc(at, 7.0 + 30.0 * age, 0.0, TAU, 32, Color(1.0, 0.55, 0.25, 1.0 - age / 0.7), 2.4, true)
+	if age < 0.28:
+		draw_circle(at, 7.0 + 34.0 * age, Color(1.0, 0.9, 0.62, 1.0 - age / 0.28))
+
+
+## Der Flieger über einer Angriffsstraße: er kreist – auf der einen Seite hin,
+## wirft über der Stadt des Gegners ab, wendet und kommt auf der anderen zurück.
+## `goal` ist die Mitte des Ziels: dorthin fallen die Bomben (Nutzer, 2026-10-12).
+func _draw_sortie(view: Transform2D, path: PackedVector2Array, goal: Vector2) -> void:
+	var loop := PackedVector2Array()
+	var back := PackedVector2Array()
+	var last := path.size() - 1
+	var d0 := (path[1] - path[0]).normalized()
+	var d1 := (path[last] - path[last - 1]).normalized()
+	# Er fliegt über die Mitte des Ziels hinaus, ehe er wendet.
+	var over := path[last].distance_to(goal) + PLANE_OVER * 0.5
+	for i in path.size():
+		var dir := (path[mini(i + 1, last)] - path[maxi(i - 1, 0)]).normalized()
+		var at := path[i]
+		if i == 0:
+			at -= d0 * PLANE_OVER
+		elif i == last:
+			at += d1 * over
+		loop.append(at + dir.orthogonal() * PLANE_SIDE)
+		back.append(at - dir.orthogonal() * PLANE_SIDE)
+	var drop := _length(loop) - PLANE_OVER * 0.5 - 36.0 - BOMB_APART * (BOMBS - 1) / 2.0
+	# Die Wende über dem Ziel, zurück, die Wende über der eigenen Stadt.
+	for k in range(1, 12):
+		var a := PI * k / 12.0
+		loop.append(path[last] + d1 * over + (d1.orthogonal() * cos(a) + d1 * sin(a)) * PLANE_SIDE)
+	back.reverse()
+	loop.append_array(back)
+	for k in range(1, 12):
+		var a := PI * k / 12.0
+		loop.append(path[0] - d0 * PLANE_OVER - (d0.orthogonal() * cos(a) + d0 * sin(a)) * PLANE_SIDE)
+	loop.append(loop[0])
+	var at_now := fposmod(_time * PLANE_SPEED + float(hash(path[last]) % 613), _length(loop))
+	# Eine Reihe Bomben fällt mitten in die Stadt: eine
+	# nach der anderen, in Flugrichtung versetzt, leicht gestreut.
+	for k in BOMBS:
+		var since := (at_now - drop) / PLANE_SPEED - k * BOMB_EVERY
+		if since < 0.0:
+			continue
+		var along := (k - (BOMBS - 1) / 2.0) * BOMB_APART
+		var hit := goal + d1 * along + d1.orthogonal() * (7.0 if k % 2 == 0 else -6.0)
+		if since < BOMB_FALL:
+			var fell := since / BOMB_FALL
+			var from := _along(loop, drop + k * BOMB_EVERY * PLANE_SPEED).origin + PLANE_LIFT
+			draw_circle(from.lerp(hit, fell * fell), 3.0 - 1.4 * fell, DARK)
+		else:
+			_draw_boom(hit, since - BOMB_FALL)
+	var spot := _along(loop, at_now)
+	_draw_plane(view, Transform2D(spot.get_rotation(), spot.origin + PLANE_LIFT))
 
 
 func _draw_ellipse(mid: Vector2, reach: Vector2, color: Color, width: float) -> void:
@@ -536,15 +682,18 @@ func _draw_plate(mid: Vector2, title: String, note: String, tone: Color, lit: bo
 
 
 ## Ein Panzer von oben: Ketten, Wanne, Turm, Rohr. `spot` gibt Lage und Richtung.
-func _draw_tank(view: Transform2D, spot: Transform2D, body: Color, girth: float) -> void:
+func _draw_tank(view: Transform2D, spot: Transform2D, body: Color, girth: float, alpha := 1.0) -> void:
+	if alpha <= 0.01:
+		return
 	draw_set_transform_matrix(view * spot * Transform2D(0.0, Vector2(girth, girth), 0.0, Vector2.ZERO))
-	draw_rect(Rect2(-9, -7, 18, 3.4), Color("1c1a18"))
-	draw_rect(Rect2(-9, 3.6, 18, 3.4), Color("1c1a18"))
-	draw_rect(Rect2(-8.5, -5.5, 17, 11), DARK)
-	draw_rect(Rect2(-7.6, -4.6, 15.2, 9.2), body)
-	draw_line(Vector2(1, 0), Vector2(14, 0), DARK, 2.4, true)
-	draw_circle(Vector2.ZERO, 4.2, DARK)
-	draw_circle(Vector2.ZERO, 3.3, body.lightened(0.12))
+	var dark := Color(DARK, alpha)
+	draw_rect(Rect2(-9, -7, 18, 3.4), Color(Color("1c1a18"), alpha))
+	draw_rect(Rect2(-9, 3.6, 18, 3.4), Color(Color("1c1a18"), alpha))
+	draw_rect(Rect2(-8.5, -5.5, 17, 11), dark)
+	draw_rect(Rect2(-7.6, -4.6, 15.2, 9.2), Color(body, alpha))
+	draw_line(Vector2(1, 0), Vector2(14, 0), dark, 2.4, true)
+	draw_circle(Vector2.ZERO, 4.2, dark)
+	draw_circle(Vector2.ZERO, 3.3, Color(body.lightened(0.12), alpha))
 	draw_set_transform_matrix(view)
 
 
