@@ -23,8 +23,6 @@ const Store := preload("../core/store.gd")
 const Images := preload("../core/images.gd")
 const Sounds := preload("sounds.gd")
 const Shelf := preload("shelf.gd")
-const Burnup := preload("../rules/burnup.gd")
-const PlanView := preload("plan_view.gd")
 const PlanMap := preload("plan_map.gd")
 const Planning := preload("../rules/planning.gd")
 const FieldView := preload("field_view.gd")
@@ -33,8 +31,8 @@ const Release := preload("../rules/release.gd")
 const DepGraphView := preload("dep_graph_view.gd")
 
 const MARGIN := 28.0
-## So breit ist der Umschalter „Feld / Planen / Ordner“ links oben.
-const MODES_WIDTH := 264.0
+## So breit ist der Umschalter „Feld / Planen“ links oben.
+const MODES_WIDTH := 176.0
 ## So hoch ist der Streifen am oberen Rand, an dem man das Fenster verschiebt.
 const HEADER_HEIGHT := 58.0
 
@@ -78,17 +76,14 @@ var _effects: Control
 var _title: Button
 var _progress: ProgressBar
 var _count: Label
-var _plan: PlanView
 ## Der Graph einer Karte.
 var _graph: DepGraphView
 var _mode_field: Button
 var _mode_plan: Button
-## „Planen“ ist der Lageplan (`lage`); der Ordner von früher (`planning`)
-## bleibt daneben, bis der Lageplan alles kann, was er konnte.
+## „Planen“ ist der Lageplan. Den Ordner mit Decks und Vorrat, den es hier
+## früher gab, hat er abgelöst (Nutzer, 2026-10-12).
 var lage := false: set = set_lage
-var planning := false: set = set_planning
 var _plan_map: PlanMap
-var _mode_binder: Button
 var _field: FieldView
 
 
@@ -160,7 +155,7 @@ func _build() -> void:
 	_title.flat = true
 	_title.focus_mode = Control.FOCUS_NONE
 	_title.pressed.connect(func() -> void:
-		var head: Variant = _shown if not planning and _shown != null else _milestone
+		var head: Variant = _shown if _shown != null else _milestone
 		if head != null and store != null and store.state == "ready":
 			task_requested.emit(head["id"]))
 	_title.add_theme_font_override("font", Palette.title_font())
@@ -254,35 +249,17 @@ func _build() -> void:
 			task_requested.emit(id))
 	add_child(_graph)
 
-	# Die Planung deckt das Feld ganz ab; nur der Umschalter bleibt darüber.
-	_plan = PlanView.new()
-	_plan.visible = false
-	_plan.store = store
-	_plan.task_requested.connect(func(id: String) -> void:
-		if store != null and store.state == "ready":
-			task_requested.emit(id))
-	add_child(_plan)
-
 	var modes := HBoxContainer.new()
 	modes.position = Vector2(MARGIN, 14)
 	modes.add_theme_constant_override("separation", 0)
 	add_child(modes)
 	_mode_field = _mode_button("Feld", "Der laufende Milestone als Schlachtfeld, darüber die Feldzugskarte des Releases")
-	_mode_field.pressed.connect(func() -> void:
-		planning = false
-		lage = false)
+	_mode_field.pressed.connect(func() -> void: lage = false)
 	modes.add_child(_mode_field)
 	_mode_plan = _mode_button("Planen", "Der Lageplan: die Stadt des Milestones, links die Reserve – Karten hineinziehen teilt sie zu")
-	_mode_plan.pressed.connect(func() -> void:
-		planning = false
-		lage = true)
+	_mode_plan.pressed.connect(func() -> void: lage = true)
 	modes.add_child(_mode_plan)
-	_mode_binder = _mode_button("Ordner", "Die Planung von früher: Decks und Vorrat als Ordner, mit Reihenfolge und Seiten")
-	_mode_binder.pressed.connect(func() -> void:
-		lage = false
-		planning = true)
-	modes.add_child(_mode_binder)
-	_round_modes([_mode_field, _mode_plan, _mode_binder])
+	_round_modes([_mode_field, _mode_plan])
 
 	# Die Ablage legt sich über alles, mit einem Schleier dahinter.
 	_dim = ColorRect.new()
@@ -313,7 +290,6 @@ func _build() -> void:
 	frame_buttons.add_child(max_button())
 	frame_buttons.add_child(close_button())
 	add_child(frame_buttons)
-	_plan.gui_input.connect(_on_face_input)
 	# Auch an Fortschritt und Beschriftung greift man das Fenster; nur Knöpfe bleiben Knöpfe.
 	for part in [bar, gap, _progress, _count, _streak, _week_bar]:
 		part.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -328,7 +304,7 @@ func _mode_button(text: String, tip: String) -> Button:
 	b.tooltip_text = tip
 	b.toggle_mode = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size.x = MODES_WIDTH / 3.0 - 8.0
+	b.custom_minimum_size.x = MODES_WIDTH / 2.0 - 8.0
 	# Eigenes Aussehen statt des Editor-Themas: dunkel und flach, der gewählte
 	# Reiter fast schwarz. Die Ecken rundet `_round_modes`, wenn alle da sind.
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
@@ -362,18 +338,7 @@ func _round_modes(buttons: Array) -> void:
 ## Wechselt auf den Lageplan und zurück.
 func set_lage(value: bool) -> void:
 	lage = value
-	if _plan == null:
-		return
-	_shelf = false
-	_graph.close()
-	_show_mode()
-	_sync()
-
-
-## Wechselt auf den Ordner und zurück.
-func set_planning(value: bool) -> void:
-	planning = value
-	if _plan == null:
+	if _plan_map == null:
 		return
 	_shelf = false
 	_graph.close()
@@ -414,13 +379,11 @@ func _on_map() -> bool:
 
 
 func _show_mode() -> void:
-	_plan.visible = planning
-	_plan_map.visible = lage and not planning
-	_field.visible = not planning and not lage and not _on_map()
-	_campaign.visible = not planning and not lage and _on_map()
-	_mode_field.set_pressed_no_signal(not planning and not lage)
-	_mode_plan.set_pressed_no_signal(lage and not planning)
-	_mode_binder.set_pressed_no_signal(planning)
+	_plan_map.visible = lage
+	_field.visible = not lage and not _on_map()
+	_campaign.visible = not lage and _on_map()
+	_mode_field.set_pressed_no_signal(not lage)
+	_mode_plan.set_pressed_no_signal(lage)
 
 
 ## Die Ablage füllt das Fenster bis auf einen Rand.
@@ -447,11 +410,6 @@ func _sync() -> void:
 		_ws = store.ws
 		_project = store.project_id
 
-	if planning:
-		_plan.store = store
-		_plan.show_plan(_ws, _project, 8 if demo else store.velocity, images if not demo else null,
-			Burnup.day_of(Time.get_unix_time_from_system(), Time.get_time_zone_from_system()["bias"]))
-
 	var active: Variant = Tisch.active_milestone(_ws, _project)
 	_release = Release.active(_ws, _project)
 	if _release != null and not _map_decided:
@@ -473,9 +431,9 @@ func _sync() -> void:
 		if decks.size() > 0:
 			_shown = decks[0]
 	_show_mode()
-	if lage and not planning:
+	if lage:
 		_plan_map.show_plan(_ws, _project, _shown, images if not demo else null)
-	elif not planning:
+	else:
 		if _on_map():
 			_campaign.show_campaign(_ws, _release)
 		else:
@@ -512,10 +470,10 @@ func _sync() -> void:
 ## Die Kopfzeile: das Release als Knopf zur Karte, daneben der Milestone,
 ## dessen Feld zu sehen ist – oder auf der Karte der Stand des Releases.
 func _show_head(demo: bool) -> void:
-	_release_chip.visible = _release != null and not planning
+	_release_chip.visible = _release != null
 	if _release != null:
 		_release_chip.text = Release.label(_release)
-	if not planning and not lage and _on_map():
+	if not lage and _on_map():
 		_title.visible = false
 		var boss: Dictionary = _campaign._campaign.get("boss", {"total": 0, "done": 0})
 		_progress.visible = true
@@ -523,7 +481,7 @@ func _show_head(demo: bool) -> void:
 		_count.text = "%d/%d" % [boss["done"], boss["total"]]
 		return
 	_title.visible = true
-	var head: Variant = _shown if not planning and _shown != null else _milestone
+	var head: Variant = _shown if _shown != null else _milestone
 	if head == null:
 		_title.text = "Kein aktiver Milestone"
 		_progress.visible = false
@@ -556,7 +514,7 @@ func _notice_changes() -> void:
 	}
 	var before := _seen
 	_seen = now
-	if before.get("milestone") != now["milestone"] or planning:
+	if before.get("milestone") != now["milestone"]:
 		return
 
 	for id in before["locked"]:

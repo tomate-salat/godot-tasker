@@ -1,6 +1,6 @@
 extends RefCounted
 ## Planen am Tisch: was in welchem Deck liegt, was im Vorrat, und welche Karte
-## ein Schloss trägt. Gezeichnet wird in `ui/plan_view.gd`.
+## ein Schloss trägt. Die Reserve des Lageplans (`ui/plan_map.gd`) baut darauf.
 ##
 ## Decks sind die eingeplanten Milestones in Plan-Reihenfolge. Der Vorrat ist
 ## alles Uneingeplante, geteilt wie in Tasker (`shared/outline.ts`): „Ready“
