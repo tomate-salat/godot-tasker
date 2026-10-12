@@ -58,6 +58,7 @@ var _chosen := ""
 var _shown: Variant
 var _campaign: CampaignView
 var _release_chip: Button
+var _bar: HBoxContainer
 
 ## Die Ablage ist offen: sie zeigt je Woche, was erledigt wurde.
 var _shelf := false
@@ -122,6 +123,7 @@ func _build() -> void:
 	add_child(_sounds)
 
 	var bar := HBoxContainer.new()
+	_bar = bar
 	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	bar.offset_left = MARGIN + MODES_WIDTH
 	bar.offset_right = -MARGIN - 92
@@ -135,7 +137,8 @@ func _build() -> void:
 	_release_chip.visible = false
 	_release_chip.tooltip_text = "Die Feldzugskarte: alle Milestones dieses Releases"
 	_release_chip.add_theme_font_size_override("font_size", 14)
-	for state in ["normal", "hover", "pressed"]:
+	_release_chip.add_theme_color_override("font_disabled_color", Palette.INK)
+	for state in ["normal", "hover", "pressed", "disabled"]:
 		var chip := StyleBoxFlat.new()
 		chip.bg_color = Color(Palette.P1, 0.26 if state == "hover" else 0.16)
 		chip.border_color = Color(Palette.P1, 0.7)
@@ -381,6 +384,8 @@ func _on_map() -> bool:
 
 func _show_mode() -> void:
 	_plan_map.visible = lage
+	# Im Lageplan beginnt die Kopfzeile erst über der Karte, nicht über der Reserve.
+	_bar.offset_left = maxf(MARGIN + MODES_WIDTH, PlanMap.RESERVE_WIDTH + 18.0) if lage else MARGIN + MODES_WIDTH
 	_field.visible = not lage and not _on_map()
 	_campaign.visible = not lage and _on_map()
 	_mode_field.set_pressed_no_signal(not lage)
@@ -464,6 +469,13 @@ func _sync() -> void:
 		_notice_changes()
 		if _shelf:
 			_shelf_panel.show_shelf(_ws, _shelf_data, goal, images if not demo else null, Time.get_time_zone_from_system()["bias"])
+	# Im Lageplan wird geplant, nicht gezählt: Fortschritt, Serie und Wochenziel
+	# bleiben dem Feld (Nutzer, 2026-10-12).
+	for part in [_count, _streak, _week]:
+		part.visible = not lage
+	if lage:
+		_progress.visible = false
+		_week_bar.visible = false
 	_dim.visible = _shelf
 	_shelf_panel.visible = _shelf
 
@@ -471,9 +483,17 @@ func _sync() -> void:
 ## Die Kopfzeile: das Release als Knopf zur Karte, daneben der Milestone,
 ## dessen Feld zu sehen ist – oder auf der Karte der Stand des Releases.
 func _show_head(demo: bool) -> void:
-	_release_chip.visible = _release != null
-	if _release != null:
-		_release_chip.text = Release.label(_release)
+	# Im Feld steht das laufende Release da und führt auf die Feldzugskarte. Im
+	# Lageplan steht das Release des Milestones, der gerade geplant wird – zur
+	# Karte führt es nur, wenn es das laufende ist.
+	var named: Variant = _release
+	if lage:
+		named = _ws.release_of(_shown) if _shown != null else null
+	_release_chip.visible = named != null
+	if named != null:
+		_release_chip.text = Release.label(named)
+		_release_chip.disabled = _release == null or named["id"] != _release["id"]
+		_release_chip.tooltip_text = "Das Release dieses Milestones" if _release_chip.disabled else "Die Feldzugskarte: alle Milestones dieses Releases"
 	if not lage and _on_map():
 		_title.visible = false
 		var boss: Dictionary = _campaign._campaign.get("boss", {"total": 0, "done": 0})

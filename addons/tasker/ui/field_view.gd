@@ -45,6 +45,10 @@ const MARGIN := 22.0
 ## Die Karten liegen kleiner auf dem Feld; unter dem Zeiger werden sie groß.
 ## So weit neben der Mitte eines Abzeichens stehen die Figuren.
 const BESIDE := 44.0
+## Gekämpft wird auf der Straße vor der Karte: so weit vor ihrem Rand steht der
+## Gegner, und so weit davor sein Angreifer.
+const STREET_BACK := 34.0
+const DUEL := 64.0
 ## Das Kreuz auf einem Weg: so groß, und so lange bleibt es stehen, nachdem der Zeiger das Abzeichen verlassen hat.
 const KNOB := 11.0
 ## So viel Platz braucht ein Abzeichen auf dem Feld: der Schild mit seinem Band.
@@ -408,6 +412,9 @@ func _routes_now() -> void:
 	if _routes_due:
 		_routes_due = false
 		_tell_city()
+		# Jetzt gibt es die Straßen wieder: die Figuren gehen von ihren Karten dorthin.
+		if not plan and not _field.is_empty():
+			_sync_bugs()
 
 
 ## Hält eine Bewegung an, die beim Neuordnen entsteht, bis `_go_on` sie loslässt.
@@ -967,8 +974,29 @@ func _card_box(_id: String) -> Vector2:
 	return BOX
 
 
-## Wo der `index`-te von `count` Gegnern an einer Karte steht: am rechten
-## Rand, untereinander. Wer ihn angreift, steht ihm am linken Rand gegenüber.
+## Ein Platz auf der Straße: auf dem Weg von `from_id` zu `to_id` (leer: zur
+## Mitte), `back` Pixel vor dessen Ende. Gibt `[Ort, Richtung, Strecke bis
+## dorthin]` zurück – oder null, wenn es den Weg (noch) nicht gibt oder er zu kurz ist.
+func _street_spot(from_id: String, to_id: String, back: float) -> Variant:
+	if not street_ways or _routes_due or not _centers.has(from_id) or (to_id != "" and not _centers.has(to_id)):
+		return null
+	var path := _route(from_id, to_id)
+	var total := 0.0
+	for i in path.size() - 1:
+		total += path[i].distance_to(path[i + 1])
+	if total < back + 24.0:
+		return null
+	var left := total - back
+	for i in path.size() - 1:
+		var piece := path[i].distance_to(path[i + 1])
+		if left <= piece and piece > 0.0:
+			return [path[i].lerp(path[i + 1], left / piece), (path[i + 1] - path[i]) / piece, total - back]
+		left -= piece
+	return null
+
+
+## Wo der `index`-te von `count` Gegnern steht, wenn es zu ihm keinen Weg
+## gibt: neben dem Schild, untereinander.
 func _pest_spot(card_id: String, index: int, count: int) -> Variant:
 	if not _centers.has(card_id):
 		return null
@@ -982,6 +1010,10 @@ func _sync_bugs() -> void:
 	# Schädlinge
 	var wanted := {}
 	var at := {}
+	var on_street := {}
+	# Wohin jeder Gegner schaut, und welche gerade erst aufgetaucht sind.
+	var face := {}
+	var born := {}
 	for card_id in _field["pests"]:
 		var list: Array = _field["pests"][card_id]
 		for i in list.size():
@@ -990,17 +1022,27 @@ func _sync_bugs() -> void:
 			if spot == null:
 				continue
 			var key := "%s|%s" % [card_id, p["blocker_id"]]
+			# Der Gegner steht auf der Straße vor der Karte – dort, wo der
+			# herankommt, der ihn stellt. Ohne Weg bleibt er neben dem Schild.
+			var street = _street_spot(str(p["blocker_id"]), card_id, STREET_BACK)
+			var facing := -PI / 2.0
+			if street != null:
+				spot = street[0]
+				facing = (-street[1]).angle() + PI / 2.0
+				on_street[key] = true
 			wanted[key] = true
 			at[key] = spot
 			var bug: Bug = _pests.get(key)
 			if bug == null:
 				bug = _new_bug(Bug.PEST, spot, 1.25)
-				# Käfer sitzen, wie sie wollen; Soldaten schauen über die Karte zum Angreifer.
-				bug.rotation = -PI / 2.0 if Bug.style == Bug.SOLDIERS else deg_to_rad(float(hash(key) % 50) - 25.0)
+				# Käfer sitzen, wie sie wollen; Soldaten schauen dem Angreifer entgegen (siehe unten).
+				bug.rotation = deg_to_rad(float(hash(key) % 50) - 25.0)
 				_pests[key] = bug
+				born[key] = true
 				_pop_in(bug)
 			elif p["damage"] > bug.hurt + 0.001:
 				_bite(key)
+			face[key] = facing
 			bug.wall = p["wall"]
 			bug.hurt = p["damage"]
 			bug.set_meta("home", spot)
@@ -1012,14 +1054,20 @@ func _sync_bugs() -> void:
 
 	# Marienkäfer
 	var keep := {}
+	var stood := {}
 	for card_id in _field["fronts"]:
 		if not _centers.has(card_id):
 			continue
 		var fronts: Array = _field["fronts"][card_id]
 		if fronts.is_empty():
-			# Innerster Ring: der Marienkäfer geht auf den großen Käfer los, von seiner Karte her.
+			# Innerster Ring: der Marienkäfer geht auf den großen Käfer los, von seiner Karte her –
+			# auf der Straße, die zur Mitte führt.
 			var toward: Vector2 = _centers[card_id].normalized()
-			_want_lady("%s|boss" % card_id, card_id, "", toward * (BOSS_RADIUS + 18.0 if Bug.style == Bug.SOLDIERS else BOSS_RADIUS - 22.0), Vector2.ZERO, keep)
+			var gate = _street_spot(card_id, "", 14.0) if Bug.style == Bug.SOLDIERS else null
+			if gate != null:
+				_want_lady("%s|boss" % card_id, card_id, "", gate[0], Vector2.ZERO, keep, gate[2])
+			else:
+				_want_lady("%s|boss" % card_id, card_id, "", toward * (BOSS_RADIUS + 18.0 if Bug.style == Bug.SOLDIERS else BOSS_RADIUS - 22.0), Vector2.ZERO, keep)
 		for f in fronts:
 			var pest_key := "%s|%s" % [f["on"], f["blocker_id"]]
 			if not at.has(pest_key):
@@ -1027,11 +1075,34 @@ func _sync_bugs() -> void:
 			var pest_at: Vector2 = at[pest_key]
 			# Von der eigenen Karte her an den Schädling heran.
 			var across := Vector2(BESIDE * 2.0, 0.0)
-			_want_lady("%s|%s" % [card_id, pest_key], card_id, f["on"], pest_at - across, pest_at, keep)
+			# Steht der Gegner auf der Straße, hält der eigene ein Stück vor ihm auf demselben Weg.
+			var stand = _street_spot(card_id, f["on"], STREET_BACK + DUEL) if on_street.has(pest_key) and f["blocker_id"] == card_id else null
+			var lady_at: Vector2 = stand[0] if stand != null else pest_at - across
+			if stand != null:
+				_want_lady("%s|%s" % [card_id, pest_key], card_id, f["on"], lady_at, pest_at, keep, stand[2])
+			else:
+				_want_lady("%s|%s" % [card_id, pest_key], card_id, f["on"], lady_at, pest_at, keep)
+			# Der Gegner schaut den an, der ihn stellt – nicht bloß die Straße
+			# hinunter, die bis zu ihm noch eine Kurve machen kann.
+			if not stood.has(pest_key):
+				stood[pest_key] = true
+				face[pest_key] = (lady_at - pest_at).angle() + PI / 2.0
 	for key in _ladies.keys():
 		if not keep.has(key):
 			_leave(_ladies[key])
 			_ladies.erase(key)
+	if Bug.style == Bug.SOLDIERS:
+		for key in face:
+			var pest: Bug = _pests[key]
+			var turning: Variant = pest.get_meta("turn") if pest.has_meta("turn") else null
+			if turning is Tween and turning.is_valid():
+				turning.kill()
+			if born.has(key):
+				pest.rotation = face[key]
+			elif absf(angle_difference(pest.rotation, face[key])) > 0.01:
+				var turn := pest.create_tween()
+				turn.tween_property(pest, "rotation", pest.rotation + angle_difference(pest.rotation, face[key]), _move_time)
+				pest.set_meta("turn", turn)
 
 	# Der große Käfer
 	var done: int = _field["boss"]["done"]
@@ -1056,7 +1127,7 @@ func _new_bug(kind: String, at: Vector2, girth: float) -> Bug:
 ## Ein Marienkäfer für diese Front: gibt es ihn schon, rückt er nur nach;
 ## sonst kommt er von seiner Karte herüber – auf dem Weg, den auch die Linie
 ## nimmt. `to_id` ist die Karte, an der er kämpft, leer für die Mitte.
-func _want_lady(key: String, card_id: String, to_id: String, spot: Vector2, target: Vector2, keep: Dictionary) -> void:
+func _want_lady(key: String, card_id: String, to_id: String, spot: Vector2, target: Vector2, keep: Dictionary, along := -1.0) -> void:
 	keep[key] = true
 	var bug: Bug = _ladies.get(key)
 	var fresh := bug == null
@@ -1065,6 +1136,7 @@ func _want_lady(key: String, card_id: String, to_id: String, spot: Vector2, targ
 		_ladies[key] = bug
 	bug.set_meta("home", spot)
 	bug.set_meta("card", card_id)
+	bug.set_meta("along", along)
 	bug.set_meta("to", to_id)
 	bug.set_meta("target", target)
 	bug.set_meta("busy", true)
@@ -1075,7 +1147,8 @@ func _want_lady(key: String, card_id: String, to_id: String, spot: Vector2, targ
 		return
 	if fresh:
 		var path := PackedVector2Array([_centers[card_id]])
-		path.append_array(_route(card_id, to_id))
+		# Steht er auf der Straße, geht er den Weg nur bis dorthin – nicht bis zur Karte und zurück.
+		path.append_array(Badge._stretch(_route(card_id, to_id), 0.0, along) if along >= 0.0 else _route(card_id, to_id))
 		path.append(spot)
 		bug.set_meta("marching", true)
 		_march(bug, path).tween_callback(func() -> void:
@@ -1154,7 +1227,8 @@ func _leave(bug: Bug) -> void:
 	# Zurück geht es denselben Weg, den er gekommen ist.
 	var path := PackedVector2Array([bug.position])
 	if _centers.has(card_id) and (to_id == "" or _centers.has(to_id)):
-		var way := _route(card_id, to_id).duplicate()
+		var along: float = bug.get_meta("along", -1.0)
+		var way := Badge._stretch(_route(card_id, to_id), 0.0, along) if along >= 0.0 else _route(card_id, to_id).duplicate()
 		way.reverse()
 		path.append_array(way)
 		path.append(_centers[card_id])
