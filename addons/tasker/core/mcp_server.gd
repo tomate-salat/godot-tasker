@@ -9,10 +9,11 @@ extends Node
 const Mcp := preload("../rules/mcp.gd")
 
 ## Eine Verbindung, die so lange nichts Ganzes schickt, wird geschlossen.
-const PATIENCE_MSEC := 10_000
+const PATIENCE_MSEC := 30_000
 const ROUTE := "/mcp"
 
 ## `handler(body: String) -> String`: beantwortet den Rumpf einer Anfrage.
+## Er darf warten (ein Werkzeug fragt etwa den Tasker-Server).
 var handler: Callable
 var secret := ""
 ## Warum er nicht läuft – leer, wenn er läuft oder gar nicht laufen soll.
@@ -99,10 +100,19 @@ func _serve(entry: Dictionary) -> bool:
 	var request := Mcp.parse_request(entry["bytes"])
 	if request["state"] == Mcp.MORE:
 		return Time.get_ticks_msec() - entry["since"] < PATIENCE_MSEC
-	peer.put_data(_reply(request))
+	# Ab hier wird nichts mehr gelesen; die Antwort kommt, wenn sie fertig ist.
 	entry["out"] = true
 	entry["since"] = Time.get_ticks_msec()
+	_answer(entry, request)
 	return true
+
+
+func _answer(entry: Dictionary, request: Dictionary) -> void:
+	var bytes: PackedByteArray = await _reply(request)
+	var peer: StreamPeerTCP = entry["peer"]
+	if _open.has(entry) and peer.get_status() == StreamPeerTCP.STATUS_CONNECTED:
+		peer.put_data(bytes)
+		entry["since"] = Time.get_ticks_msec()
 
 
 func _reply(request: Dictionary) -> PackedByteArray:
@@ -116,5 +126,5 @@ func _reply(request: Dictionary) -> PackedByteArray:
 	if request["method"] != "POST":
 		# Kein Strom vom Server aus, keine Sitzung zum Beenden.
 		return Mcp.response(405, "", {"Allow": "POST"})
-	var text: String = handler.call(request["body"])
+	var text: String = await handler.call(request["body"])
 	return Mcp.response(202) if text == "" else Mcp.response(200, text)

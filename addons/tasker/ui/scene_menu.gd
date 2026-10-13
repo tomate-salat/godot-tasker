@@ -7,6 +7,8 @@ extends EditorContextMenuPlugin
 ## Für die ausgewählten Nodes soll eine Aufgabe ausgesucht werden.
 signal attach_requested(nodes: Array)
 signal task_requested(task_id: String)
+## Die ausgewählten Nodes sollen für Claude vorgemerkt werden (`core/scene_tools.gd`).
+signal mark_requested(nodes: Array)
 
 const Store := preload("../core/store.gd")
 const Links := preload("../core/links.gd")
@@ -16,6 +18,7 @@ const ATTACH := 0
 const OPEN := 1
 const BROWSER := 2
 const UNLINK := 3
+const MARK := 4
 
 var store: Store
 var links: Links
@@ -27,9 +30,13 @@ func _popup_menu(_paths: PackedStringArray) -> void:
 	# Der Editor räumt das Menü mit seinem Kontextmenü wieder weg.
 	var menu := PopupMenu.new()
 	menu.add_item("Aufgabe anhängen …", ATTACH)
+	menu.add_item("Für Claude vormerken", MARK)
+	menu.set_item_tooltip(menu.item_count - 1, "Hält fest, was hier gerade steht. Claude Code holt es sich über den MCP-Server des Addons –\nauch wenn inzwischen eine andere Szene offen ist.")
 	menu.id_pressed.connect(func(id: int) -> void:
 		if id == ATTACH:
-			attach_requested.emit(links.selection()))
+			attach_requested.emit(links.selection())
+		elif id == MARK:
+			mark_requested.emit(links.selection()))
 
 	var listed := {}
 	for node in links.selection():

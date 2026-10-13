@@ -89,6 +89,47 @@ func link(task_id: String, nodes: Array) -> String:
 	return ""
 
 
+## Wohin in einer Szene, die gerade nicht offen ist, diese Pfade zeigen –
+## nach ihrer Datei: `{ problem, paths }`. Steht ein Node nicht in der Datei,
+## weil er im Inneren einer instanzierten Szene liegt, tritt der nächste
+## Vorfahr an seine Stelle, den die Datei nennt (meist die Instanz selbst).
+func file_paths(scene_path: String, node_paths: Array) -> Dictionary:
+	if scene_path.get_extension() != "tscn" or not FileAccess.file_exists(scene_path):
+		return {"problem": "Die Szene %s gibt es nicht (verknüpfen lässt sich nur in .tscn-Dateien)." % scene_path, "paths": []}
+	var nodes := _file_nodes(scene_path)
+	var found := []
+	for wanted in node_paths:
+		var path := str(wanted)
+		while not nodes.has(path) and path.contains("/"):
+			path = path.get_base_dir()
+		if not nodes.has(path):
+			return {"problem": "Den Node „%s“ nennt die Datei %s nicht – auch keinen seiner Vorfahren. Ist er noch nicht gespeichert?" % [wanted, scene_path], "paths": []}
+		if not found.has(path):
+			found.append(path)
+	return {"problem": "", "paths": found}
+
+
+## Hängt die Aufgabe an Nodes einer Szene, die gerade nicht offen ist – nach
+## dem, was in ihrer Datei steht. So muss niemand in einer Szene bleiben, bis
+## eine Aufgabe angelegt ist (Nutzer, 2026-10-13). `node_paths` kommen aus
+## `file_paths`. Gibt zurück, warum es nicht ging – leer, wenn es ging.
+func link_file(task_id: String, scene_path: String, node_paths: Array) -> String:
+	var nodes := _file_nodes(scene_path)
+	if node_paths.is_empty():
+		return "Ohne Node-Pfade hängt nichts."
+	for path in node_paths:
+		if not nodes.has(path):
+			return "Den Node „%s“ nennt die Datei %s nicht." % [path, scene_path]
+	if home != "" and (all().is_empty() or memory.read(Refs.HOME_KEY, "") == ""):
+		memory.write(Refs.HOME_KEY, home)
+	var uid := _uid(scene_path)
+	var refs := all()
+	for path in node_paths:
+		refs = Refs.add(refs, Refs.make(task_id, uid, scene_path, path, nodes[path]["type"], int(nodes[path]["id"])))
+	memory.write(Refs.KEY, refs)
+	return ""
+
+
 func unlink(ref: Dictionary) -> void:
 	memory.write(Refs.KEY, Refs.remove(all(), ref))
 

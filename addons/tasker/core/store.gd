@@ -171,6 +171,24 @@ func web_url(task: Dictionary) -> String:
 ## Kleine Änderungen tragen das Objekt bei sich und werden eingesetzt. Was
 ## viele Zeilen auf einmal betrifft – Verschieben, Archivieren, Löschen –,
 ## meldet Tasker nur als „neu laden“; dann wird der ganze Stand geholt.
+## Legt eine Aufgabe an: `{ ok, error, object }`. Sie landet lose im Backlog
+## („Unsortiert“) – Ort, Status und Tags setzt der Server, mehr als
+## `projectId`, `title`, `desc`, `markId`, `categoryId`, `prio` nimmt er
+## nicht an. Gerufen wird das nur vom MCP-Werkzeug (`core/scene_tools.gd`);
+## die Oberfläche des Addons legt weiterhin nichts an.
+func intake(fields: Dictionary) -> Dictionary:
+	var res := await client.post("/api/intake/task", fields)
+	if not res["ok"] or not res["data"] is Dictionary:
+		var error: String = res["error"]
+		if res["status"] == 404 or res["status"] == 401:
+			error = "Dieser Tasker-Server lässt das Anlegen per Token (noch) nicht zu (%d)." % res["status"]
+		return {"ok": false, "error": error if error != "" else "Der Server hat nichts angelegt.", "object": null}
+	# Der eigene Hall wird überhört – darum hier einsetzen.
+	if state == "ready":
+		_upsert("task", res["data"])
+	return {"ok": true, "error": "", "object": res["data"]}
+
+
 func apply_event(envelope: Dictionary) -> void:
 	# Der eigene Hall: was dieses Addon selbst geändert hat, ist schon eingesetzt.
 	if envelope.get("origin") == client.client_id:

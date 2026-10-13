@@ -12,6 +12,18 @@ const NAME := "tasker-godot"
 const LATEST := "2025-06-18"
 const VERSIONS := ["2025-06-18", "2025-03-26", "2024-11-05"]
 
+## Was das Gegenüber über diesen Server wissen soll, ehe es ein Werkzeug
+## anfasst. Der Ablauf steht ausdrücklich da, weil er sich nicht von selbst
+## ergibt: der Nutzer arbeitet im Editor weiter, während hier gelesen und
+## geschrieben wird – wer mehrmals nacheinander hineinschaut, sieht jedes Mal
+## etwas anderes (Nutzer, 2026-10-13).
+const INSTRUCTIONS := "Der Godot-Editor des Nutzers mit dem Tasker-Addon: sehen, was dort offen und ausgewählt ist, Tasker-Aufgaben anlegen und an Nodes hängen." \
+	+ "\n\nFällt dem Nutzer in seinem Godot-Projekt etwas auf und er will dafür einen Task, ein Ticket oder einen Bug:" \
+	+ "\n1. Sofort und als Erstes context aufrufen – ein Aufruf, der alles liefert, was der Editor gerade weiß. Der Nutzer wechselt die Szene oft Sekunden später; danach nicht noch einmal im Editor nachsehen, sondern mit diesem Schnappschuss und den Dateien des Projekts arbeiten." \
+	+ "\n2. Gibt es den Agenten tasker-scout, ihm den Satz des Nutzers und den Schnappschuss wörtlich übergeben und ihn im Hintergrund arbeiten lassen. Sonst selbst weitermachen: mit find_tasks nach Vorhandenem sehen, im Projekt nachlesen, mit create_task anlegen (`scene` und `paths` aus dem Schnappschuss)." \
+	+ "\n3. Die Aufgabe wird in jedem Fall angelegt. Ist etwas unklar, die naheliegendste Annahme treffen, sie in die Aufgabe schreiben und dem Nutzer sagen – nicht stattdessen zurückfragen." \
+	+ "\nAufgaben zu Dingen im Godot-Projekt laufen über diesen Server, nicht über einen anderen Tasker-Zugang: nur hier hängen sie danach an ihren Nodes."
+
 const MORE := "more"
 const BAD := "bad"
 const DONE := "done"
@@ -113,11 +125,11 @@ static func answer(body: String, tools: Array, run: Callable, version := "") -> 
 	if data is Array:
 		var out := []
 		for message in data:
-			var reply: Variant = handle(message, tools, run, version)
+			var reply: Variant = await handle(message, tools, run, version)
 			if reply != null:
 				out.append(reply)
 		return "" if out.is_empty() else JSON.stringify(out)
-	var single: Variant = handle(data, tools, run, version)
+	var single: Variant = await handle(data, tools, run, version)
 	return "" if single == null else JSON.stringify(single)
 
 
@@ -147,7 +159,7 @@ static func handle(message: Variant, tools: Array, run: Callable, version := "")
 				"protocolVersion": asked if asked in VERSIONS else LATEST,
 				"capabilities": {"tools": {}},
 				"serverInfo": {"name": NAME, "version": version},
-				"instructions": "Der Godot-Editor mit dem Tasker-Addon: die offene Szene lesen und Tasker-Aufgaben an ihre Nodes hängen. Aufgaben anlegen kann dieser Server nicht – das geht über den Tasker-Server.",
+				"instructions": INSTRUCTIONS,
 			})
 		"ping":
 			return _result(id, {})
@@ -158,7 +170,8 @@ static func handle(message: Variant, tools: Array, run: Callable, version := "")
 			if not tools.any(func(t: Dictionary) -> bool: return t["name"] == name):
 				return _error(id, INVALID_PARAMS, "Unbekanntes Werkzeug: %s" % name)
 			var arguments: Variant = params.get("arguments", {})
-			var done: Dictionary = run.call(name, arguments if arguments is Dictionary else {})
+			# Ein Werkzeug darf warten – etwa auf den Tasker-Server.
+			var done: Dictionary = await run.call(name, arguments if arguments is Dictionary else {})
 			return _result(id, {"content": [{"type": "text", "text": str(done.get("text", ""))}], "isError": bool(done.get("failed", false))})
 	return _error(id, METHOD_NOT_FOUND, "Unbekannte Methode: %s" % message["method"])
 

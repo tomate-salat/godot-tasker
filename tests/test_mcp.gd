@@ -11,7 +11,7 @@ func _run(name: String, arguments: Dictionary) -> Dictionary:
 
 
 func _ask(message: Variant) -> Variant:
-	var text := Mcp.answer(JSON.stringify(message), TOOLS, _run, "1.2.3")
+	var text := await Mcp.answer(JSON.stringify(message), TOOLS, _run, "1.2.3")
 	return null if text == "" else JSON.parse_string(text)
 
 
@@ -50,32 +50,32 @@ func test_ohne_kennwort_oder_von_fremder_seite_geht_nichts() -> void:
 
 
 func test_initialize_nennt_werkzeuge_als_faehigkeit_und_behaelt_die_id() -> void:
-	var got: Dictionary = _ask({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}})
+	var got: Dictionary = await _ask({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}})
 	eq(got["result"]["protocolVersion"], "2025-03-26")
 	ok(got["result"]["capabilities"].has("tools"))
 	eq(got["result"]["serverInfo"]["version"], "1.2.3")
 	# Aus der 1 der Anfrage ist keine 1.0 geworden.
-	ok(Mcp.answer("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", TOOLS, _run).contains("\"id\":1,"))
-	eq(_ask({"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {"protocolVersion": "1999-01-01"}})["result"]["protocolVersion"], Mcp.LATEST)
+	ok((await Mcp.answer("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", TOOLS, _run)).contains("\"id\":1,"))
+	eq((await _ask({"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {"protocolVersion": "1999-01-01"}}))["result"]["protocolVersion"], Mcp.LATEST)
 
 
 func test_mitteilungen_bekommen_keine_antwort() -> void:
-	eq(_ask({"jsonrpc": "2.0", "method": "notifications/initialized"}), null)
-	eq(_ask({"jsonrpc": "2.0", "id": 3, "result": {}}), null)
+	eq(await _ask({"jsonrpc": "2.0", "method": "notifications/initialized"}), null)
+	eq(await _ask({"jsonrpc": "2.0", "id": 3, "result": {}}), null)
 
 
 func test_werkzeuge_auflisten_und_aufrufen() -> void:
-	eq(_ask({"jsonrpc": "2.0", "id": "a", "method": "tools/list"})["result"]["tools"][0]["name"], "echo")
-	var got: Dictionary = _ask({"jsonrpc": "2.0", "id": "b", "method": "tools/call", "params": {"name": "echo", "arguments": {"say": "hallo"}}})
+	eq((await _ask({"jsonrpc": "2.0", "id": "a", "method": "tools/list"}))["result"]["tools"][0]["name"], "echo")
+	var got: Dictionary = await _ask({"jsonrpc": "2.0", "id": "b", "method": "tools/call", "params": {"name": "echo", "arguments": {"say": "hallo"}}})
 	eq(got["result"]["content"][0]["text"], "echo:hallo")
 	eq(got["result"]["isError"], false)
-	eq(_ask({"jsonrpc": "2.0", "id": "c", "method": "tools/call", "params": {"name": "echo", "arguments": {"bad": 1}}})["result"]["isError"], true)
+	eq((await _ask({"jsonrpc": "2.0", "id": "c", "method": "tools/call", "params": {"name": "echo", "arguments": {"bad": 1}}}))["result"]["isError"], true)
 
 
 func test_unbekanntes_und_kaputtes_gibt_einen_fehler() -> void:
-	eq(_ask({"jsonrpc": "2.0", "id": 5, "method": "gibt/es/nicht"})["error"]["code"], float(Mcp.METHOD_NOT_FOUND))
-	eq(_ask({"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "fremd"}})["error"]["code"], float(Mcp.INVALID_PARAMS))
-	eq(JSON.parse_string(Mcp.answer("{kaputt", TOOLS, _run))["error"]["code"], float(Mcp.PARSE_ERROR))
+	eq((await _ask({"jsonrpc": "2.0", "id": 5, "method": "gibt/es/nicht"}))["error"]["code"], float(Mcp.METHOD_NOT_FOUND))
+	eq((await _ask({"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "fremd"}}))["error"]["code"], float(Mcp.INVALID_PARAMS))
+	eq(JSON.parse_string(await Mcp.answer("{kaputt", TOOLS, _run))["error"]["code"], float(Mcp.PARSE_ERROR))
 
 
 func test_die_antwort_traegt_laenge_und_schliesst() -> void:

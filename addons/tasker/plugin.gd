@@ -24,6 +24,7 @@ const OrphansWindow := preload("ui/orphans_window.gd")
 const Mcp := preload("rules/mcp.gd")
 const McpServer := preload("core/mcp_server.gd")
 const SceneTools := preload("core/scene_tools.gd")
+const GameLink := preload("core/game_link.gd")
 
 const MENU_SETUP := "Tasker einrichten …"
 const MENU_TABLE := "Tasker-Tisch"
@@ -32,6 +33,15 @@ const SCREEN_TABLE := "Tisch"
 const MENU_ORPHANS := "Tasker: Verknüpfungen prüfen …"
 const MENU_MCP := "Tasker: MCP für Claude Code einrichten …"
 const MCP_NAME := "godot-tasker"
+## Der Agent für Claude Code, den das Addon mitbringt (`claude/tasker-scout.md`):
+## beim Einrichten landet er im Ordner des Nutzers, damit er in allen Projekten
+## gilt – und auf einem neuen Rechner mit dem Addon wieder da ist.
+const AGENT_FILE := "tasker-scout.md"
+## Das Skript, das im Spiel mitläuft und dem Editor sagt, was dort geladen ist
+## (`runtime/probe.gd`). Es kommt als Autoload ins Projekt – einen anderen Weg,
+## Code des Addons im Spielprozess zu haben, kennt Godot nicht (Nutzer, 2026-10-13).
+const PROBE_NAME := "TaskerProbe"
+const PROBE_FILE := "runtime/probe.gd"
 const VERSION := "0.1.0"
 ## Der Eintrag „Erledigtes einblenden“ im Filter-Menü.
 const FILTER_DONE := 100
@@ -75,6 +85,7 @@ var _task_windows := {}
 ## Der MCP-Server: darüber liest Claude Code die offene Szene und hängt Aufgaben an Nodes.
 var _mcp: McpServer
 var _scene_tools: SceneTools
+var _game: GameLink
 var _mcp_state := ""
 
 
@@ -122,6 +133,8 @@ func _enter_tree() -> void:
 	_scene_menu.links = links
 	_scene_menu.attach_requested.connect(_open_attach)
 	_scene_menu.task_requested.connect(_open_task)
+	_scene_menu.mark_requested.connect(func(nodes: Array) -> void:
+		EditorInterface.get_editor_toaster().push_toast("Tasker: " + _scene_tools.mark(nodes)))
 	add_context_menu_plugin(EditorContextMenuPlugin.CONTEXT_SLOT_SCENE_TREE, _scene_menu)
 
 	# Die Karten im 2D- und 3D-Editor: immer zeichnen und immer mithören, nicht
@@ -166,11 +179,16 @@ func _enter_tree() -> void:
 	_scene_tools = SceneTools.new()
 	_scene_tools.links = links
 	_scene_tools.store = store
+	_game = GameLink.new()
+	add_debugger_plugin(_game)
+	_scene_tools.game = _game
 	_mcp = McpServer.new()
-	_mcp.handler = func(body: String) -> String: return Mcp.answer(body, SceneTools.TOOLS, _scene_tools.run, VERSION)
+	_mcp.handler = func(body: String) -> String: return await Mcp.answer(body, SceneTools.TOOLS, _scene_tools.run, VERSION)
 	add_child(_mcp)
 	EditorInterface.get_editor_settings().settings_changed.connect(_apply_mcp)
 	_apply_mcp()
+	if Config.mcp_enabled():
+		_install_agent(true)
 	_register_commands()
 
 	_connect_to_server()
@@ -186,6 +204,9 @@ func _exit_tree() -> void:
 	if _mcp != null:
 		_mcp.stop()
 		_mcp.queue_free()
+	if _game != null:
+		remove_debugger_plugin(_game)
+		_game = null
 	var palette := EditorInterface.get_command_palette()
 	for key in COMMANDS:
 		palette.remove_command(key)
@@ -492,9 +513,54 @@ func _apply_mcp() -> void:
 	if not Config.mcp_enabled():
 		_mcp.stop()
 		return
+	_add_probe()
 	_mcp.secret = Config.mcp_token()
 	if not _mcp.start(Config.mcp_port()):
 		_toast("MCP-Server: " + _mcp.problem)
+
+
+## Trägt das Skript fürs laufende Spiel als Autoload ein – nur, wenn der
+## MCP-Server gebraucht wird, und nur einmal: steht der Eintrag schon in
+## `project.godot`, wird die Datei nicht angefasst.
+func _add_probe() -> void:
+	if not ProjectSettings.has_setting("autoload/" + PROBE_NAME):
+		add_autoload_singleton(PROBE_NAME, (get_script() as Script).resource_path.get_base_dir().path_join(PROBE_FILE))
+
+
+## Wird das Addon abgeschaltet, verschwindet auch der Eintrag wieder.
+func _disable_plugin() -> void:
+	if ProjectSettings.has_setting("autoload/" + PROBE_NAME):
+		remove_autoload_singleton(PROBE_NAME)
+
+
+## Wo Claude Code die Agenten des Nutzers sucht.
+static func _agents_dir() -> String:
+	var home := OS.get_environment("USERPROFILE") if OS.has_feature("windows") else OS.get_environment("HOME")
+	return home.path_join(".claude/agents") if home != "" else ""
+
+
+## Legt den mitgebrachten Agenten in den Ordner des Nutzers. Mit
+## `only_update` nur, wenn er dort schon liegt und veraltet ist – so zieht
+## ein neuer Stand des Addons nach, ohne dass jemand daran denken muss.
+## Gibt zurück, warum es nicht ging – leer, wenn es ging oder nichts zu tun war.
+func _install_agent(only_update := false) -> String:
+	var source: String = (get_script() as Script).resource_path.get_base_dir().path_join("claude").path_join(AGENT_FILE)
+	var text := FileAccess.get_file_as_string(source)
+	var dir := _agents_dir()
+	if text == "" or dir == "":
+		return "Der Agent ließ sich nicht finden."
+	var target := dir.path_join(AGENT_FILE)
+	if FileAccess.file_exists(target):
+		if FileAccess.get_file_as_string(target) == text:
+			return ""
+	elif only_update:
+		return ""
+	DirAccess.make_dir_recursive_absolute(dir)
+	var file := FileAccess.open(target, FileAccess.WRITE)
+	if file == null:
+		return "Der Agent ließ sich nicht nach %s schreiben." % target
+	file.store_string(text)
+	return ""
 
 
 ## Schaltet den MCP-Server ein und legt den Befehl in die Zwischenablage, der
@@ -503,13 +569,14 @@ func _apply_mcp() -> void:
 func _setup_mcp() -> void:
 	EditorInterface.get_editor_settings().set_setting(Config.MCP_ENABLED, true)
 	_apply_mcp()
+	var agent := _install_agent()
 	var dialog := AcceptDialog.new()
 	dialog.title = "Tasker: MCP für Claude Code"
 	if not _mcp.is_running():
 		dialog.dialog_text = "Der MCP-Server läuft nicht: %s\nDen Port ändern: Editor-Einstellungen → tasker/mcp_port." % _mcp.problem
 	else:
 		DisplayServer.clipboard_set("claude mcp add --transport http --scope user %s http://127.0.0.1:%d%s --header \"Authorization: Bearer %s\"" % [MCP_NAME, _mcp.port(), McpServer.ROUTE, Config.mcp_token()])
-		dialog.dialog_text = "Der MCP-Server läuft auf 127.0.0.1:%d.\n\nDer Befehl, der ihn in Claude Code einträgt, liegt in der Zwischenablage –\neinmal in einem Terminal einfügen und ausführen. Er enthält das Kennwort.\n\nClaude Code kann danach die offene Szene lesen und Tasker-Aufgaben an Nodes hängen,\nsolange dieser Editor läuft. Abschalten: Editor-Einstellungen → tasker/mcp_enabled." % _mcp.port()
+		dialog.dialog_text = "Der MCP-Server läuft auf 127.0.0.1:%d.\n\nDer Befehl, der ihn in Claude Code einträgt, liegt in der Zwischenablage –\neinmal in einem Terminal einfügen und ausführen. Er enthält das Kennwort.\n\nClaude Code kann danach die offene Szene lesen und Tasker-Aufgaben an Nodes hängen,\nsolange dieser Editor läuft. Abschalten: Editor-Einstellungen → tasker/mcp_enabled.\n\n%s" % [_mcp.port(), "Der Agent „tasker-scout“ liegt jetzt in %s – er bereitet Aufgaben vor und gilt in allen Projekten." % _agents_dir() if agent == "" else agent]
 	dialog.confirmed.connect(dialog.queue_free)
 	dialog.canceled.connect(dialog.queue_free)
 	EditorInterface.get_base_control().add_child(dialog)
