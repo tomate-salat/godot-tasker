@@ -21,12 +21,18 @@ const SceneMenu := preload("ui/scene_menu.gd")
 const SceneCards := preload("ui/scene_cards.gd")
 const SceneView := preload("rules/scene_view.gd")
 const OrphansWindow := preload("ui/orphans_window.gd")
+const Mcp := preload("rules/mcp.gd")
+const McpServer := preload("core/mcp_server.gd")
+const SceneTools := preload("core/scene_tools.gd")
 
 const MENU_SETUP := "Tasker einrichten …"
 const MENU_TABLE := "Tasker-Tisch"
 ## Der Knopf oben in der Leiste neben „Asset Store" (Nutzer, 2026-10-12).
 const SCREEN_TABLE := "Tisch"
 const MENU_ORPHANS := "Tasker: Verknüpfungen prüfen …"
+const MENU_MCP := "Tasker: MCP für Claude Code einrichten …"
+const MCP_NAME := "godot-tasker"
+const VERSION := "0.1.0"
 ## Der Eintrag „Erledigtes einblenden“ im Filter-Menü.
 const FILTER_DONE := 100
 
@@ -66,6 +72,10 @@ var _orphans: OrphansWindow
 var _last_reload := 0
 ## Die offenen Aufgabenfenster, je Aufgabe höchstens eines: ID → Fenster.
 var _task_windows := {}
+## Der MCP-Server: darüber liest Claude Code die offene Szene und hängt Aufgaben an Nodes.
+var _mcp: McpServer
+var _scene_tools: SceneTools
+var _mcp_state := ""
 
 
 func _enter_tree() -> void:
@@ -151,6 +161,16 @@ func _enter_tree() -> void:
 	add_tool_menu_item(MENU_TABLE, _open_table)
 	main_screen_changed.connect(_on_main_screen_changed)
 	add_tool_menu_item(MENU_ORPHANS, _open_orphans)
+	add_tool_menu_item(MENU_MCP, _setup_mcp)
+
+	_scene_tools = SceneTools.new()
+	_scene_tools.links = links
+	_scene_tools.store = store
+	_mcp = McpServer.new()
+	_mcp.handler = func(body: String) -> String: return Mcp.answer(body, SceneTools.TOOLS, _scene_tools.run, VERSION)
+	add_child(_mcp)
+	EditorInterface.get_editor_settings().settings_changed.connect(_apply_mcp)
+	_apply_mcp()
 	_register_commands()
 
 	_connect_to_server()
@@ -160,6 +180,12 @@ func _exit_tree() -> void:
 	remove_tool_menu_item(MENU_SETUP)
 	remove_tool_menu_item(MENU_TABLE)
 	remove_tool_menu_item(MENU_ORPHANS)
+	remove_tool_menu_item(MENU_MCP)
+	if EditorInterface.get_editor_settings().settings_changed.is_connected(_apply_mcp):
+		EditorInterface.get_editor_settings().settings_changed.disconnect(_apply_mcp)
+	if _mcp != null:
+		_mcp.stop()
+		_mcp.queue_free()
 	var palette := EditorInterface.get_command_palette()
 	for key in COMMANDS:
 		palette.remove_command(key)
@@ -455,6 +481,41 @@ func _show_filters() -> void:
 
 
 ## Zeigt die Verknüpfungen, die ins Leere zeigen, zum Aufräumen.
+## Startet, stoppt oder verlegt den MCP-Server, wie es in den Einstellungen steht.
+func _apply_mcp() -> void:
+	if _mcp == null:
+		return
+	var wanted := "%s|%d|%s" % [Config.mcp_enabled(), Config.mcp_port(), Config.mcp_token() if Config.mcp_enabled() else ""]
+	if wanted == _mcp_state:
+		return
+	_mcp_state = wanted
+	if not Config.mcp_enabled():
+		_mcp.stop()
+		return
+	_mcp.secret = Config.mcp_token()
+	if not _mcp.start(Config.mcp_port()):
+		_toast("MCP-Server: " + _mcp.problem)
+
+
+## Schaltet den MCP-Server ein und legt den Befehl in die Zwischenablage, der
+## ihn in Claude Code einträgt. Das Kennwort steht nur dort und in den
+## Editor-Einstellungen – nicht im Projekt.
+func _setup_mcp() -> void:
+	EditorInterface.get_editor_settings().set_setting(Config.MCP_ENABLED, true)
+	_apply_mcp()
+	var dialog := AcceptDialog.new()
+	dialog.title = "Tasker: MCP für Claude Code"
+	if not _mcp.is_running():
+		dialog.dialog_text = "Der MCP-Server läuft nicht: %s\nDen Port ändern: Editor-Einstellungen → tasker/mcp_port." % _mcp.problem
+	else:
+		DisplayServer.clipboard_set("claude mcp add --transport http --scope user %s http://127.0.0.1:%d%s --header \"Authorization: Bearer %s\"" % [MCP_NAME, _mcp.port(), McpServer.ROUTE, Config.mcp_token()])
+		dialog.dialog_text = "Der MCP-Server läuft auf 127.0.0.1:%d.\n\nDer Befehl, der ihn in Claude Code einträgt, liegt in der Zwischenablage –\neinmal in einem Terminal einfügen und ausführen. Er enthält das Kennwort.\n\nClaude Code kann danach die offene Szene lesen und Tasker-Aufgaben an Nodes hängen,\nsolange dieser Editor läuft. Abschalten: Editor-Einstellungen → tasker/mcp_enabled." % _mcp.port()
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	EditorInterface.get_base_control().add_child(dialog)
+	dialog.popup_centered()
+
+
 func _open_orphans() -> void:
 	if is_instance_valid(_orphans):
 		if _orphans.mode == Window.MODE_MINIMIZED:

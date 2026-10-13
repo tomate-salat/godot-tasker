@@ -14,6 +14,13 @@ const SOUND := "tasker/sound"
 ## Womit auf dem Feld gekämpft wird: "soldiers" oder "bugs".
 const FIELD_STYLE := "tasker/field_style"
 
+## Der MCP-Server des Addons (`core/mcp_server.gd`): ob er läuft, auf
+## welchem Port, und das Kennwort, das jede Anfrage tragen muss.
+const MCP_ENABLED := "tasker/mcp_enabled"
+const MCP_PORT := "tasker/mcp_port"
+const MCP_TOKEN := "tasker/mcp_token"
+const DEFAULT_MCP_PORT := 9309
+
 const METADATA := "tasker"
 const PROJECT_ID := "project_id"
 
@@ -30,6 +37,9 @@ static func register() -> void:
 	_editor_setting(HAND_SIZE, DEFAULT_HAND_SIZE, TYPE_INT, PROPERTY_HINT_RANGE, "1,20,1")
 	_editor_setting(SOUND, true, TYPE_BOOL)
 	_editor_setting(FIELD_STYLE, "soldiers", TYPE_STRING, PROPERTY_HINT_ENUM, "soldiers,bugs")
+	_editor_setting(MCP_ENABLED, false, TYPE_BOOL)
+	_editor_setting(MCP_PORT, DEFAULT_MCP_PORT, TYPE_INT, PROPERTY_HINT_RANGE, "1024,65535,1")
+	_editor_setting(MCP_TOKEN, "", TYPE_STRING, PROPERTY_HINT_PASSWORD)
 	_move_out_of_project_settings()
 
 
@@ -96,3 +106,20 @@ static func _move_out_of_project_settings() -> void:
 
 static func field_style() -> String:
 	return str(_editor().get_setting(FIELD_STYLE)) if _editor().has_setting(FIELD_STYLE) else "soldiers"
+
+
+static func mcp_enabled() -> bool:
+	return bool(_editor().get_setting(MCP_ENABLED)) if _editor().has_setting(MCP_ENABLED) else false
+
+
+static func mcp_port() -> int:
+	return int(_editor().get_setting(MCP_PORT)) if _editor().has_setting(MCP_PORT) else DEFAULT_MCP_PORT
+
+
+## Das Kennwort des MCP-Servers. Gibt es noch keines, wird eines gewürfelt.
+static func mcp_token() -> String:
+	var known := str(_editor().get_setting(MCP_TOKEN)) if _editor().has_setting(MCP_TOKEN) else ""
+	if known.strip_edges() == "":
+		known = Crypto.new().generate_random_bytes(24).hex_encode()
+		_editor().set_setting(MCP_TOKEN, known)
+	return known
