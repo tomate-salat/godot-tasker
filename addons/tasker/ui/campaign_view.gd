@@ -49,6 +49,10 @@ const RED := [Color("5a3a33"), Color("66413a"), Color("714a41")]
 const GROUND := Color("1a2a26")
 ## Panzer rollen so schnell (Pixel je Sekunde), Flieger so viel schneller.
 const TANK_SPEED := 34.0
+## Ordnet sich die Karte neu – etwa weil eine Abhängigkeit zwischen Milestones
+## dazukam –, gleiten die Städte in dieser Zeit an ihren neuen Platz, wie die
+## Abzeichen im Feld (Nutzer, 2026-10-13).
+const SHIFT_SECONDS := 0.6
 const PLANE_SPEED := 70.0
 ## Das Gefecht auf einer Landstraße: so weit vor der Stadt steht der Gegner,
 ## so weit davor hält die Spitze der eigenen Kolonne, so dicht folgen die anderen.
@@ -73,6 +77,12 @@ var _campaign := {}
 var _release: Variant
 var _status := ""
 var _centers := {}
+## Beim Neuordnen: woher und wohin, und wie weit die Bewegung ist (1 = angekommen).
+## `_centers`, `_grow` und `_bounds` tragen unterwegs den Zwischenstand.
+var _shift := 1.0
+var _from := {}
+var _to := {}
+var _shown_release := ""
 var _nodes := {}
 var _rings := 0
 var _grow := 1.0
@@ -112,6 +122,10 @@ func show_campaign(ws: Workspace, release: Variant) -> void:
 		_campaign = {}
 		queue_redraw()
 		return
+	# Was gerade zu sehen ist – auch mitten in einer Bewegung –, ist der Anfang der nächsten.
+	var same: bool = _shown_release == str(release["id"]) and not _centers.is_empty()
+	var before := {"centers": _centers.duplicate(), "grow": _grow, "bounds": _bounds, "rings": _rings}
+	_shown_release = str(release["id"])
 	_campaign = Campaign.build(ws, release)
 	_status = Release.LABEL[Release.status(ws, release)]
 	_nodes = {}
@@ -119,6 +133,12 @@ func show_campaign(ws: Workspace, release: Variant) -> void:
 		_nodes[n["id"]] = n
 	_layout()
 	_scatter(hash(str(release["id"])))
+	_shift = 1.0
+	if same and _moved(before["centers"], _centers):
+		_from = before
+		_to = {"centers": _centers, "grow": _grow, "bounds": _bounds, "rings": _rings}
+		_shift = 0.0
+		_step_shift(0.0)
 	if not _nodes.has(_hovered):
 		_hovered = ""
 	queue_redraw()
@@ -328,7 +348,47 @@ func _process(delta: float) -> void:
 	if not is_visible_in_tree() or _campaign.is_empty():
 		return
 	_time += delta
+	if _shift < 1.0:
+		_step_shift(delta)
 	queue_redraw()
+
+
+static func _moved(before: Dictionary, after: Dictionary) -> bool:
+	if before.size() != after.size():
+		return true
+	for id in after:
+		if not before.has(id) or not before[id].is_equal_approx(after[id]):
+			return true
+	return false
+
+
+## Rückt die Bewegung ein Stück weiter und stellt den Zwischenstand ein. Die
+## Städte wandern auf ihren Ringen entlang, nicht quer durch die Mitte.
+func _step_shift(delta: float) -> void:
+	_shift = minf(1.0, _shift + delta / SHIFT_SECONDS)
+	if _shift >= 1.0:
+		_centers = _to["centers"]
+		_grow = _to["grow"]
+		_bounds = _to["bounds"]
+		_rings = _to["rings"]
+		return
+	var e := 0.5 - 0.5 * cos(PI * _shift)
+	var now := {}
+	for id in _to["centers"]:
+		var goal: Vector2 = _to["centers"][id]
+		# Eine neue Stadt hat keinen alten Platz: sie steht gleich am neuen.
+		var start: Vector2 = _from["centers"].get(id, goal)
+		var a := Vector2(start.x / RING.x, start.y / RING.y)
+		var b := Vector2(goal.x / RING.x, goal.y / RING.y)
+		var angle := lerp_angle(a.angle(), b.angle(), e)
+		var far := lerpf(a.length(), b.length(), e)
+		now[id] = Vector2(cos(angle) * far * RING.x, sin(angle) * far * RING.y)
+	_centers = now
+	_grow = lerpf(_from["grow"], _to["grow"], e)
+	var box_a: Rect2 = _from["bounds"]
+	var box_b: Rect2 = _to["bounds"]
+	_bounds = Rect2(box_a.position.lerp(box_b.position, e), box_a.size.lerp(box_b.size, e))
+	_rings = maxi(_from["rings"], _to["rings"])
 
 
 # -------------------------------------------------------------- Zeichnen
@@ -387,11 +447,13 @@ func _draw() -> void:
 	for id in _centers:
 		_draw_city(view, _nodes[id])
 
-	# Auf jeder Angriffsstraße ein Gefecht, darüber kreist ein Flieger.
-	for path in units:
-		_draw_battle(view, path)
-	for k in units.size():
-		_draw_sortie(view, units[k], goals[k])
+	# Auf jeder Angriffsstraße ein Gefecht, darüber kreist ein Flieger. Solange
+	# sich die Karte neu ordnet, ruht beides: die Straßen sind in Bewegung.
+	if _shift >= 1.0:
+		for path in units:
+			_draw_battle(view, path)
+		for k in units.size():
+			_draw_sortie(view, units[k], goals[k])
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
