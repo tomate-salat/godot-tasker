@@ -21,6 +21,7 @@ const BurnupChart := preload("burnup_chart.gd")
 const Model := preload("../rules/model.gd")
 const Progress := preload("../rules/progress.gd")
 const Burnup := preload("../rules/burnup.gd")
+const Release := preload("../rules/release.gd")
 
 ## Was dieses Fenster zeigt – für das Speichern.
 const KIND := "milestone"
@@ -39,6 +40,8 @@ var _status_icon: TextureRect
 var _bar: Control
 var _forecast: Label
 var _period: Label
+var _release: Button
+var _release_label: Label
 var _title: Label
 var _desc: Description
 var _editor: ContentEditor
@@ -88,6 +91,11 @@ func refresh() -> void:
 	_segments = Card._sorted(Progress.status_segments(ws, m))
 	_bar.queue_redraw()
 	_period.text = "%s – %s" % [_date(m.get("startDate")), _date(m.get("endDate"))]
+	var release = ws.release_of(m)
+	_release.visible = release != null
+	_release_label.visible = release != null
+	if release != null:
+		_release.text = "★ %s" % Release.label(release)
 	_desc.show_text(m.get("desc"), "milestoneId", task_id)
 
 	var stats := Progress.milestone_stats(ws, m)
@@ -244,6 +252,18 @@ func _build() -> void:
 
 	_period = Label.new()
 	_prop(grid, "Zeitraum", _period)
+
+	_release = Button.new()
+	_release.flat = true
+	_release.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_release.tooltip_text = "Das Release in seinem Fenster zeigen"
+	_release.pressed.connect(func() -> void:
+		var m = store.ws.milestone(task_id)
+		var release = store.ws.release_of(m) if m != null else null
+		if release != null:
+			task_requested.emit(release["id"]))
+	_prop(grid, "Release", _release)
+	_release_label = grid.get_child(grid.get_child_count() - 2)
 
 	head.add_child(HSeparator.new())
 

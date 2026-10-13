@@ -15,6 +15,7 @@ const Memory := preload("core/memory.gd")
 const TaskWindow := preload("ui/task_window.gd")
 const DepGraphWindow := preload("ui/dep_graph_window.gd")
 const MilestoneWindow := preload("ui/milestone_window.gd")
+const ReleaseWindow := preload("ui/release_window.gd")
 const ImageWindow := preload("ui/image_window.gd")
 const Links := preload("core/links.gd")
 const SceneMenu := preload("ui/scene_menu.gd")
@@ -366,8 +367,8 @@ func _open_task(task_id: String) -> void:
 		open.grab_focus()
 		return
 
-	# Milestones haben ihr eigenes Fenster; geöffnet und gemerkt werden beide gleich.
-	var window: Window = MilestoneWindow.new() if store.ws.milestone(task_id) != null else TaskWindow.new()
+	# Milestones und Releases haben ihr eigenes Fenster; geöffnet und gemerkt werden alle gleich.
+	var window: Window = MilestoneWindow.new() if store.ws.milestone(task_id) != null else ReleaseWindow.new() if store.ws.release(task_id) != null else TaskWindow.new()
 	window.set("store", store)
 	window.set("images", images)
 	window.set("task_id", task_id)

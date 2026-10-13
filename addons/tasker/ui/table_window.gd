@@ -150,6 +150,10 @@ func _build() -> void:
 		chip.content_margin_bottom = 3
 		_release_chip.add_theme_stylebox_override(state, chip)
 	_release_chip.pressed.connect(func() -> void:
+		# Auf der Karte führt der Knopf weiter ins Fenster des Releases.
+		if not lage and _on_map() and store != null and store.state == "ready":
+			task_requested.emit(_release["id"])
+			return
 		lage = false
 		_set_map(true))
 	bar.add_child(_release_chip)
@@ -227,6 +231,9 @@ func _build() -> void:
 		_chosen = id
 		_set_map(false))
 	_campaign.details_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	_campaign.release_requested.connect(func(id: String) -> void:
 		if store != null and store.state == "ready":
 			task_requested.emit(id))
 	add_child(_campaign)
@@ -493,7 +500,7 @@ func _show_head(demo: bool) -> void:
 	if named != null:
 		_release_chip.text = Release.label(named)
 		_release_chip.disabled = _release == null or named["id"] != _release["id"]
-		_release_chip.tooltip_text = "Das Release dieses Milestones" if _release_chip.disabled else "Die Feldzugskarte: alle Milestones dieses Releases"
+		_release_chip.tooltip_text = "Das Release dieses Milestones" if _release_chip.disabled else "Das Release in seinem Fenster zeigen" if not lage and _on_map() else "Die Feldzugskarte: alle Milestones dieses Releases"
 	if not lage and _on_map():
 		_title.visible = false
 		var boss: Dictionary = _campaign._campaign.get("boss", {"total": 0, "done": 0})

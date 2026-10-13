@@ -13,6 +13,8 @@ extends Control
 signal milestone_chosen(milestone_id: String)
 ## Die Einzelheiten eines Milestones sind gefragt (Rechtsklick).
 signal details_requested(milestone_id: String)
+## Das Release selbst soll in seinem Fenster gezeigt werden (Klick auf die Festung in der Mitte).
+signal release_requested(release_id: String)
 
 const Campaign := preload("../rules/campaign.gd")
 const Release := preload("../rules/release.gd")
@@ -255,6 +257,11 @@ func _view() -> Transform2D:
 	return Transform2D(Vector2(s, 0), Vector2(0, s), (middle - _bounds.get_center() * s + _pan).round())
 
 
+## Ob der Punkt auf der Festung in der Mitte liegt – dem Release selbst.
+func _on_fort(point: Vector2) -> bool:
+	return _release != null and not _campaign.is_empty() and (_view().affine_inverse() * point).length() <= BOSS_RADIUS
+
+
 func _city_at(point: Vector2) -> String:
 	var at := _view().affine_inverse() * point
 	for id in _centers:
@@ -271,7 +278,7 @@ func _gui_input(event: InputEvent) -> void:
 		var over := _city_at(event.position)
 		if over != _hovered:
 			_hovered = over
-			mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if over != "" else Control.CURSOR_ARROW
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if over != "" or _on_fort(event.position) else Control.CURSOR_ARROW
 		queue_redraw()
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_MIDDLE:
@@ -293,12 +300,16 @@ func _gui_input(event: InputEvent) -> void:
 			var over := _city_at(event.position)
 			if over != "":
 				_enter(over)
+			elif _on_fort(event.position):
+				release_requested.emit(_release["id"])
 			elif event.double_click:
 				reset_view()
 		elif event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 			var over := _city_at(event.position)
 			if over != "":
 				details_requested.emit(over)
+			elif _on_fort(event.position):
+				release_requested.emit(_release["id"])
 
 
 func _enter(id: String) -> void:

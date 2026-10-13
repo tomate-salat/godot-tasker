@@ -175,6 +175,12 @@ func app_url(task: Dictionary) -> String:
 	return "%s%s/%s" % [app_scheme, str(task["projectId"]).uri_encode(), str(task["id"]).uri_encode()]
 
 
+## Öffnet die Releases eines Projekts in Tasker. Ein einzelnes Release hat
+## dort keine eigene Adresse – die Ansicht zeigt alle.
+func open_releases(of_project: String) -> void:
+	OS.shell_open("%s%s/releases" % [app_scheme if open_in_app and app_scheme != "" else client.base_url + "/", of_project.uri_encode()])
+
+
 ## Öffnet eine Aufgabe oder einen Milestone in Tasker – im Browser oder in der
 ## installierten App, wie es eingestellt ist. Ob ein Deeplink ankommt, sagt
 ## das Betriebssystem nicht verlässlich; darum wird nicht geraten und nicht
