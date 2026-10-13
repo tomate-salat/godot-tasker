@@ -180,7 +180,7 @@ func _build() -> void:
 	_props.add_child(gap)
 	var browser := Button.new()
 	browser.text = "In Tasker öffnen"
-	browser.tooltip_text = "Öffnet die Aufgabe in der Web-App im Browser"
+	browser.tooltip_text = "Öffnet die Aufgabe in Tasker – im Browser oder in der installierten App, je nach Einstellung"
 	browser.pressed.connect(_open_in_browser)
 	_props.add_child(browser)
 
@@ -254,7 +254,7 @@ func _change(changes: Dictionary) -> void:
 func _open_in_browser() -> void:
 	var t = store.ws.task(task_id)
 	if t != null:
-		OS.shell_open(store.web_url(t))
+		store.open_in_tasker(t)
 
 
 func _reveal(ref: Dictionary) -> void:

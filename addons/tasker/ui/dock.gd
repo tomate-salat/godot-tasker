@@ -162,7 +162,7 @@ func _build() -> void:
 	_menu.add_separator()
 	_menu.add_item("Aufgabe öffnen", MENU_OPEN)
 	_menu.add_item("Abhängigkeiten zeigen", MENU_GRAPH)
-	_menu.add_item("In Tasker öffnen (Browser)", MENU_BROWSER)
+	_menu.add_item("In Tasker öffnen", MENU_BROWSER)
 	_menu.add_separator()
 	_menu.add_item("An ausgewählten Node hängen", MENU_LINK)
 	_menu_fixed = _menu.item_count
@@ -389,7 +389,7 @@ func _on_menu(id: int) -> void:
 		MENU_BROWSER:
 			var t = store.ws.task(selected_id)
 			if t != null:
-				OS.shell_open(store.web_url(t))
+				store.open_in_tasker(t)
 		MENU_LINK:
 			if links != null:
 				_say(links.link(selected_id, links.selection()))

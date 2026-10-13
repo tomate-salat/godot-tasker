@@ -30,6 +30,9 @@ const DEFAULT_VELOCITY := 8
 
 var client: Client
 var project_id := ""
+## Ob „In Tasker öffnen“ den Deeplink nimmt, und sein Schema (`core/config.gd`).
+var open_in_app := false
+var app_scheme := ""
 
 var state := "empty"
 var error := ""
@@ -164,6 +167,20 @@ func _set_state(next: String) -> void:
 ## `client/url.ts` sie liest.
 func web_url(task: Dictionary) -> String:
 	return "%s/%s/%s" % [client.base_url, str(task["projectId"]).uri_encode(), str(task["id"]).uri_encode()]
+
+
+## Der Deeplink in die installierte Tasker-App: derselbe Weg wie in der
+## Adresse, nur unter dem Schema der App.
+func app_url(task: Dictionary) -> String:
+	return "%s%s/%s" % [app_scheme, str(task["projectId"]).uri_encode(), str(task["id"]).uri_encode()]
+
+
+## Öffnet eine Aufgabe oder einen Milestone in Tasker – im Browser oder in der
+## installierten App, wie es eingestellt ist. Ob ein Deeplink ankommt, sagt
+## das Betriebssystem nicht verlässlich; darum wird nicht geraten und nicht
+## von selbst auf den Browser gewechselt.
+func open_in_tasker(task: Dictionary) -> void:
+	OS.shell_open(app_url(task) if open_in_app and app_scheme != "" else web_url(task))
 
 
 ## Wendet eine Änderung aus dem Änderungs-Strom an (`core/events.gd`).

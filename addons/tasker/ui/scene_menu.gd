@@ -49,7 +49,7 @@ func _popup_menu(_paths: PackedStringArray) -> void:
 			listed[ref["taskId"]] = true
 			var sub := PopupMenu.new()
 			sub.add_item("Aufgabe öffnen", OPEN)
-			sub.add_item("In Tasker öffnen (Browser)", BROWSER)
+			sub.add_item("In Tasker öffnen", BROWSER)
 			sub.add_separator()
 			sub.add_item("Vom Node lösen", UNLINK)
 			sub.id_pressed.connect(_on_task.bind(t["id"]))
@@ -65,7 +65,7 @@ func _on_task(id: int, task_id: String) -> void:
 		BROWSER:
 			var t = store.ws.task(task_id)
 			if t != null:
-				OS.shell_open(store.web_url(t))
+				store.open_in_tasker(t)
 		UNLINK:
 			# Von allen ausgewählten Nodes.
 			for node in links.selection():

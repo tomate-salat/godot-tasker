@@ -26,12 +26,11 @@ const McpServer := preload("core/mcp_server.gd")
 const SceneTools := preload("core/scene_tools.gd")
 const GameLink := preload("core/game_link.gd")
 
-const MENU_SETUP := "Tasker einrichten …"
+const MENU_SETUP := "Tasker-Einstellungen …"
 const MENU_TABLE := "Tasker-Tisch"
 ## Der Knopf oben in der Leiste neben „Asset Store" (Nutzer, 2026-10-12).
 const SCREEN_TABLE := "Tisch"
 const MENU_ORPHANS := "Tasker: Verknüpfungen prüfen …"
-const MENU_MCP := "Tasker: MCP für Claude Code einrichten …"
 const MCP_NAME := "godot-tasker"
 ## Der Agent für Claude Code, den das Addon mitbringt (`claude/tasker-scout.md`):
 ## beim Einrichten landet er im Ordner des Nutzers, damit er in allen Projekten
@@ -174,7 +173,6 @@ func _enter_tree() -> void:
 	add_tool_menu_item(MENU_TABLE, _open_table)
 	main_screen_changed.connect(_on_main_screen_changed)
 	add_tool_menu_item(MENU_ORPHANS, _open_orphans)
-	add_tool_menu_item(MENU_MCP, _setup_mcp)
 
 	_scene_tools = SceneTools.new()
 	_scene_tools.links = links
@@ -198,7 +196,6 @@ func _exit_tree() -> void:
 	remove_tool_menu_item(MENU_SETUP)
 	remove_tool_menu_item(MENU_TABLE)
 	remove_tool_menu_item(MENU_ORPHANS)
-	remove_tool_menu_item(MENU_MCP)
 	if EditorInterface.get_editor_settings().settings_changed.is_connected(_apply_mcp):
 		EditorInterface.get_editor_settings().settings_changed.disconnect(_apply_mcp)
 	if _mcp != null:
@@ -262,7 +259,17 @@ func _register_commands() -> void:
 
 
 ## Übernimmt die Einstellungen und lädt den Stand, sobald alles beisammen ist.
+## Übernimmt, was sich in den Einstellungen sofort ändern lässt.
+func _apply_settings() -> void:
+	store.open_in_app = Config.open_with() == Config.OPEN_APP
+	store.app_scheme = Config.APP_SCHEME
+	if is_instance_valid(_table):
+		_table.sound_enabled = Config.sound()
+		_table.set_field_style(Config.field_style())
+
+
 func _connect_to_server() -> void:
+	_apply_settings()
 	client.base_url = Config.server_url()
 	client.token = Config.token()
 	store.project_id = Config.project_id()
@@ -283,6 +290,13 @@ func _open_setup() -> void:
 	if _setup == null:
 		_setup = SetupDialog.new()
 		_setup.saved.connect(_connect_to_server)
+		_setup.changed.connect(_apply_settings)
+		_setup.mcp_status = _mcp_status
+		_setup.mcp_copy = _mcp_copy
+		_setup.agent_install = func() -> String:
+			var problem := _install_agent()
+			return problem if problem != "" else _agent_status()
+		_setup.agent_status = _agent_status
 		EditorInterface.get_base_control().add_child(_setup)
 	_setup.open()
 
@@ -563,24 +577,36 @@ func _install_agent(only_update := false) -> String:
 	return ""
 
 
-## Schaltet den MCP-Server ein und legt den Befehl in die Zwischenablage, der
-## ihn in Claude Code einträgt. Das Kennwort steht nur dort und in den
-## Editor-Einstellungen – nicht im Projekt.
-func _setup_mcp() -> void:
-	EditorInterface.get_editor_settings().set_setting(Config.MCP_ENABLED, true)
+## Wie es um den MCP-Server steht, für die Einstellungsseite.
+func _mcp_status() -> String:
 	_apply_mcp()
-	var agent := _install_agent()
-	var dialog := AcceptDialog.new()
-	dialog.title = "Tasker: MCP für Claude Code"
+	if not Config.mcp_enabled():
+		return "Der Server ist aus."
 	if not _mcp.is_running():
-		dialog.dialog_text = "Der MCP-Server läuft nicht: %s\nDen Port ändern: Editor-Einstellungen → tasker/mcp_port." % _mcp.problem
-	else:
-		DisplayServer.clipboard_set("claude mcp add --transport http --scope user %s http://127.0.0.1:%d%s --header \"Authorization: Bearer %s\"" % [MCP_NAME, _mcp.port(), McpServer.ROUTE, Config.mcp_token()])
-		dialog.dialog_text = "Der MCP-Server läuft auf 127.0.0.1:%d.\n\nDer Befehl, der ihn in Claude Code einträgt, liegt in der Zwischenablage –\neinmal in einem Terminal einfügen und ausführen. Er enthält das Kennwort.\n\nClaude Code kann danach die offene Szene lesen und Tasker-Aufgaben an Nodes hängen,\nsolange dieser Editor läuft. Abschalten: Editor-Einstellungen → tasker/mcp_enabled.\n\n%s" % [_mcp.port(), "Der Agent „tasker-scout“ liegt jetzt in %s – er bereitet Aufgaben vor und gilt in allen Projekten." % _agents_dir() if agent == "" else agent]
-	dialog.confirmed.connect(dialog.queue_free)
-	dialog.canceled.connect(dialog.queue_free)
-	EditorInterface.get_base_control().add_child(dialog)
-	dialog.popup_centered()
+		return "Der Server läuft nicht: %s" % _mcp.problem
+	return "Der Server läuft auf 127.0.0.1:%d. Claude Code erreicht ihn, solange dieser Editor offen ist." % _mcp.port()
+
+
+## Legt den Befehl in die Zwischenablage, der den Server in Claude Code
+## einträgt. Das Kennwort steht nur dort und in den Editor-Einstellungen –
+## nicht im Projekt. Gibt zurück, was dem Nutzer dazu zu sagen ist.
+func _mcp_copy() -> String:
+	_apply_mcp()
+	if not Config.mcp_enabled() or not _mcp.is_running():
+		return "Erst den Server einschalten. %s" % _mcp.problem
+	DisplayServer.clipboard_set("claude mcp add --transport http --scope user %s http://127.0.0.1:%d%s --header \"Authorization: Bearer %s\"" % [MCP_NAME, _mcp.port(), McpServer.ROUTE, Config.mcp_token()])
+	return "Der Befehl liegt in der Zwischenablage – einmal in einem Terminal einfügen und ausführen. Er enthält das Kennwort."
+
+
+## Ob der mitgebrachte Agent im Nutzerordner liegt und auf dem Stand des Addons ist.
+func _agent_status() -> String:
+	var source: String = (get_script() as Script).resource_path.get_base_dir().path_join("claude").path_join(AGENT_FILE)
+	var target := _agents_dir().path_join(AGENT_FILE)
+	if not FileAccess.file_exists(target):
+		return "Der Agent „tasker-scout“ ist noch nicht installiert."
+	if FileAccess.get_file_as_string(target) != FileAccess.get_file_as_string(source):
+		return "Der Agent „tasker-scout“ ist installiert, aber älter als der im Addon."
+	return "Der Agent „tasker-scout“ liegt in %s und ist aktuell." % _agents_dir()
 
 
 func _open_orphans() -> void:

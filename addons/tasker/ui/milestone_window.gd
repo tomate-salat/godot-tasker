@@ -206,11 +206,11 @@ func _build() -> void:
 	top.add_child(_ref)
 	var browser := Button.new()
 	browser.text = "In Tasker öffnen"
-	browser.tooltip_text = "Öffnet den Milestone in der Web-App im Browser"
+	browser.tooltip_text = "Öffnet den Milestone in Tasker – im Browser oder in der installierten App, je nach Einstellung"
 	browser.pressed.connect(func() -> void:
 		var m = store.ws.milestone(task_id)
 		if m != null:
-			OS.shell_open(store.web_url(m)))
+			store.open_in_tasker(m))
 	top.add_child(browser)
 	top.add_child(pin_button())
 	top.add_child(close_button())

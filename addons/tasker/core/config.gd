@@ -9,7 +9,18 @@ extends RefCounted
 
 const SERVER_URL := "tasker/server_url"
 const TOKEN := "tasker/token"
-const HAND_SIZE := "tasker/hand_size"
+## Wie Aufgaben in Tasker geöffnet werden: mit ihrer Adresse im Browser oder
+## per Deeplink in der installierten Web-App (Nutzer, 2026-10-13).
+const OPEN_WITH := "tasker/open_with"
+const OPEN_BROWSER := "browser"
+const OPEN_APP := "app"
+## Das Schema des Deeplinks. Web-Apps dürfen nur Schemata anmelden, die mit
+## „web+“ beginnen. Ohne „//“ dahinter: sonst gälte die Projekt-ID als
+## Rechnername, und manche Wege schreiben den klein – die IDs unterscheiden
+## aber Groß- und Kleinschreibung. Tasker nimmt beide Formen an.
+const APP_SCHEME := "web+tasker:"
+## Die Handgröße gehörte zum Spieltisch, den es nicht mehr gibt.
+const OLD_HAND_SIZE := "tasker/hand_size"
 const SOUND := "tasker/sound"
 ## Womit auf dem Feld gekämpft wird: "soldiers" oder "bugs".
 const FIELD_STYLE := "tasker/field_style"
@@ -24,8 +35,6 @@ const DEFAULT_MCP_PORT := 9309
 const METADATA := "tasker"
 const PROJECT_ID := "project_id"
 
-const DEFAULT_HAND_SIZE := 7
-
 ## Bis zum ersten Commit standen Server und Projekt in `project.godot`.
 const OLD_SERVER_URL := "tasker/server_url"
 const OLD_PROJECT_ID := "tasker/project_id"
@@ -34,7 +43,9 @@ const OLD_PROJECT_ID := "tasker/project_id"
 static func register() -> void:
 	_editor_setting(SERVER_URL, "", TYPE_STRING, PROPERTY_HINT_PLACEHOLDER_TEXT, "https://tasker.example.com")
 	_editor_setting(TOKEN, "", TYPE_STRING, PROPERTY_HINT_PASSWORD)
-	_editor_setting(HAND_SIZE, DEFAULT_HAND_SIZE, TYPE_INT, PROPERTY_HINT_RANGE, "1,20,1")
+	_editor_setting(OPEN_WITH, OPEN_BROWSER, TYPE_STRING, PROPERTY_HINT_ENUM, "%s,%s" % [OPEN_BROWSER, OPEN_APP])
+	if _editor().has_setting(OLD_HAND_SIZE):
+		_editor().erase(OLD_HAND_SIZE)
 	_editor_setting(SOUND, true, TYPE_BOOL)
 	_editor_setting(FIELD_STYLE, "soldiers", TYPE_STRING, PROPERTY_HINT_ENUM, "soldiers,bugs")
 	_editor_setting(MCP_ENABLED, false, TYPE_BOOL)
@@ -57,10 +68,6 @@ static func token() -> String:
 
 static func sound() -> bool:
 	return bool(_editor().get_setting(SOUND)) if _editor().has_setting(SOUND) else true
-
-
-static func hand_size() -> int:
-	return int(_editor().get_setting(HAND_SIZE)) if _editor().has_setting(HAND_SIZE) else DEFAULT_HAND_SIZE
 
 
 static func is_configured() -> bool:
@@ -123,3 +130,7 @@ static func mcp_token() -> String:
 		known = Crypto.new().generate_random_bytes(24).hex_encode()
 		_editor().set_setting(MCP_TOKEN, known)
 	return known
+
+
+static func open_with() -> String:
+	return str(_editor().get_setting(OPEN_WITH)) if _editor().has_setting(OPEN_WITH) else OPEN_BROWSER

@@ -149,7 +149,7 @@ func _ready() -> void:
 		_menu.add_icon_item(Palette.status_icon(Model.STATUS[i]), Palette.STATUS_LABELS[Model.STATUS[i]], i)
 	_menu.add_separator()
 	_menu.add_item("Aufgabe öffnen", MENU_OPEN)
-	_menu.add_item("In Tasker öffnen (Browser)", MENU_BROWSER)
+	_menu.add_item("In Tasker öffnen", MENU_BROWSER)
 	_menu.add_separator()
 	_menu.add_item("Karte zurück an den Node", MENU_HOME)
 	_menu.add_item("Vom Node lösen", MENU_UNLINK)
@@ -647,7 +647,7 @@ func _on_menu(id: int) -> void:
 		MENU_OPEN:
 			task_requested.emit(task_id)
 		MENU_BROWSER:
-			OS.shell_open(store.web_url(t))
+			store.open_in_tasker(t)
 		MENU_HOME:
 			links.place(_menu_ref, Vector2.ZERO)
 		MENU_UNLINK:
