@@ -1,0 +1,89 @@
+# Tasker für Godot
+
+Editor-Addon, das [Tasker](https://github.com/tomate-salat/tasker) in den Godot-Editor holt:
+Aufgaben sehen, suchen und managen, ohne den Editor zu verlassen.
+
+> **Voraussetzung:** Das Addon ist ein Client für Tasker und funktioniert nur mit einem laufenden
+> Tasker-Server. Tasker ist ein selbst gehostetes Projektmanagement-Werkzeug für Solo-Entwickler –
+> Einrichtung und Betrieb stehen im [Tasker-Repository](https://github.com/tomate-salat/tasker).
+
+![Das Feld: der laufende Milestone als Stadt, jede Aufgabe ein Wappen, offene Voraussetzungen werden zum Kampf](docs/screenshots/feld.png)
+
+## Bilder
+
+Alle Bilder stammen aus den Beispieldaten des Addons.
+
+**Feldzugskarte:** alle Milestones eines Releases als Städte rund um das Ziel.
+
+![Feldzugskarte eines Releases](docs/screenshots/feldzug.png)
+
+**Planen:** links der Vorrat aus Bereitschaft und Backlog, rechts der Lageplan, auf den die Karten verteilt werden.
+
+![Planung mit Vorrat und Lageplan](docs/screenshots/planen.png)
+
+**Aufgabe, Milestone und Release** in eigenen Fenstern, mit Burnup und Prognose.
+
+| Aufgabe | Milestone | Release |
+|---|---|---|
+| ![Aufgabenfenster](docs/screenshots/aufgabe.png) | ![Milestone-Fenster mit Burnup](docs/screenshots/milestone.png) | ![Release-Fenster](docs/screenshots/release.png) |
+
+## Was das Addon kann
+
+- **Dock** mit dem laufenden Milestone als Karten: im Spiel, offen, gesperrt. Statuswechsel per
+  Rechtsklick, Doppelklick öffnet die Aufgabe.
+- **Aufgabenfenster** mit gerenderter Beschreibung (Markdown, Checklisten, Bilder, Zeichnungen,
+  Verweise wie `$142`), Status und Prio änderbar, „In Tasker öffnen“ im Browser oder in der
+  installierten Web-App.
+- **Suche** im Dock und als Popup (Strg+Alt+T oder Befehlspalette „Tasker: Aufgabe suchen“).
+- **Tisch** – ein eigenes Editor-Fenster (Werkzeug-Menü „Tasker-Tisch“), das sich auf einen
+  zweiten Monitor schieben lässt:
+  - **Feld:** der laufende Milestone als Stadt. Was eine Aufgabe noch braucht, sitzt als Gegner
+    auf ihr; ein Doppelklick nimmt sie in Arbeit und schickt Truppen los. Dazu Wochenziel, Serie
+    und eine Ablage, was in welcher Woche erledigt wurde.
+  - **Feldzugskarte:** alle Milestones eines Releases auf einen Blick.
+  - **Planen:** Aufgaben aus Bereitschaft und Backlog auf die Milestones verteilen.
+- **Milestone- und Release-Fenster** mit Fortschritt, Burnup und Prognose.
+- **Karten in Szenen:** Aufgaben lassen sich an Nodes hängen und erscheinen im Viewport an ihnen.
+- **MCP-Server für Claude Code** (optional): Claude Code kann die offene Szene und das laufende
+  Spiel lesen und aus einer Beobachtung („der Typ braucht Hosen“) eine Aufgabe anlegen, die gleich
+  an den betroffenen Nodes hängt. Dazu bringt das Addon den Agenten `tasker-scout` mit.
+
+## Installation
+
+1. Den Ordner `addons/tasker` in das eigene Godot-Projekt kopieren (Godot 4.7, reines GDScript).
+2. Unter *Projekt → Projekteinstellungen → Plugins* „Tasker“ aktivieren.
+3. Im Werkzeug-Menü *Tasker-Einstellungen …* öffnen und eintragen:
+   - **Server:** Adresse des Tasker-Servers
+   - **Token:** ein Zugangs-Token aus dem Tasker-Profil (`tsk_…`)
+   - **Projekt:** das Tasker-Projekt, zu dem dieses Godot-Projekt gehört
+
+Server und Token liegen in den Editor-Einstellungen und gelten für alle Projekte auf dem Rechner,
+die Projektwahl liegt unversioniert unter `.godot/`. Im Repository landet davon nichts.
+
+### Claude Code anbinden (optional)
+
+In den Tasker-Einstellungen unter „Claude Code“ den MCP-Server einschalten (Vorgabe-Port 9309,
+nur auf `127.0.0.1`, mit eigenem Kennwort), den angezeigten Befehl kopieren und im Terminal
+ausführen. Dort lässt sich auch der Agent `tasker-scout` nach `~/.claude/agents` installieren.
+
+Für den Blick ins laufende Spiel trägt das Addon bei eingeschaltetem MCP-Server den Autoload
+`TaskerProbe` in `project.godot` ein. Er antwortet nur bei einem Start aus dem Editor, liest nur
+und wird beim Abschalten des Addons wieder entfernt.
+
+## Entwicklung
+
+Dieses Repository ist selbst ein Godot-Projekt, in dem das Addon aktiviert ist. Tests:
+
+```bash
+godot --headless --path . -s tests/run_tests.gd
+```
+
+Die Bilder in `docs/screenshots/` entstehen aus den Beispieldaten neu (öffnet kurz ein Fenster):
+
+```bash
+godot --path . -s tests/readme_shots.gd
+```
+
+## Lizenz
+
+[MIT](LICENSE)
