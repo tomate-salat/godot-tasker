@@ -326,13 +326,16 @@ func _gui_input(event: InputEvent) -> void:
 				reset_view()
 		elif event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 			var over := _city_at(event.position)
-			if over != "":
+			if over != "" and not _nodes[over].get("archived", false):
 				details_requested.emit(over)
 			elif _on_fort(event.position):
 				release_requested.emit(_release["id"])
 
 
 func _enter(id: String) -> void:
+	# In eine archivierte Stadt geht es nicht: ihre Aufgaben sind nicht im Stand.
+	if _nodes.has(id) and _nodes[id].get("archived", false):
+		return
 	_panning = false
 	reset_view()
 	milestone_chosen.emit(id)
@@ -733,7 +736,7 @@ func _draw_city(view: Transform2D, n: Dictionary) -> void:
 	# Das Schild liegt auf der Seite, zu der keine Straße nach innen abgeht.
 	var inner: Vector2 = (_centers.get(n["inner"], Vector2.ZERO) - mid).normalized()
 	var above := inner.y > 0.25
-	var word := "eingenommen" if state == Campaign.DONE else "umkämpft" if state == Campaign.ACTIVE else "beim Gegner"
+	var word := "archiviert" if n.get("archived", false) else "eingenommen" if state == Campaign.DONE else "umkämpft" if state == Campaign.ACTIVE else "beim Gegner"
 	_draw_plate(mid + Vector2(0, -CITY * SQUASH - 30.0 if above else CITY * SQUASH + 30.0), str(n["milestone"].get("title", "")),
 		"%d/%d · %s" % [n["done"], n["total"], word], tone, id == _hovered)
 

@@ -71,12 +71,16 @@ func refresh() -> void:
 	_status.add_theme_color_override("font_color", Palette.OK if state == Release.RELEASED or state == Release.READY else Palette.P2 if state == Release.PROGRESS else Palette.MUTED)
 
 	var milestones := ws.release_milestones(task_id)
+	var archived := Release.archived_milestones(r)
 	_done = 0
 	_total = 0
 	for m in milestones:
 		var stats := Progress.milestone_stats(ws, m)
 		_done += stats["done"]
 		_total += stats["total"]
+	for a in archived:
+		_done += int(a.get("done", 0))
+		_total += int(a.get("total", 0))
 	_count.text = "%d/%d Aufgaben" % [_done, _total]
 	_bar.queue_redraw()
 
@@ -95,11 +99,13 @@ func refresh() -> void:
 
 	for c in _milestones.get_children():
 		c.queue_free()
-	var finished := milestones.filter(func(m: Dictionary) -> bool: return Progress.milestone_done(ws, m)).size()
-	_milestones_head.text = "Milestones · %d/%d fertig" % [finished, milestones.size()]
+	var finished := milestones.filter(func(m: Dictionary) -> bool: return Progress.milestone_done(ws, m)).size() + archived.size()
+	_milestones_head.text = "Milestones · %d/%d fertig" % [finished, milestones.size() + archived.size()]
 	for m in milestones:
 		_milestones.add_child(_milestone_row(m, r))
-	if milestones.is_empty():
+	for a in archived:
+		_milestones.add_child(_archived_row(a))
+	if milestones.is_empty() and archived.is_empty():
 		var none := Label.new()
 		none.text = "Diesem Release ist noch kein Milestone zugeordnet."
 		none.add_theme_color_override("font_color", Palette.MUTED)
@@ -151,6 +157,28 @@ func _milestone_row(m: Dictionary, r: Dictionary) -> Control:
 		row.add_child(via)
 	var count := Label.new()
 	count.text = "%d/%d" % [stats["done"], stats["total"]]
+	count.add_theme_color_override("font_color", Palette.MUTED)
+	row.add_child(count)
+	return row
+
+
+## Ein archivierter Milestone: nur zum Lesen – seine Aufgaben sind nicht im Stand.
+func _archived_row(a: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	var name := Label.new()
+	name.text = "◆ %s" % (str(a.get("title", "")) if str(a.get("title", "")) != "" else "Ohne Titel")
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name.clip_text = true
+	name.add_theme_color_override("font_color", Palette.FAINT)
+	name.tooltip_text = "Archiviert – in Tasker unter „Archiv“ zu finden"
+	row.add_child(name)
+	var note := Label.new()
+	note.text = "archiviert%s" % ("  ·  über Abhängigkeit" if a.get("inherited", false) else "")
+	note.add_theme_color_override("font_color", Palette.MUTED)
+	row.add_child(note)
+	var count := Label.new()
+	count.text = "%d/%d" % [int(a.get("done", 0)), int(a.get("total", 0))]
 	count.add_theme_color_override("font_color", Palette.MUTED)
 	row.add_child(count)
 	return row

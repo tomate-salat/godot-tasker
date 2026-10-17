@@ -104,3 +104,23 @@ func test_im_feldzug_liegt_weiter_aussen_was_ein_milestone_braucht() -> void:
 	eq(_pairs(campaign["attacks"]), ["mitte>"])
 	eq(campaign["front"], 1)
 	eq(campaign["boss"], {"total": 3, "done": 0})
+
+
+func test_archivierte_milestones_stehen_als_eingenommene_staedte_da() -> void:
+	var ws: Workspace = Builder.new().project("p") \
+		.release("r", "p", {"archivedMilestones": [
+			{"id": "alt", "ref": 7, "title": "Alt", "done": 4, "total": 4, "deps": [], "dependents": ["mitte"], "inherited": false},
+		]}) \
+		.milestone("mitte", "p", {"releaseId": "r", "status": "progress"}) \
+		.task("t1", "p", {"milestoneId": "mitte"}) \
+		.build()
+	var campaign := Campaign.build(ws, ws.release("r"))
+	eq(campaign["nodes"].size(), 2)
+	var alt := _node(campaign, "alt")
+	eq([alt["state"], alt["archived"], alt["done"], alt["total"]], ["done", true, 4, 4])
+	# Die aktive Stadt nennt die archivierte nicht; die Verbindung kommt über `dependents`.
+	eq(alt["inner"], "mitte")
+	eq(alt["ring"], 2)
+	eq(campaign["boss"], {"total": 5, "done": 4})
+	# Archiviertes zählt als begonnen.
+	eq(Release.status(ws, ws.release("r")), "progress")

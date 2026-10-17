@@ -7,12 +7,14 @@ extends RefCounted
 ##   von denen er abhängt. Im innersten Ring liegt, worauf kein anderer wartet.
 ## - Ein aktiver Milestone greift an: den Milestone, der auf ihn wartet, oder –
 ##   im innersten Ring – das Release selbst.
-## - Gezeigt wird nur, was zum Release gehört.
+## - Gezeigt wird nur, was zum Release gehört – auch Archiviertes: es steht
+##   als eingenommene Stadt da (Nutzer, 2026-10-17).
 
 const Model := preload("model.gd")
 const Progress := preload("progress.gd")
 const Field := preload("field.gd")
 const Workspace := preload("workspace.gd")
+const Release := preload("release.gd")
 
 const DONE := "done"
 const ACTIVE := "active"
@@ -24,7 +26,8 @@ const PLANNED := "planned"
 ## - `nodes`: je Milestone `{ id, milestone, ring, inner, state, total, done,
 ##   fights }`. `ring` zählt von innen ab 1, `inner` ist der Milestone, der auf
 ##   ihn wartet (leer für die Mitte), `state` ist `done`, `active` oder
-##   `planned`, `fights` die Zahl der Aufgaben, an denen gerade gearbeitet wird.
+##   `planned`, `fights` die Zahl der Aufgaben, an denen gerade gearbeitet wird,
+##   `archived` ob er archiviert ist (dann ist `milestone` nur `{ id, ref, title }`).
 ## - `ways`: die Verbindungen nach innen, `{ from, to }`; `to` ist leer für die
 ##   Mitte. Umwege fehlen wie im Feld.
 ## - `attacks`: die Verbindungen, auf denen ein aktiver Milestone angreift.
@@ -33,6 +36,20 @@ const PLANNED := "planned"
 ## - `boss`: `{ total, done }` über alle Aufgaben des Releases.
 static func build(ws: Workspace, release: Dictionary) -> Dictionary:
 	var milestones := ws.release_milestones(release["id"])
+	# Archivierte kennt der Stand nicht; ihre Abhängigkeiten in beide Richtungen
+	# kommen mit ihnen, denn auch aktive Milestones nennen sie nicht.
+	var deps_of := {}
+	for m in milestones:
+		deps_of[m["id"]] = m.get("deps", []).duplicate()
+	var archived := {}
+	for a in Release.archived_milestones(release):
+		archived[a["id"]] = a
+		milestones.append({"id": a["id"], "ref": a.get("ref", 0), "title": a.get("title", "")})
+		deps_of[a["id"]] = a.get("deps", []).duplicate()
+	for a in archived.values():
+		for waiting in a.get("dependents", []):
+			if deps_of.has(waiting) and not deps_of[waiting].has(a["id"]):
+				deps_of[waiting].append(a["id"])
 	var here := {}
 	for m in milestones:
 		here[m["id"]] = m
@@ -42,7 +59,7 @@ static func build(ws: Workspace, release: Dictionary) -> Dictionary:
 	for m in milestones:
 		inward[m["id"]] = []
 	for m in milestones:
-		for dep_id in m.get("deps", []):
+		for dep_id in deps_of[m["id"]]:
 			if here.has(dep_id) and dep_id != m["id"] and not inward[dep_id].has(m["id"]):
 				inward[dep_id].append(m["id"])
 
@@ -58,20 +75,25 @@ static func build(ws: Workspace, release: Dictionary) -> Dictionary:
 	var front := 0
 	for m in milestones:
 		var id: String = m["id"]
-		var stats := Progress.milestone_stats(ws, m)
-		var state := DONE if Progress.milestone_done(ws, m) else ACTIVE if m.get("status") == "progress" else PLANNED
+		var gone: bool = archived.has(id)
+		# Archiviertes zählt als eingenommen, mit den Zahlen, die Tasker mitgibt.
+		var stats: Dictionary = {"total": int(archived[id].get("total", 0)), "done": int(archived[id].get("done", 0))} if gone else Progress.milestone_stats(ws, m)
+		var state := DONE if gone or Progress.milestone_done(ws, m) else ACTIVE if m.get("status") == "progress" else PLANNED
 		var inner := ""
 		for other in inward[id]:
 			if inner == "" or rings[other] > rings[inner]:
 				inner = other
 		var fights := 0
-		for root in ws.ms_roots(m):
-			for t in [root] + ws.desc(root):
-				if Field.is_tapped(t):
-					fights += 1
+		if not gone:
+			for root in ws.ms_roots(m):
+				for t in [root] + ws.desc(root):
+					if Field.is_tapped(t):
+						fights += 1
 		nodes.append({"id": id, "milestone": m, "ring": rings[id], "inner": inner, "state": state,
-			"total": stats["total"], "done": stats["total"] if state == DONE else stats["done"], "fights": fights})
+			"total": stats["total"], "done": stats["done"] if gone else stats["total"] if state == DONE else stats["done"], "fights": fights,
+			"archived": gone})
 		total += stats["total"]
+		# Archiviertes gilt als fertig, wie in Taskers Stand des Releases.
 		done += stats["total"] if state == DONE else stats["done"]
 		if state != DONE:
 			front = maxi(front, rings[id])

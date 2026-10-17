@@ -26,11 +26,13 @@ const LABEL := {
 static func status(ws: Workspace, r: Dictionary) -> String:
 	var stages := ws.release_stages(r["id"])
 	var milestones := ws.release_milestones(r["id"])
+	# Archivierte Milestones gelten als fertig, wie in Tasker.
+	var archived := archived_milestones(r).size()
 	if stages.size() > 0 and stages.all(func(s: Dictionary) -> bool: return s.get("doneAt") != null):
 		return RELEASED
-	if milestones.size() > 0 and milestones.all(func(m: Dictionary) -> bool: return Progress.milestone_done(ws, m)):
+	if milestones.size() + archived > 0 and milestones.all(func(m: Dictionary) -> bool: return Progress.milestone_done(ws, m)):
 		return READY
-	var begun := stages.any(func(s: Dictionary) -> bool: return s.get("doneAt") != null) \
+	var begun := archived > 0 or stages.any(func(s: Dictionary) -> bool: return s.get("doneAt") != null) \
 		or milestones.any(func(m: Dictionary) -> bool: return m.get("status") == "progress" or Progress.milestone_done(ws, m))
 	return PROGRESS if begun else PLANNED
 
@@ -47,6 +49,14 @@ static func active(ws: Workspace, project_id: String) -> Variant:
 		if ws.release_milestones(r["id"]).any(func(m: Dictionary) -> bool: return m.get("status") == "progress"):
 			return r
 	return open[0] if open.size() > 0 else null
+
+
+## Die archivierten Milestones, die zum Release zählen – Tasker liefert sie am
+## Release mit, weil der übrige Stand nur Aktives kennt: je `{ id, ref, title,
+## done, total, deps, dependents, inherited }`, ohne Aufgaben.
+static func archived_milestones(r: Dictionary) -> Array:
+	var list: Variant = r.get("archivedMilestones", [])
+	return list if list is Array else []
 
 
 ## Wie ein Release heißt: Version und Titel, soweit vorhanden.
