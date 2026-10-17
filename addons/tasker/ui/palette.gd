@@ -16,6 +16,9 @@ const P3 := Color("8c9590")
 const OK := Color("6cc08c")
 const INFO := Color("6fa8dc")
 const UNCLEAR := Color("ae9be0")
+## „Bereit“: hell und kühl. Tasker nimmt dafür seinen Akzent, aber neben dem
+## Grün von „Erledigt“ war das im Feld kaum zu unterscheiden (Nutzer, 2026-10-17).
+const READY := Color("dde8ef")
 ## Der Filz des Tischs.
 const FELT := Color("1f3a31")
 
@@ -28,7 +31,7 @@ static var _sharp_body_font: Font
 static func status_color(status: Variant) -> Color:
 	match status:
 		"ready":
-			return ACCENT
+			return READY
 		"progress":
 			return INFO
 		"done":
@@ -55,7 +58,7 @@ static func prio_color(prio: int) -> Color:
 static func foot_color(status: Variant) -> Color:
 	match status:
 		"ready":
-			return SURFACE.lerp(ACCENT, 0.16)
+			return SURFACE.lerp(READY, 0.12)
 		"progress":
 			return SURFACE.lerp(INFO, 0.22)
 		"done":
@@ -70,7 +73,7 @@ static func foot_color(status: Variant) -> Color:
 static func foot_line(status: Variant) -> Color:
 	match status:
 		"ready":
-			return LINE.lerp(ACCENT, 0.40)
+			return LINE.lerp(READY, 0.40)
 		"progress":
 			return LINE.lerp(INFO, 0.45)
 		"done":
