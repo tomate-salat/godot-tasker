@@ -40,10 +40,11 @@ Mehr unter https://example.com/menue"})
 	add.call("d3", "Gegner platzieren", {"parentId": "d"})
 	# Eine zweite Ebene, damit sich ein Stapel im Stapel auffächern lässt.
 	add.call("d3a", "Wachen am Tor", {"parentId": "d3"})
-	add.call("d3b", "Bogenschützen", {"parentId": "d3"})
+	add.call("d3b", "Bogenschützen", {"parentId": "d3", "status": "open"})
 	add.call("e", "Partikel beim Landen", {"prio": 3})
 	add.call("f", "Tonspur abmischen", {"status": "unclear"})
-	add.call("g", "Abspann")
+	# Noch nicht fertig geplant: trägt im Feld den Stift.
+	add.call("g", "Abspann", {"status": "open"})
 	add.call("h", "Sprungphysik", {"status": "progress", "playOrder": 1, "prio": 1})
 	add.call("i", "Wandsprung", {"deps": ["h"]})
 	add.call("j", "Steuerung belegen", {"status": "done", "doneAt": "2026-10-02T14:00:00.000Z"})

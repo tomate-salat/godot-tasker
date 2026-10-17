@@ -11,6 +11,7 @@ extends Control
 
 const Model := preload("../rules/model.gd")
 const Progress := preload("../rules/progress.gd")
+const ParentStatus := preload("../rules/parent_status.gd")
 const Blocking := preload("../rules/blocking.gd")
 const Inherit := preload("../rules/inherit.gd")
 const Workspace := preload("../rules/workspace.gd")
@@ -38,6 +39,10 @@ var _status: Variant = "open"
 var _prio := 0
 var _stack := 0
 var _locked := false
+## Noch nicht fertig geplant (offen, oder bereit mit offener Unteraufgabe): der
+## Schild liegt verschleiert da und trägt einen Stift – man sieht vor dem
+## Tappen, dass hier erst noch geplant werden muss (Nutzer, 2026-10-17).
+var _unready := false
 var _done := false
 var _segments: Array = []
 var _title := ""
@@ -64,6 +69,7 @@ func show_task(ws: Workspace, task: Dictionary, images: Node = null, _crumb := f
 	_prio = int(task.get("prio", 0))
 	_stack = ws.kids(task_id).size()
 	_locked = not doc and not _done and Blocking.is_blocked(ws, task)
+	_unready = not doc and not _done and ParentStatus.not_ready(ws, task)
 	_segments = [] if doc else Progress.status_segments(ws, task)
 	_title = task.get("title", "") if task.get("title") else "Ohne Titel"
 	var mark = ws.mark(task.get("markId"))
@@ -190,6 +196,9 @@ func _draw() -> void:
 		draw_colored_polygon(shape, Color("1b2422"))
 		draw_string(Palette.sharp_title_font(), mid + Vector2(-SHIELD.x / 2.0, 3.0), _initials, HORIZONTAL_ALIGNMENT_CENTER, SHIELD.x, 20, Color(Palette.INK, 0.85))
 
+	if _unready:
+		draw_colored_polygon(shape, Color(0.05, 0.07, 0.06, 0.5))
+
 	# Der Rand: dunkel unterlegt, darauf die Farbe des Zustands – nach
 	# Checkliste und Unteraufgaben geteilt, Erledigtes grün.
 	draw_polyline(closed, Color("0f1412"), 5.6, true)
@@ -231,6 +240,18 @@ func _draw() -> void:
 		draw_circle(corner, 8.5, Color("0f1412"))
 		draw_arc(corner, 8.5, 0.0, TAU, 24, Color(Palette.INK, 0.5), 1.0, true)
 		draw_string(Palette.sharp_body_font(), corner + Vector2(-8.5, 3.8), str(_stack), HORIZONTAL_ALIGNMENT_CENTER, 17.0, 10, Palette.INK)
+	if _unready:
+		# Noch nicht bereit: ein Stift in der Ecke, gegenüber der Stapelzahl.
+		var corner := mid + Vector2(-SHIELD.x / 2.0 - 3.0, -SHIELD.y / 2.0 - 2.0)
+		draw_circle(corner, 9.5, Color("0f1412"))
+		draw_arc(corner, 9.5, 0.0, TAU, 24, Color(Palette.P2, 0.9), 1.4, true)
+		var along := Vector2(1, -1).normalized()
+		var across := along.orthogonal()
+		var tip := corner + Vector2(-4.2, 4.2)
+		var back := corner + Vector2(4.0, -4.0)
+		draw_line(tip + along * 2.6, back, Palette.P2, 3.4, true)
+		draw_line(back - along * 1.6, back, Color("e8b9a6"), 3.4, true)
+		draw_colored_polygon(PackedVector2Array([tip, tip + along * 2.8 + across * 1.7, tip + along * 2.8 - across * 1.7]), Color("d9cbb4"))
 	if _locked:
 		# Gesperrt: zwei Ketten über Kreuz, in der Mitte das Schloss.
 		var chain := Color(0.79, 0.82, 0.8, 0.85)
@@ -254,7 +275,7 @@ func _draw() -> void:
 	band.set_corner_radius_all(4)
 	var rect := Rect2(_mid().x - wide / 2.0, _mid().y + SHIELD.y / 2.0 + 3.0, wide, BAND)
 	draw_style_box(band, rect)
-	draw_string(font, rect.position + Vector2(0, 14.0), text, HORIZONTAL_ALIGNMENT_CENTER, wide, TITLE, Palette.INK)
+	draw_string(font, rect.position + Vector2(0, 14.0), text, HORIZONTAL_ALIGNMENT_CENTER, wide, TITLE, Color(Palette.INK, 0.6) if _unready else Palette.INK)
 
 
 ## Die Stücke des Rands in fester Folge: Erledigtes zuerst, dann was läuft,
