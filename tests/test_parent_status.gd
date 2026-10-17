@@ -51,3 +51,28 @@ func test_ein_stapel_laesst_sich_nicht_auf_offen_stellen_solange_darunter_etwas_
 	eq(Field.untap_refusal(ws, ws.task("ruht")), "")
 	# Eine Karte ohne Unteraufgaben lässt sich immer zurücknehmen.
 	eq(Field.untap_refusal(ws, ws.task("l1")), "")
+
+
+func test_bereit_zaehlt_als_noch_nicht_angefangen() -> void:
+	eq(ParentStatus.after("ready", "progress", ["progress", "ready"]), "progress")
+	# Ist nichts mehr angefangen, fällt sie auf „Bereit“, wenn alles darunter bereit ist …
+	eq(ParentStatus.after("progress", "ready", ["ready", "ready"]), "ready")
+	# … sonst auf „Offen“.
+	eq(ParentStatus.after("progress", "ready", ["ready", "open"]), "open")
+	# Wer selbst noch nicht angefangen hat, bleibt, wie er ist.
+	eq(ParentStatus.after("ready", "open", ["open", "ready"]), null)
+
+
+func test_ein_bereiter_task_mit_offener_unteraufgabe_ist_noch_offen() -> void:
+	var ws: Workspace = Builder.new().project("p") \
+		.task("halb", "p", {"status": "ready"}).task("k1", "p", {"parentId": "halb", "status": "open"}) \
+		.task("fertig", "p", {"status": "ready"}).task("k2", "p", {"parentId": "fertig", "status": "ready"}) \
+		.task("roh", "p") \
+		.task("laeuft", "p", {"status": "ready"}).task("k3", "p", {"parentId": "laeuft", "status": "progress"}) \
+		.build()
+	eq(ParentStatus.implicit(ws, ws.task("halb")), "open")
+	ok(ParentStatus.not_ready(ws, ws.task("halb")))
+	eq(ParentStatus.implicit(ws, ws.task("fertig")), null)
+	ok(not ParentStatus.not_ready(ws, ws.task("fertig")))
+	ok(ParentStatus.not_ready(ws, ws.task("roh")))
+	eq(ParentStatus.implicit(ws, ws.task("laeuft")), "progress")

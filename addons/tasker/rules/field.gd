@@ -179,6 +179,9 @@ static func tap_refusal(ws: Workspace, t: Dictionary) -> String:
 		return "An einem Stapel arbeitet man über seine Unteraufgaben – die liegen einen Ring weiter außen"
 	if Blocking.is_blocked(ws, t):
 		return "Erst die Schädlinge: die Karte ist noch gesperrt"
+	# Ins Spiel darf nur, was fertig geplant ist (oder unklar) – wie am Tisch in Tasker.
+	if ParentStatus.not_ready(ws, t):
+		return "Noch nicht bereit – erst fertig planen"
 	return ""
 
 

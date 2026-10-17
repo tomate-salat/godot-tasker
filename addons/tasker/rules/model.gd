@@ -4,7 +4,9 @@ extends RefCounted
 ## Die Objekte bleiben Dictionaries, so wie sie als JSON vom Server kommen –
 ## eigene Klassen je Typ müssten bei jeder Modelländerung in Tasker nachziehen.
 
-const STATUS := ["open", "progress", "done", "unclear", "blocked"]
+## Die Status einer Aufgabe, in der Reihenfolge des Durchschaltens: Offen →
+## Bereit (fertig geplant) → In Progress → Erledigt. Milestones kennen „Bereit“ nicht.
+const STATUS := ["open", "ready", "progress", "done", "unclear", "blocked"]
 
 
 ## Erledigt ist kein eigenes Feld – es ist genau dieser Status.
@@ -17,6 +19,19 @@ static func is_archived(x: Dictionary) -> bool:
 
 
 ## Milestones erkennt man wie in Tasker an `planned`.
+## Was sich ändert, wenn ein Milestone startet – wie in Taskers
+## `setMilestoneStatus`: er steht auf „In Arbeit“, und hat er noch kein
+## Startdatum, bekommt er das heutige (`today` als JJJJ-MM-TT). Leer, wenn er
+## schon läuft oder fertig ist.
+static func start_changes(m: Dictionary, today: String) -> Dictionary:
+	if m.get("status") == "progress" or m.get("status") == "done":
+		return {}
+	var changes := {"status": "progress"}
+	if not m.get("startDate"):
+		changes["startDate"] = today
+	return changes
+
+
 static func is_milestone(x: Dictionary) -> bool:
 	return x.has("planned")
 

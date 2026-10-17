@@ -96,7 +96,6 @@ func task(id: String, project_id: String, o := {}) -> Builder:
 		"order": _n,
 		"categoryId": null,
 		"markId": null,
-		"ready": false,
 		"coverImageId": null,
 		"playOrder": 0,
 		"archivedAt": null,
@@ -105,6 +104,10 @@ func task(id: String, project_id: String, o := {}) -> Builder:
 	}
 	_ref += 1
 	_n += 1
+	# Wie nach Taskers Umstellung auf „Bereit“: was in einem Milestone oder unter
+	# einer Aufgabe liegt, ist fertig geplant; Loses ist offen.
+	if not o.has("status") and (o.get("milestoneId") or o.get("parentId")):
+		t["status"] = "ready"
 	t.merge(o, true)
 	data["tasks"].append(t)
 	return self

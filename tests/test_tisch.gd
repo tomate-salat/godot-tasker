@@ -100,14 +100,18 @@ func test_gerade_erst_erledigt_noch_ohne_zeitpunkt_liegt_obenauf() -> void:
 func test_gesperrte_und_stapel_duerfen_nicht_ins_spiel() -> void:
 	var ws: Workspace = Builder.new() \
 		.project("p") \
-		.task("a", "p") \
-		.task("b", "p", {"deps": ["a"]}) \
-		.task("stapel", "p") \
+		.task("a", "p", {"status": "ready"}) \
+		.task("b", "p", {"status": "ready", "deps": ["a"]}) \
+		.task("stapel", "p", {"status": "ready"}) \
 		.task("kind", "p", {"parentId": "stapel"}) \
+		.task("roh", "p") \
+		.task("klaerung", "p", {"status": "unclear"}) \
 		.build()
 	eq(Tisch.play_refusal(ws, ws.task("a")), "")
 	ok(Tisch.play_refusal(ws, ws.task("b")) != "", "gesperrt")
 	ok(Tisch.play_refusal(ws, ws.task("stapel")) != "", "stapel")
+	eq(Tisch.play_refusal(ws, ws.task("roh")), "Noch nicht bereit – erst fertig planen", "offen ist noch nicht fertig geplant")
+	eq(Tisch.play_refusal(ws, ws.task("klaerung")), "", "unklar darf ins Spiel")
 
 
 func test_ein_stapel_darf_erst_auf_den_erledigt_stapel_wenn_alles_darunter_erledigt_ist() -> void:

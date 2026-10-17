@@ -1804,7 +1804,7 @@ func _input(event: InputEvent) -> void:
 				task_requested.emit(id)
 
 
-## Tappen und zurück: in Arbeit nehmen oder wieder offen.
+## Tappen und zurück: in Arbeit nehmen oder wieder bereit.
 func _toggle(id: String) -> void:
 	var task = _ws.task(id) if _ws != null else null
 	if task == null:
@@ -1813,7 +1813,7 @@ func _toggle(id: String) -> void:
 	if refusal != "":
 		refused.emit(refusal)
 	else:
-		change_requested.emit(id, {"status": "open" if Field.is_tapped(task) else "progress"})
+		change_requested.emit(id, {"status": "ready" if Field.is_tapped(task) else "progress"})
 
 
 ## Der letzte Schlag: die Karte ist erledigt.
@@ -1840,7 +1840,7 @@ func _open_menu(id: String) -> void:
 	elif Model.is_done(task):
 		_menu.add_item("Wieder öffnen", 3)
 	else:
-		_menu.add_item("Zurück auf offen" if Field.is_tapped(task) else "Tappen: in Arbeit", 0)
+		_menu.add_item("Zurück auf bereit" if Field.is_tapped(task) else "Tappen: in Arbeit", 0)
 		_menu.add_item("Erledigt", 1)
 	_menu.add_separator()
 	_menu.add_item("Aufgabe öffnen", 4)
@@ -1858,7 +1858,8 @@ func _on_menu(item: int) -> void:
 		1:
 			_finish(_menu_task)
 		3:
-			change_requested.emit(_menu_task, {"status": "open"})
+			# Was schon einmal erledigt war, war auch fertig geplant.
+			change_requested.emit(_menu_task, {"status": "ready"})
 		4:
 			task_requested.emit(_menu_task)
 		5:

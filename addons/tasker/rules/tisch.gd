@@ -10,6 +10,7 @@ extends RefCounted
 const Model := preload("model.gd")
 const Checklist := preload("checklist.gd")
 const Blocking := preload("blocking.gd")
+const ParentStatus := preload("parent_status.gd")
 const Workspace := preload("workspace.gd")
 
 const DAY := 86400
@@ -66,7 +67,8 @@ static func layout(ws: Workspace, m: Dictionary) -> Dictionary:
 				play.append(t)
 		if Model.is_done(root) or (root["status"] == "progress" and ws.kids(root["id"]).is_empty()):
 			continue
-		if Blocking.is_blocked(ws, root):
+		# Gesperrt: angekettet, blockiert oder noch nicht bereit (Taskers `isLocked`).
+		if Blocking.is_blocked(ws, root) or ParentStatus.not_ready(ws, root):
 			locked.append(root)
 		else:
 			open.append(root)
@@ -99,6 +101,8 @@ static func play_refusal(ws: Workspace, t: Dictionary) -> String:
 		return "Ein Stapel kommt nicht ins Spiel – spiel seine Unteraufgaben aus"
 	if Blocking.is_blocked(ws, t):
 		return "Die Karte ist noch angekettet"
+	if ParentStatus.not_ready(ws, t):
+		return "Noch nicht bereit – erst fertig planen"
 	return ""
 
 

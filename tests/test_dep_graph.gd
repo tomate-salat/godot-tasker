@@ -14,8 +14,8 @@ func _ws() -> Workspace:
 		.milestone("zwei", "p", {"planned": true, "deps": ["eins"]}) \
 		.milestone("entwurf", "p") \
 		.task("pfad", "p") \
-		.task("licht", "p", {"ready": true, "status": "done"}) \
-		.task("ki", "p", {"ready": true, "deps": ["pfad", "licht"]}) \
+		.task("licht", "p", {"status": "done"}) \
+		.task("ki", "p", {"status": "ready", "deps": ["pfad", "licht"]}) \
 		.task("kikind", "p", {"parentId": "ki", "deps": ["grund"]}) \
 		.task("grund", "p", {"milestoneId": "eins"}) \
 		.task("gegner", "p", {"milestoneId": "eins", "deps": ["ki"]}) \
@@ -80,8 +80,8 @@ func test_die_kante_sagt_ob_die_voraussetzung_richtig_liegt() -> void:
 
 func test_jeder_knoten_nennt_wo_er_liegt() -> void:
 	var ws := _ws()
-	eq(DepGraph.place_label(ws, ws.task("ki")), "Ready")
-	eq(DepGraph.place_label(ws, ws.task("kikind")), "Ready")
+	eq(DepGraph.place_label(ws, ws.task("ki")), "Backlog")
+	eq(DepGraph.place_label(ws, ws.task("kikind")), "Backlog")
 	eq(DepGraph.place_label(ws, ws.task("pfad")), "Backlog")
 	eq(DepGraph.place_label(ws, ws.task("boss")), "◆ eins")
 	eq(DepGraph.place_label(ws, ws.task("skizze")), "◆ entwurf (nicht eingeplant)")

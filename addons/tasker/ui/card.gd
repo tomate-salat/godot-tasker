@@ -343,6 +343,10 @@ func _draw_dot() -> void:
 	var color := Palette.status_color(_status)
 	if _status == "open":
 		_dot.draw_arc(c, 4.5, 0, TAU, 24, color, 1.5, true)
+	elif _status == "ready":
+		_dot.draw_circle(c, 4.5, Color(color, 0.35), true, -1.0, true)
+		_dot.draw_arc(c, 4.5, 0, TAU, 24, color, 1.5, true)
+		_dot.draw_circle(c, 1.8, color, true, -1.0, true)
 	else:
 		_dot.draw_circle(c, 5.0, color, true, -1.0, true)
 		if _status == "done":
@@ -376,7 +380,7 @@ func _draw_bar() -> void:
 		if s["kind"] == "checklist":
 			if s["done"]:
 				color = Palette.OK
-		elif s["status"] != "open":
+		elif not s["status"] in ["open", "ready"]:
 			color = Palette.status_color(s["status"])
 		_bar.draw_rect(Rect2(i * (w + gap), 0.0, maxf(w, 1.0), _bar.size.y), color)
 

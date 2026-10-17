@@ -205,7 +205,7 @@ func _draw() -> void:
 			if s["kind"] == "checklist":
 				if s["done"]:
 					color = Palette.OK
-			elif s["status"] != "open":
+			elif not s["status"] in ["open", "ready"]:
 				color = Palette.status_color(s["status"])
 			var piece := _stretch(closed, around * i / n + gap / 2.0, around * (i + 1) / n - gap / 2.0)
 			if piece.size() >= 2:

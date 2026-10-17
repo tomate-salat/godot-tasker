@@ -3,9 +3,9 @@ extends Control
 ## Planen als Lageplan: dieselbe Stadt wie im Feld, aber ruhig, und links die
 ## Reserve – alles, was noch keinem Milestone zugeteilt ist.
 ##
-## In der Reserve stehen die Aufgaben als Zeilen mit Bild und Titel: oben die
-## Bereitschaft („Ready“), darunter das Hinterland („Backlog“), gegliedert
-## wie in Tasker. In der Stadt stehen Abzeichen. Wer eine Zeile greift, hält
+## In der Reserve stehen die Aufgaben als Zeilen mit Bild und Titel: das
+## Hinterland („Backlog“), gegliedert wie in Tasker – ob eine Aufgabe fertig
+## geplant ist, zeigt ihr Status „Bereit“, nicht ihr Ort. In der Stadt stehen Abzeichen. Wer eine Zeile greift, hält
 ## ihre Karte; wer sie in die Stadt zieht, teilt sie dem Milestone zu
 ## (der Marschbefehl): sie fliegt hinein, ihr Rahmen zerfällt, und ihr Bild
 ## setzt als Abzeichen auf. Ein Abzeichen zurück in die Reserve gezogen nimmt
@@ -298,10 +298,10 @@ func _show_reserve() -> void:
 	var stock := {}
 	var query := _search.text.strip_edges().to_lower()
 	var stamp := query
-	for which in [Planning.READY, Planning.BACKLOG]:
+	for which in ["backlog"]:
 		stock[which] = []
 		# Auch leere Abschnitte: beim Ziehen sind sie Ziele, sonst bleiben sie versteckt.
-		for section in Planning.stock(_ws, _project, which, true):
+		for section in Planning.stock(_ws, _project, true):
 			# Gesucht wird im Titel, im Zeichen der Markierung und im Namen des Abschnitts.
 			var hits: Array = section["cards"].filter(func(t: Dictionary) -> bool: return _matches(t, query, str(section["title"])))
 			stock[which].append({"title": section["title"], "cards": hits, "place": section["place"],
@@ -318,11 +318,11 @@ func _show_reserve() -> void:
 	_blocks = []
 	_hot = null
 	_peek.visible = false
-	for which in [Planning.READY, Planning.BACKLOG]:
+	for which in ["backlog"]:
 		var count := 0
 		for section in stock[which]:
 			count += section["cards"].size()
-		_heading("Bereitschaft" if which == Planning.READY else "Hinterland", "%s · %d" % ["Ready" if which == Planning.READY else "Backlog", count], 13)
+		_heading("Hinterland", "Backlog · %d" % count, 13)
 		if count == 0:
 			var none := Label.new()
 			none.text = "leer" if query == "" else "nichts gefunden"
@@ -443,7 +443,7 @@ func _aim(on: bool) -> void:
 
 
 ## Legt die Aufgabe in den Abschnitt der Reserve unter dem Zeiger – ans Ende.
-## Ohne Abschnitt unter dem Zeiger: in die Bereitschaft. Gibt zurück, ob es
+## Ohne Abschnitt unter dem Zeiger: nach „Unsortiert“. Gibt zurück, ob es
 ## etwas zu tun gab.
 func _drop_in_reserve(id: String) -> bool:
 	var task = _ws.task(id)
@@ -731,12 +731,7 @@ func _place_of(task: Dictionary) -> Dictionary:
 		return {"milestoneId": task["milestoneId"]}
 	if task.get("groupId"):
 		return {"groupId": task["groupId"]}
-	if not task.get("ready", false):
-		return {"ready": false}
-	if task.get("markId"):
-		return {"ready": true, "markId": task["markId"]}
-	var category = _ws.category(task.get("categoryId"))
-	return {"ready": true, "markId": null, "categoryId": category["id"] if category != null and category["projectId"] == _project else null}
+	return Planning.LOOSE
 
 
 ## Die Aufgaben an einem Ort, in Reihenfolge.
@@ -744,10 +739,9 @@ func _roots_at(place: Dictionary) -> Array:
 	if place.get("milestoneId"):
 		var m = _ws.milestone(place["milestoneId"])
 		return _ws.ms_roots(m).map(func(t: Dictionary) -> String: return t["id"]) if m != null else []
-	for which in [Planning.READY, Planning.BACKLOG]:
-		for section in Planning.stock(_ws, _project, which, true):
-			if section["place"] == place:
-				return section["cards"].map(func(t: Dictionary) -> String: return t["id"])
+	for section in Planning.stock(_ws, _project, true):
+		if section["place"] == place:
+			return section["cards"].map(func(t: Dictionary) -> String: return t["id"])
 	return []
 
 
@@ -834,14 +828,9 @@ func _show_undo() -> void:
 	_undo_button.tooltip_text = "Nichts zurückzunehmen" if _undo.is_empty() else "Zurücknehmen (Strg+Z): %s" % _undo[_undo.size() - 1]["title"]
 
 
-## Der Abschnitt der Bereitschaft, in den die Aufgabe gehört: unter ihre
-## Markierung, sonst unter ihre Kategorie.
-func _loose_place(task: Dictionary) -> Dictionary:
-	var loose := task.duplicate()
-	loose["milestoneId"] = null
-	loose["groupId"] = null
-	loose["ready"] = true
-	return _place_of(loose)
+## Wohin eine Aufgabe zurückgelegt wird, die aus dem Milestone kommt: nach „Unsortiert“.
+func _loose_place(_task: Dictionary) -> Dictionary:
+	return Planning.LOOSE
 
 
 ## Der Marschbefehl: die Aufgabe kommt ans Ende des Milestones.
@@ -901,14 +890,14 @@ func _splinter(at: Vector2) -> void:
 
 
 ## Ein Abzeichen wurde losgelassen: über der Reserve geht die Aufgabe zurück
-## in die Bereitschaft.
+## in den Vorrat.
 func _on_badge_released(id: String, at: Vector2) -> void:
 	if _field.position.x + at.x > RESERVE_WIDTH:
 		return
 	_drop_in_reserve(id)
 
 
-## Nimmt die Aufgabe aus dem Milestone: sie liegt danach in der Bereitschaft.
+## Nimmt die Aufgabe aus dem Milestone: sie liegt danach in „Unsortiert“.
 func _unassign(id: String) -> void:
 	var task = _ws.task(id)
 	if task == null:
@@ -916,7 +905,6 @@ func _unassign(id: String) -> void:
 	if task.get("parentId"):
 		refused.emit("Eine Unteraufgabe bleibt bei ihrem Stapel")
 		return
-	# In die Bereitschaft, unter seine Markierung oder Kategorie.
 	var res: Dictionary = await _go(id, _loose_place(task), -1)
 	if not res.get("ok", false):
 		refused.emit(str(res.get("error", "Das ging nicht.")))

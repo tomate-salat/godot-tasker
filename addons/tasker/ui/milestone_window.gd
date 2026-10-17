@@ -4,8 +4,9 @@ extends "card_window.gd"
 ## Status, Fortschritt, Zeitraum, die Beschreibung als gerendertes Markdown
 ## samt Zeichnungen, das Burnup-Diagramm und die Aufgaben.
 ##
-## Alles ist Anzeige. Der Status eines Milestones wird hier bewusst nicht
-## geändert: je Projekt ist nur einer aktiv, und ein Wechsel räumt den Tisch um.
+## Fast alles ist Anzeige. Ändern lässt sich nur eines: ein Milestone, der
+## nicht läuft, lässt sich starten (Nutzer, 2026-10-14) – pausieren oder
+## abschließen geht weiter in Tasker.
 
 ## Eine Aufgabe oder ein anderer Milestone soll geöffnet werden.
 signal task_requested(task_id: String)
@@ -37,6 +38,7 @@ var _crumb: Label
 var _ref: Label
 var _status: Label
 var _status_icon: TextureRect
+var _start: Button
 var _bar: Control
 var _forecast: Label
 var _period: Label
@@ -88,6 +90,7 @@ func refresh() -> void:
 	_title.text = name
 	_status.text = Palette.STATUS_LABELS.get(m.get("status"), "?")
 	_status_icon.texture = Palette.status_icon(m.get("status"))
+	_start.visible = store.state == "ready" and not Model.start_changes(m, "").is_empty()
 	_segments = Card._sorted(Progress.status_segments(ws, m))
 	_bar.queue_redraw()
 	_period.text = "%s – %s" % [_date(m.get("startDate")), _date(m.get("endDate"))]
@@ -235,6 +238,16 @@ func _build() -> void:
 	status_row.add_child(_status_icon)
 	_status = Label.new()
 	status_row.add_child(_status)
+	_start = Button.new()
+	_start.text = "▶ Starten"
+	_start.tooltip_text = "Setzt den Milestone in Tasker auf „In Arbeit“ (und das Startdatum auf heute, falls keins gesetzt ist)"
+	_start.pressed.connect(func() -> void:
+		_start.disabled = true
+		var res: Dictionary = await store.start_milestone(task_id)
+		_start.disabled = false
+		if not res["ok"]:
+			_on_desc_failed(str(res["error"])))
+	status_row.add_child(_start)
 	_prop(grid, "Status", status_row)
 
 	var progress_row := HBoxContainer.new()
@@ -356,7 +369,7 @@ func _draw_bar() -> void:
 		if s["kind"] == "checklist":
 			if s["done"]:
 				color = Palette.OK
-		elif s["status"] != "open":
+		elif not s["status"] in ["open", "ready"]:
 			color = Palette.status_color(s["status"])
 		_bar.draw_rect(Rect2(i * (w + gap), 0.0, maxf(w, 1.0), _bar.size.y), color)
 

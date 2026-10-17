@@ -128,7 +128,7 @@ static func edge_state(ws: Workspace, blocker: Dictionary, waiter: Dictionary, o
 	return MISPLACED if blocker_at < 0 or blocker_at > at else OK
 
 
-## Wo etwas liegt, lesbar: der Milestone, sonst „Ready“ oder „Backlog“.
+## Wo etwas liegt, lesbar: der Milestone, sonst „Backlog“.
 static func place_label(ws: Workspace, x: Dictionary) -> String:
 	if Model.is_milestone(x):
 		return "Milestone" if x.get("planned", false) else "Milestone, nicht eingeplant"
@@ -138,7 +138,7 @@ static func place_label(ws: Workspace, x: Dictionary) -> String:
 	var root := ws.root(x)
 	if root.get("doc", false):
 		return "Dokumentation"
-	return "Ready" if Planning.is_loose_root(root) and root.get("ready", false) else "Backlog"
+	return "Backlog"
 
 
 static func _place(ws: Workspace, x: Dictionary, order: Dictionary) -> int:

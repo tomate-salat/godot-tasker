@@ -2,6 +2,7 @@ extends "suite.gd"
 ## Das Feld gibt es nur im Addon; die Regeln stehen in `rules/field.gd`.
 
 const Field := preload("res://addons/tasker/rules/field.gd")
+const ParentStatus := preload("res://addons/tasker/rules/parent_status.gd")
 
 
 func _node(field: Dictionary, id: String) -> Dictionary:
@@ -173,6 +174,20 @@ func test_tappen_geht_nur_bei_freien_karten_ohne_unteraufgaben() -> void:
 	eq(Field.tap_refusal(ws, ws.task("kind")), "")
 	eq(Field.tap_refusal(ws, ws.task("stapel")) != "", true)
 	eq(Field.tap_refusal(ws, ws.task("wartet")) != "", true)
+
+
+func test_offene_karten_lassen_sich_nicht_tappen() -> void:
+	var ws: Workspace = Builder.new() \
+		.project("p") \
+		.milestone("m", "p", {"status": "progress"}) \
+		.task("roh", "p", {"milestoneId": "m", "status": "open"}) \
+		.task("halb", "p", {"milestoneId": "m"}) \
+		.task("halbkind", "p", {"parentId": "halb", "status": "open"}) \
+		.build()
+	eq(Field.tap_refusal(ws, ws.task("roh")), "Noch nicht bereit – erst fertig planen")
+	eq(Field.tap_refusal(ws, ws.task("halbkind")), "Noch nicht bereit – erst fertig planen")
+	# Ein bereiter Stapel mit offener Unteraufgabe ist noch nicht fertig geplant.
+	ok(ParentStatus.not_ready(ws, ws.task("halb")))
 
 
 func test_die_front_ist_der_aeusserste_ring_mit_einer_offenen_karte() -> void:

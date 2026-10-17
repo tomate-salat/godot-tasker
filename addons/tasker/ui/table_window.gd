@@ -58,6 +58,7 @@ var _chosen := ""
 var _shown: Variant
 var _campaign: CampaignView
 var _release_chip: Button
+var _start: Button
 var _bar: HBoxContainer
 
 ## Die Ablage ist offen: sie zeigt je Woche, was erledigt wurde.
@@ -168,6 +169,15 @@ func _build() -> void:
 	_title.add_theme_font_override("font", Palette.title_font())
 	_title.add_theme_font_size_override("font_size", 18)
 	bar.add_child(_title)
+	# Läuft der gezeigte Milestone nicht, lässt er sich hier starten – dann
+	# kann an seinen Aufgaben gearbeitet werden (Nutzer, 2026-10-14).
+	_start = Button.new()
+	_start.text = "▶ Starten"
+	_start.focus_mode = Control.FOCUS_NONE
+	_start.visible = false
+	_start.tooltip_text = "Setzt den Milestone in Tasker auf „In Arbeit“ (und das Startdatum auf heute, falls keins gesetzt ist)"
+	_start.pressed.connect(_start_shown)
+	bar.add_child(_start)
 	_progress = ProgressBar.new()
 	_progress.show_percentage = false
 	_progress.custom_minimum_size = Vector2(220, 8)
@@ -368,7 +378,7 @@ func _field_change(id: String, changes: Dictionary) -> void:
 	if _shown != null and _shown.get("status") != "progress":
 		_refuse("„%s“ ist nicht aktiv – gespielt wird nur in einem laufenden Milestone" % _shown.get("title", ""))
 		return
-	_sounds.play("play" if changes.get("status") == "progress" else "draw" if changes.get("status") == "open" else "done")
+	_sounds.play("play" if changes.get("status") == "progress" else "draw" if changes.get("status") == "open" or changes.get("status") == "ready" else "done")
 	await _change(id, changes)
 	_sync()
 
@@ -501,6 +511,7 @@ func _show_head(demo: bool) -> void:
 		_release_chip.text = Release.label(named)
 		_release_chip.disabled = _release == null or named["id"] != _release["id"]
 		_release_chip.tooltip_text = "Das Release dieses Milestones" if _release_chip.disabled else "Das Release in seinem Fenster zeigen" if not lage and _on_map() else "Die Feldzugskarte: alle Milestones dieses Releases"
+	_start.visible = false
 	if not lage and _on_map():
 		_title.visible = false
 		var boss: Dictionary = _campaign._campaign.get("boss", {"total": 0, "done": 0})
@@ -517,9 +528,28 @@ func _show_head(demo: bool) -> void:
 		return
 	var stats := Progress.milestone_stats(_ws, head)
 	_title.text = "◆ %s%s" % [head["title"], "   (Beispieldaten, keine Verbindung)" if demo else ""]
+	_start.visible = not demo and store != null and store.state == "ready" and not Model.start_changes(head, "").is_empty()
+	_start.disabled = false
 	_progress.visible = true
 	_progress.value = Progress.milestone_progress_pct(_ws, head)
 	_count.text = "%d/%d" % [stats["done"], stats["total"]]
+
+
+func _start_shown() -> void:
+	var head: Variant = _shown if _shown != null else _milestone
+	if head == null or store == null or store.state != "ready":
+		return
+	_start.disabled = true
+	# Er bleibt im Blick, auch wenn ein anderer schon lief.
+	_chosen = head["id"]
+	var res: Dictionary = await store.start_milestone(head["id"])
+	_start.disabled = false
+	if res["ok"]:
+		_sounds.play("play")
+		_say("◆ %s läuft" % head.get("title", ""), Palette.OK)
+	else:
+		_say(str(res["error"]))
+	_sync()
 
 
 func _goal() -> int:

@@ -12,6 +12,7 @@ signal changed
 signal state_changed
 
 const Client := preload("client.gd")
+const Model := preload("../rules/model.gd")
 const Workspace := preload("../rules/workspace.gd")
 
 const LISTS := {
@@ -173,6 +174,19 @@ func web_url(task: Dictionary) -> String:
 ## Adresse, nur unter dem Schema der App.
 func app_url(task: Dictionary) -> String:
 	return "%s%s/%s" % [app_scheme, str(task["projectId"]).uri_encode(), str(task["id"]).uri_encode()]
+
+
+## Startet einen Milestone: `{ ok, error }`. Mehrere dürfen zugleich laufen,
+## wie in Tasker.
+func start_milestone(id: String) -> Dictionary:
+	var m: Variant = ws.milestone(id)
+	if m == null:
+		return {"ok": false, "error": "Den Milestone gibt es nicht mehr."}
+	var changes := Model.start_changes(m, Time.get_date_string_from_system())
+	if changes.is_empty():
+		return {"ok": true, "error": ""}
+	var res := await patch("milestone", id, changes)
+	return {"ok": res["ok"], "error": res["error"]}
 
 
 ## Öffnet die Releases eines Projekts in Tasker. Ein einzelnes Release hat

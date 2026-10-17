@@ -136,3 +136,11 @@ func test_suche_findet_nach_nummer_titel_label_und_beschreibung_in_dieser_reihen
 	eq(ids(Search.find(ws, "p", "$%d" % ws.task("label")["ref"])), ["label"], "Nummer")
 	eq(ids(Search.find(ws, "p", "   ")), [], "leer")
 	eq(Search.find(ws, "p", "sprung", 2).size(), 2, "Grenze")
+
+
+func test_ein_milestone_startet_wie_in_tasker() -> void:
+	eq(Model.start_changes({"status": "open"}, "2026-10-14"), {"status": "progress", "startDate": "2026-10-14"})
+	# Ein Startdatum, das schon steht, bleibt.
+	eq(Model.start_changes({"status": "open", "startDate": "2026-09-01"}, "2026-10-14"), {"status": "progress"})
+	eq(Model.start_changes({"status": "progress"}, "2026-10-14"), {})
+	eq(Model.start_changes({"status": "done"}, "2026-10-14"), {})

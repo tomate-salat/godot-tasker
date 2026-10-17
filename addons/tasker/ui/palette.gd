@@ -27,6 +27,8 @@ static var _sharp_body_font: Font
 
 static func status_color(status: Variant) -> Color:
 	match status:
+		"ready":
+			return ACCENT
 		"progress":
 			return INFO
 		"done":
@@ -52,6 +54,8 @@ static func prio_color(prio: int) -> Color:
 ## Der Fuß einer Karte trägt die Farbe des Status; „Offen“ bleibt neutral.
 static func foot_color(status: Variant) -> Color:
 	match status:
+		"ready":
+			return SURFACE.lerp(ACCENT, 0.16)
 		"progress":
 			return SURFACE.lerp(INFO, 0.22)
 		"done":
@@ -65,6 +69,8 @@ static func foot_color(status: Variant) -> Color:
 
 static func foot_line(status: Variant) -> Color:
 	match status:
+		"ready":
+			return LINE.lerp(ACCENT, 0.40)
 		"progress":
 			return LINE.lerp(INFO, 0.45)
 		"done":
@@ -119,6 +125,7 @@ static var _status_icons := {}
 
 const STATUS_LABELS := {
 	"open": "Offen",
+	"ready": "Bereit",
 	"progress": "In Progress",
 	"done": "Erledigt",
 	"unclear": "Unklar",
@@ -139,9 +146,11 @@ static func status_icon(status: Variant) -> Texture2D:
 		for x in size:
 			var d := Vector2(x + 0.5, y + 0.5).distance_to(center)
 			var alpha := clampf(5.5 - d, 0.0, 1.0)
-			# „Offen“ ist nur ein Ring.
+			# „Offen“ ist nur ein Ring; „Bereit“ ein Ring mit Punkt, leicht gefüllt – wie in Tasker.
 			if status == "open":
 				alpha *= clampf(d - 3.2, 0.0, 1.0)
+			elif status == "ready":
+				alpha *= maxf(clampf(d - 3.2, 0.0, 1.0), maxf(clampf(2.6 - d, 0.0, 1.0), 0.35))
 			image.set_pixel(x, y, Color(color, alpha))
 	var texture := ImageTexture.create_from_image(image)
 	_status_icons[status] = texture

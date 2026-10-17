@@ -12,8 +12,11 @@ static func data() -> Dictionary:
 			"id": id, "ref": tasks.size() + 2, "version": 1, "projectId": PROJECT, "parentId": null,
 			"milestoneId": "ms", "groupId": null, "doc": false, "title": title, "desc": "", "prio": 0,
 			"status": "open", "doneAt": null, "order": tasks.size(), "categoryId": null, "markId": null,
-			"ready": false, "coverImageId": null, "playOrder": 0, "archivedAt": null, "tags": [], "deps": [],
+			"coverImageId": null, "playOrder": 0, "archivedAt": null, "tags": [], "deps": [],
 		}
+		# Wie nach Taskers Umstellung: was in einem Milestone liegt, ist fertig geplant.
+		if not o.has("status") and o.get("milestoneId", "ms") != null:
+			t["status"] = "ready"
 		t.merge(o, true)
 		if t["parentId"] != null:
 			t["milestoneId"] = null
@@ -62,10 +65,10 @@ Mehr unter https://example.com/menue"})
 	add.call("q3", "Quest Generator", {"milestoneId": "ms3", "status": "done", "doneAt": "2026-10-03T10:00:00.000Z", "deps": ["q1"]})
 	add.call("q4", "Quest Board", {"milestoneId": "ms3", "deps": ["q1", "q2", "q3"]})
 	add.call("q5", "Update Enter Arena Dialog", {"milestoneId": "ms3", "deps": ["q2", "q4"]})
-	add.call("r1", "Lichtkonzept", {"milestoneId": null, "ready": true})
-	add.call("r2", "Gegner-KI", {"milestoneId": null, "ready": true, "deps": ["v3"]})
+	add.call("r1", "Lichtkonzept", {"milestoneId": null, "status": "ready"})
+	add.call("r2", "Gegner-KI", {"milestoneId": null, "status": "ready", "deps": ["v3"]})
 	add.call("r2a", "Pfadfindung", {"parentId": "r2"})
-	add.call("r3", "Tutorial-Text", {"milestoneId": null, "ready": true, "markId": "mk"})
+	add.call("r3", "Tutorial-Text", {"milestoneId": null, "status": "ready", "markId": "mk"})
 	for i in 26:
 		add.call("v%d" % i, ["Soundkulisse", "Kamerafahrt", "Zwischensequenz", "Erfolge", "Bestenliste", "Fotomodus", "Wetter"][i % 7] + (" %d" % (i / 7 + 1) if i >= 7 else ""),
 			{"milestoneId": null, "groupId": "gr" if i < 5 else null})

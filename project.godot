@@ -13,7 +13,11 @@ config_version=5
 config/name="tasker-godot"
 config/tags=PackedStringArray("addon")
 config/features=PackedStringArray("4.7", "Forward Plus")
-config/icon="res://icon.svg"
+config/icon="uid://bj38l86b5oeu0"
+
+[autoload]
+
+TaskerProbe="*uid://dg14mos6h7har"
 
 [display]
 

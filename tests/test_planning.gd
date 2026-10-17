@@ -73,15 +73,15 @@ func _stock() -> Workspace:
 	var b := _plan() \
 		.mark("idee", "p", {"emoji": "💡", "name": "Idee"}) \
 		.category("grafik", "p") \
-		.task("r1", "p", {"ready": true, "markId": "idee"}) \
-		.task("r2", "p", {"ready": true, "categoryId": "grafik"}) \
-		.task("r3", "p", {"ready": true}) \
+		.task("r1", "p", {"status": "ready", "markId": "idee"}) \
+		.task("r2", "p", {"status": "ready", "categoryId": "grafik"}) \
+		.task("r3", "p", {"status": "ready"}) \
 		.task("r3kind", "p", {"parentId": "r3"}) \
 		.task("u1", "p") \
 		.task("g1", "p", {"groupId": "gruppe"}) \
 		.task("e1", "p", {"milestoneId": "entwurf"}) \
 		.task("doku", "p", {"doc": true}) \
-		.task("fremd", "anderes", {"ready": true})
+		.task("fremd", "anderes", {"status": "ready"})
 	b.data["groups"].append({"id": "gruppe", "version": 1, "projectId": "p", "title": "Technik", "order": 0, "archivedAt": null})
 	return b.build()
 
@@ -94,13 +94,10 @@ func test_die_decks_sind_die_eingeplanten_milestones() -> void:
 	eq(ids(Planning.decks(_stock(), "p")), ["eins", "zwei"])
 
 
-func test_ready_ist_nach_markierung_und_sonst_nach_kategorie_gegliedert() -> void:
-	eq(_shape(Planning.stock(_stock(), "p", Planning.READY)), [["💡 Idee", ["r1"]], ["grafik", ["r2"]], ["Ohne Kategorie", ["r3"]]])
-	eq(Planning.stock_count(_stock(), "p", Planning.READY), 3)
-
-
-func test_das_backlog_ist_alles_andere_uneingeplante() -> void:
-	eq(_shape(Planning.stock(_stock(), "p", Planning.BACKLOG)), [["Technik", ["g1"]], ["◆ entwurf", ["e1"]], ["Unsortiert", ["u1"]]])
+func test_der_vorrat_ist_alles_uneingeplante_bereit_oder_nicht() -> void:
+	# „Bereit“ ist ein Status, kein Ort mehr: bereite lose Aufgaben liegen in „Unsortiert“.
+	eq(_shape(Planning.stock(_stock(), "p")), [["Technik", ["g1"]], ["◆ entwurf", ["e1"]], ["Unsortiert", ["r1", "r2", "r3", "u1"]]])
+	eq(Planning.stock_count(_stock(), "p"), 6)
 
 
 func test_das_schloss_ist_gelb_wenn_die_karte_wartet_und_rot_wenn_das_ziel_spaeter_liegt() -> void:
@@ -129,17 +126,13 @@ func test_das_schloss_ist_gelb_wenn_die_karte_wartet_und_rot_wenn_das_ziel_spaet
 
 func test_jeder_abschnitt_nennt_seinen_ort_fuer_das_verschieben() -> void:
 	var ws := _stock()
-	var places := func(which: String) -> Array:
-		return Planning.stock(ws, "p", which).map(func(s: Dictionary) -> Dictionary: return s["place"])
-	eq(places.call(Planning.READY), [{"ready": true, "markId": "idee"}, {"ready": true, "markId": null, "categoryId": "grafik"}, {"ready": true, "markId": null, "categoryId": null}])
-	eq(places.call(Planning.BACKLOG), [{"groupId": "gruppe"}, {"milestoneId": "entwurf"}, {"ready": false}])
+	eq(Planning.stock(ws, "p").map(func(s: Dictionary) -> Dictionary: return s["place"]), [{"groupId": "gruppe"}, {"milestoneId": "entwurf"}, {"milestoneId": null, "groupId": null}])
 
 
 func test_zum_hineinlegen_stehen_auch_leere_ziele_da() -> void:
 	var ws: Workspace = _plan().category("ton", "p").mark("idee", "p").build()
-	eq(_shape(Planning.stock(ws, "p", Planning.READY, true)), [["ton", []], ["Ohne Kategorie", []]], "leere Markierungen bleiben weg")
-	eq(_shape(Planning.stock(ws, "p", Planning.BACKLOG, true)), [["◆ entwurf", []], ["Unsortiert", []]])
-	eq(Planning.stock(ws, "p", Planning.READY), [])
+	eq(_shape(Planning.stock(ws, "p", true)), [["◆ entwurf", []], ["Unsortiert", []]])
+	eq(Planning.stock(ws, "p"), [], "ohne leere Ziele bleibt nichts")
 
 
 func test_die_stelle_beim_ablegen_zaehlt_ohne_die_verschobene_karte() -> void:
@@ -158,9 +151,9 @@ func test_die_stelle_beim_ablegen_zaehlt_ohne_die_verschobene_karte() -> void:
 func test_der_zug_steht_sofort_im_stand_wie_der_server_ihn_schreiben_wird() -> void:
 	var local := Planning.local_move(["a", "b", "c"], "x", {"milestoneId": "m"}, 1)
 	eq(local["a"], {"order": 0})
-	eq(local["x"], {"order": 1, "parentId": null, "milestoneId": "m", "groupId": null, "ready": false})
+	eq(local["x"], {"order": 1, "parentId": null, "milestoneId": "m", "groupId": null})
 	eq(local["b"], {"order": 2})
 	eq(local["c"], {"order": 3})
-	var loose := Planning.local_move(["a"], "a", {"ready": true, "markId": null, "categoryId": "k"}, 0)
-	eq(loose["a"], {"order": 0, "parentId": null, "milestoneId": null, "groupId": null, "ready": true, "markId": null, "categoryId": "k"})
+	var loose := Planning.local_move(["a"], "a", Planning.LOOSE, 0)
+	eq(loose["a"], {"order": 0, "parentId": null, "milestoneId": null, "groupId": null})
 	eq(Planning.local_move(["a", "b"], "a", {"groupId": "g"}, 5)["a"]["order"], 1, "eine zu große Stelle heißt ans Ende")
