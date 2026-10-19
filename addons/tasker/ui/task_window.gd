@@ -23,6 +23,9 @@ const Progress := preload("../rules/progress.gd")
 const Links := preload("../core/links.gd")
 const Refs := preload("../rules/refs.gd")
 const Inherit := preload("../rules/inherit.gd")
+const ClaudeTasks := preload("../core/claude_tasks.gd")
+const SceneTools := preload("../core/scene_tools.gd")
+const ClaudeBar := preload("claude_bar.gd")
 
 ## Was dieses Fenster zeigt – für das Speichern.
 const KIND := "task"
@@ -46,7 +49,15 @@ var _editor: ContentEditor
 ## Was beim Bearbeiten dem Feld weicht.
 var _reading: Array[Control] = []
 var _kids: VBoxContainer
-var _where: HFlowContainer
+var _where: VBoxContainer
+var _where_toggle: Button
+var _where_list: VBoxContainer
+var _where_open := false
+## Claude-Aufträge und Schnappschuss – fehlen sie, gibt es keine Claude-Zeile.
+var tasks: ClaudeTasks
+var scene_tools: SceneTools
+var _bar: ClaudeBar
+var _bar_slot: VBoxContainer
 var _cover: Control
 var _cover_id := ""
 var _cover_texture: Texture2D
@@ -68,6 +79,13 @@ func _ready() -> void:
 		store.changed.connect(refresh)
 	if links != null:
 		links.memory.changed.connect(refresh)
+	if tasks != null and scene_tools != null:
+		_bar = ClaudeBar.new()
+		_bar.tasks = tasks
+		_bar.scene_tools = scene_tools
+		_bar.task_id = task_id
+		_bar_slot.add_child(_bar)
+		tasks.changed.connect(_dim_while_claude)
 	refresh()
 
 
@@ -93,17 +111,9 @@ func refresh() -> void:
 	_desc.show_text(t.get("desc"), "taskId", task_id)
 	_load_cover(t)
 
-	# Woran die Aufgabe in Godot hängt: ein Klick springt hin.
-	for c in _where.get_children():
-		c.queue_free()
-	var refs := links.of_task(task_id) if links != null else []
-	_where.visible = not refs.is_empty()
-	for ref in refs:
-		var jump := Button.new()
-		jump.text = "⌖ " + Refs.label(ref)
-		jump.tooltip_text = "Zeig mir, wo: öffnet die Szene und wählt den Node aus"
-		jump.pressed.connect(_reveal.bind(ref))
-		_where.add_child(jump)
+	_show_links()
+	if _bar != null and tasks != null:
+		_dim_while_claude()
 
 	for c in _kids.get_children():
 		c.queue_free()
@@ -184,9 +194,21 @@ func _build() -> void:
 	browser.pressed.connect(_open_in_browser)
 	_props.add_child(browser)
 
-	_where = HFlowContainer.new()
+	# Woran die Aufgabe hängt: zusammengefasst in einer Zeile, aufgeklappt je
+	# Node ein Sprung und ein Lösen (Nutzer, 2026-10-19: die Liste nahm zu viel Platz).
+	_where = VBoxContainer.new()
+	_where.add_theme_constant_override("separation", 2)
 	_where.visible = false
 	box.add_child(_where)
+	_where_toggle = Button.new()
+	_where_toggle.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_where_toggle.pressed.connect(func() -> void:
+		_where_open = not _where_open
+		_show_links())
+	_where.add_child(_where_toggle)
+	_where_list = VBoxContainer.new()
+	_where_list.add_theme_constant_override("separation", 0)
+	_where.add_child(_where_list)
 
 	_message = Label.new()
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -230,6 +252,60 @@ func _build() -> void:
 	_kids = VBoxContainer.new()
 	_kids.add_theme_constant_override("separation", 0)
 	box.add_child(_kids)
+
+	# Unten die Claude-Zeile – im Editor gibt es sie nur mit Claude-Aufträgen.
+	_bar_slot = box
+
+
+## Die Verknüpfungen: eine Zeile „⌖ cell.tscn · 4 Nodes“, aufgeklappt die Liste.
+func _show_links() -> void:
+	var refs := links.of_task(task_id) if links != null else []
+	_where.visible = not refs.is_empty()
+	if refs.is_empty():
+		return
+	var scenes := {}
+	for ref in refs:
+		scenes[ref["scenePath"]] = true
+	var summary := ""
+	if refs.size() == 1:
+		summary = Refs.label(refs[0])
+	elif scenes.size() == 1:
+		summary = "%s · %d Nodes" % [str(refs[0]["scenePath"]).get_file(), refs.size()]
+	else:
+		summary = "%d Szenen · %d Nodes" % [scenes.size(), refs.size()]
+	_where_toggle.text = "⌖ %s  %s" % [summary, "▴" if _where_open else "▾"]
+	_where_toggle.tooltip_text = "\n".join(refs.map(func(r: Dictionary) -> String: return Refs.label(r))) + "\n\nKlicken klappt die Liste auf."
+	for c in _where_list.get_children():
+		c.queue_free()
+	_where_list.visible = _where_open
+	if not _where_open:
+		return
+	for ref in refs:
+		var row := HBoxContainer.new()
+		var jump := Button.new()
+		jump.flat = true
+		jump.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		jump.text = "⌖ " + Refs.label(ref)
+		jump.tooltip_text = "Zeig mir, wo: öffnet die Szene und wählt den Node aus"
+		jump.clip_text = true
+		jump.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		jump.pressed.connect(_reveal.bind(ref))
+		row.add_child(jump)
+		var off := Button.new()
+		off.flat = true
+		off.text = "✕"
+		off.tooltip_text = "Vom Node lösen"
+		off.add_theme_color_override("font_color", Palette.MUTED)
+		off.pressed.connect(func() -> void: links.unlink(ref))
+		row.add_child(off)
+		_where_list.add_child(row)
+
+
+## Solange Claude an der Aufgabe arbeitet, ist ihr Text blass – gleich ändert er sich.
+func _dim_while_claude() -> void:
+	var busy: bool = tasks.running.has(task_id)
+	for c in _reading:
+		c.modulate.a = 0.5 if busy else 1.0
 
 
 ## Schickt eine Änderung und sagt, wenn sie nicht greift.

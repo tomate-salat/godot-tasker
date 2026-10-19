@@ -320,6 +320,10 @@ Noch nicht eingeplant. Abhängigkeiten (`deps`) werden als Fäden zwischen Karte
 
 Vorhandene Aufgaben bekommen Referenzen auf Szenen und Nodes. Der 2D- und 3D-Editor blendet die Karten an diesen Stellen ein, im Spiel ist davon nichts zu sehen.
 
+**Karten aus Prefabs** (Nutzer, 2026-10-19): Was an einem Prefab hängt (etwa an `npc.tscn` oder einem Node darin), erscheint auch in jeder Szene, in der das Prefab als Instanz steckt – auch verschachtelt, an jeder Instanz eine Karte. `Links.from_instances` liefert dafür Kopien der Referenzen mit `via` (Pfad der Instanz in der offenen Szene); gespeichert wird nichts Neues. Die Karten sind blasser und tragen darunter „◇ npc.tscn“. Verschieben, „Zurück an den Node“ und „Vom Prefab lösen“ gelten am Prefab, also für alle Instanzen; „Prefab öffnen“ öffnet es und wählt den Node. Schalter „Aus Prefabs“ im Kartenfilter der 2D/3D-Leiste, Vorgabe an (`scene_cards_hide_prefabs`). Kommt eine Instanz dazu oder geht eine, werden die Karten neu bestimmt.
+
+**Im Dock je Aufgabe eine Karte** (Nutzer, 2026-10-19): „In dieser Szene“ zeigte je Verknüpfung eine Karte – zwei Aufgaben an je vier NPCs ergaben acht fast gleiche Karten. Jetzt steht jede Aufgabe einmal da, darüber der erste Node und „+3“; der Tooltip nennt alle, auch was nicht mehr zu finden ist. Die Zahl im Kopf zählt Aufgaben.
+
 ### Festgelegt
 
 - **Szenendateien bleiben unberührt.** Die Referenz steht an der Aufgabe, nicht in der Szene. Keine Marker-Nodes, keine Metadaten.
@@ -577,6 +581,16 @@ Wunsch des Nutzers (2026-10-19): Aufgaben aus dem Addon anlegen und sie von Clau
 - Taskers Eingang setzt bei jeder Aufgabe den Tag `ai-created` – auch bei „Anlegen“ ohne Claude. Ob das so bleiben soll, ist mit der Tasker-Sitzung zu klären.
 - Skripte und Ressourcen ohne Szene lassen sich nicht anhängen (Verknüpfungen kennen nur Szenen und Nodes); Claude nennt sie unter „Affected“.
 - Im Editor noch nicht ausprobiert: Fenster, Knöpfe, Hinweise.
+
+### Claude im Aufgabenfenster
+
+Entwurf mit dem Nutzer abgestimmt (2026-10-19):
+
+- **Claude-Zeile am unteren Rand** (`ui/claude_bar.gd`): ein Feld für eine freie Anweisung („das Addon heißt Dialogic“, „Frage 2: ja“), „Senden“ (auch Enter) und „Mehr ▾“ mit den festen Aufträgen Neu schreiben, Erweitern, Abhängigkeiten finden. Dieselbe Zeile zeigt während der Arbeit Kreisel, Schritt, Zeit und „Abbrechen“, danach Claudes Satz, was geändert wurde, mit **Rückgängig** und ✕. Der Text der Aufgabe ist blass, solange Claude an ihr arbeitet. Läuft schon ein Auftrag (etwa aus dem Schnellanlegen), zeigt die Zeile ihn beim Öffnen.
+- **Freie Anweisung** (`Quick.INSTRUCT`): Claude ändert nur, was verlangt ist; der Rest bleibt wortgleich, auch Häkchen. Beantwortete offene Fragen wandern an ihre Stelle. Die Aufgabe bleibt englisch. Claude darf dabei auch Verknüpfungen setzen (`links`) und lösen (`unlink`) – nur die Anweisung darf lösen. Aus der Web-App ist sie nicht aufrufbar (`Quick.MODES` bleibt bei den festen drei).
+- **Rückgängig** (`ClaudeTasks.undo`): nimmt Text und Verknüpfungen des letzten Auftrags zurück; den Text nur, wenn ihn seitdem niemand geändert hat. Gelöste Verknüpfungen kommen über `Links.restore` zurück.
+- **Verknüpfungen in einer Zeile:** „⌖ cell.tscn · 4 Nodes ▾“ (bei mehreren Szenen „2 Szenen · 5 Nodes“, bei einer der Node selbst); aufgeklappt je Node ein Sprung und ein ✕ zum Lösen.
+- Probelauf gegen das Spielprojekt (nur lesend): „Das Addon heißt Dialogic, nicht Third Wheel. Frage zum Heiler: ja, er behält seine eigene UI. Und die Aufgabe hängt nicht am Healer.“ – 16 s, Titel und drei Stellen getauscht, Frage eingearbeitet und entfernt, Healer zum Lösen genannt, Häkchen erhalten.
 
 ### Diktat in Tasker, verfeinert in Godot
 

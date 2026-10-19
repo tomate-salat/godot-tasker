@@ -97,3 +97,18 @@ func test_die_antwort_kommt_auch_als_strom() -> void:
 	eq(ClaudeCli.read_answer("\n".join(lines), "")["data"], {"note": "ok"})
 	eq(ClaudeCli.tool_uses(lines[1]), [["Read", {"file_path": "a.gd"}]])
 	eq(ClaudeCli.tool_uses(lines[0]), [])
+
+
+func test_eine_anweisung_darf_auch_loesen() -> void:
+	ok(Quick.schema(Quick.INSTRUCT)["required"].has("unlink"))
+	ok(not Quick.schema(Quick.REWRITE)["properties"].has("unlink"), "nur die Anweisung löst")
+	var got := Quick.parse(Quick.INSTRUCT, {"title": "T", "desc": "D", "links": [], "unlink": [{"scene": "res://cell.tscn", "paths": ["Healer Npc"]}], "note": "gelöst"})
+	eq(got["unlink"], [{"scene": "res://cell.tscn", "paths": ["Healer Npc"]}])
+	eq(Quick.parse(Quick.REWRITE, {"title": "T", "desc": "D", "links": [], "unlink": [{"scene": "res://cell.tscn", "paths": ["X"]}], "note": ""})["unlink"], [])
+
+
+func test_die_anweisung_steht_im_auftrag() -> void:
+	var text := Quick.prompt(Quick.INSTRUCT, {"ref": 414, "title": "Introduce Third Wheel", "desc": "x"}, [], "", "C:/spiel", "Das Addon heißt Dialogic")
+	ok(text.contains("Das Addon heißt Dialogic"))
+	ok(text.contains("`unlink`"))
+	ok(not text.contains("**Observation**"), "keine Vorlage – der Rest bleibt, wie er ist")

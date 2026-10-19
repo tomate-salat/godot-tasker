@@ -24,6 +24,7 @@ const SceneTools := preload("scene_tools.gd")
 const ClaudeCli := preload("claude_cli.gd")
 const Config := preload("config.gd")
 const Quick := preload("../rules/quick.gd")
+const Refs := preload("../rules/refs.gd")
 
 ## Hier liegen die Aufträge, solange Claude sie liest.
 const JOB_DIR := "res://.godot/tasker/claude"
@@ -40,8 +41,13 @@ var cli: ClaudeCli
 var running := {}
 ## Aufgabe → der Griff, mit dem sich ihr Auftrag abbrechen lässt.
 var _handles := {}
-## Aufgaben, deren Auftrag aus der Web-App kam.
-var _from_web := {}
+## Aufgabe → wann ihr Auftrag begann (`Time.get_ticks_msec`).
+var started := {}
+## Aufgaben, deren Auftrag nicht von selbst ihr Fenster öffnen soll.
+var _quiet := {}
+## Aufgabe → was Claude zuletzt geändert hat, zum Zurücknehmen: `{ title,
+## desc, after_title, after_desc, text, added, removed }`.
+var _undo := {}
 
 
 ## Legt eine Aufgabe an und hängt sie an die Nodes (`{ scene, path }`).
@@ -107,8 +113,7 @@ func refine(request_id: String, task_id: String, mode: String) -> void:
 			last[0] = Time.get_ticks_msec()
 			_report(request_id, "working", line)
 	progress.connect(tell)
-	_from_web[task_id] = true
-	var res: Dictionary = await improve(task_id, mode, snapshot, WEB_PATIENCE_MSEC)
+	var res: Dictionary = await improve(task_id, mode, snapshot, WEB_PATIENCE_MSEC, "", false)
 	progress.disconnect(tell)
 	_report(request_id, "done" if res["ok"] else "failed", res["message"])
 
@@ -120,13 +125,16 @@ func _report(request_id: String, state: String, message: String) -> void:
 	store.client.post("/api/godot/status", body)
 
 
-## Schickt Claude an die Aufgabe. `snapshot` ist beim Klick gemacht worden.
-## Läuft schon ein Auftrag für sie, wird keiner dazugestartet. Antwort:
-## `{ ok, message }`.
-func improve(task_id: String, mode: String, snapshot: String, patience := ClaudeCli.PATIENCE_MSEC) -> Dictionary:
+## Schickt Claude an die Aufgabe. `snapshot` ist beim Klick gemacht worden,
+## `instruction` ist die Anweisung bei `Quick.INSTRUCT`. Mit `show` geht die
+## Aufgabe danach in ihrem Fenster auf. Läuft schon ein Auftrag für sie, wird
+## keiner dazugestartet. Antwort: `{ ok, message }`.
+func improve(task_id: String, mode: String, snapshot: String, patience := ClaudeCli.PATIENCE_MSEC, instruction := "", show := true) -> Dictionary:
 	var task: Variant = store.ws.task(task_id) if store != null else null
 	if task == null or running.has(task_id):
 		return {"ok": false, "message": "Für diese Aufgabe läuft schon ein Auftrag." if task != null else "Die Aufgabe gibt es nicht."}
+	if not show:
+		_quiet[task_id] = true
 	var label := "$%d" % int(task.get("ref", 0))
 	var base_title := str(task.get("title", ""))
 	var base_desc := str(task.get("desc", "")) if task.get("desc") != null else ""
@@ -139,10 +147,11 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 	var job := FileAccess.open(file, FileAccess.WRITE)
 	if job == null:
 		return _end(task_id, false, "%s: Der Auftrag für Claude ließ sich nicht schreiben (%s)." % [label, file])
-	job.store_string(Quick.prompt(mode, task, lines, snapshot, project_dir))
+	job.store_string(Quick.prompt(mode, task, lines, snapshot, project_dir, instruction))
 	job.close()
 
 	running[task_id] = mode
+	started[task_id] = Time.get_ticks_msec()
 	var handle := {}
 	_handles[task_id] = handle
 	changed.emit()
@@ -159,7 +168,9 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 		return _end(task_id, false, "%s: %s" % [label, answer["error"]])
 	progress.emit(task_id, "trägt ein")
 
-	var said := [Quick.DONE[mode] % label]
+	# Bei einer Anweisung sagt Claudes Satz, was geändert ist – sonst das Übliche.
+	var said := [] if mode == Quick.INSTRUCT and answer["note"] != "" else [Quick.DONE[mode] % label]
+	var undo := {"title": base_title, "desc": base_desc, "text": false, "added": [], "removed": []}
 	if mode != Quick.LINKS:
 		var now: Variant = store.ws.task(task_id)
 		if now == null:
@@ -167,22 +178,65 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 		var now_desc := str(now.get("desc", "")) if now.get("desc") != null else ""
 		if str(now.get("title", "")) != base_title or now_desc != base_desc:
 			said = ["%s ist inzwischen geändert worden – Claudes Text ist nicht eingetragen." % label]
-		else:
+		elif answer["title"] != base_title or answer["desc"] != base_desc:
 			var saved: Dictionary = await store.patch("task", task_id, {"title": answer["title"], "desc": answer["desc"]})
-			if not saved["ok"]:
+			if saved["ok"]:
+				undo["text"] = true
+				undo["after_title"] = answer["title"]
+				undo["after_desc"] = answer["desc"]
+			else:
 				said = ["%s: Claudes Text ließ sich nicht speichern: %s" % [label, saved["error"]]]
-	var fresh := Quick.without_linked(answer["links"], links.of_task(task_id))
+	# Lösen, was die Anweisung nicht mehr will – nur, was wirklich dranhängt.
+	for g in answer["unlink"]:
+		for ref in links.of_task(task_id):
+			if ref["scenePath"] == g["scene"] and g["paths"].has(ref["nodePath"]):
+				links.unlink(ref)
+				undo["removed"].append(ref)
+	var before := links.of_task(task_id)
+	var fresh := Quick.without_linked(answer["links"], before)
 	var problems := hang(task_id, fresh)
-	var count := 0
-	for g in fresh:
-		count += g["paths"].size()
-	if count > 0 and problems.is_empty():
-		said.append("Hängt jetzt auch an %s." % ("1 Node" if count == 1 else "%d Nodes" % count))
+	for ref in links.of_task(task_id):
+		if not before.any(func(b: Dictionary) -> bool: return Refs.same(b, ref)):
+			undo["added"].append(ref)
+	if not undo["added"].is_empty() and problems.is_empty():
+		said.append("Hängt jetzt auch an %s." % ("1 Node" if undo["added"].size() == 1 else "%d Nodes" % undo["added"].size()))
 	elif not problems.is_empty():
 		said.append("Nicht alles ließ sich anhängen: %s" % "; ".join(problems))
+	if not undo["removed"].is_empty():
+		said.append("Gelöst von %s." % ("1 Node" if undo["removed"].size() == 1 else "%d Nodes" % undo["removed"].size()))
 	if answer["note"] != "":
 		said.append(answer["note"])
+	if undo["text"] or not undo["added"].is_empty() or not undo["removed"].is_empty():
+		_undo[task_id] = undo
+	else:
+		_undo.erase(task_id)
 	return _end(task_id, problems.is_empty(), " ".join(said))
+
+
+## Ob sich zurücknehmen lässt, was Claude zuletzt an der Aufgabe geändert hat.
+func can_undo(task_id: String) -> bool:
+	return _undo.has(task_id)
+
+
+## Nimmt zurück, was Claude zuletzt geändert hat: Text und Verknüpfungen. Den
+## Text nur, wenn ihn seitdem niemand geändert hat. Antwort: was dabei herauskam.
+func undo(task_id: String) -> Dictionary:
+	var u: Variant = _undo.get(task_id)
+	var task: Variant = store.ws.task(task_id)
+	if u == null or task == null:
+		return {"ok": false, "message": "Da ist nichts mehr zurückzunehmen."}
+	if u["text"]:
+		var now_desc := str(task.get("desc", "")) if task.get("desc") != null else ""
+		if str(task.get("title", "")) != u["after_title"] or now_desc != u["after_desc"]:
+			return {"ok": false, "message": "Der Text ist seitdem geändert worden – zurückgenommen wird nichts."}
+		var saved: Dictionary = await store.patch("task", task_id, {"title": u["title"], "desc": u["desc"]})
+		if not saved["ok"]:
+			return {"ok": false, "message": "Ließ sich nicht zurücknehmen: %s" % saved["error"]}
+	for ref in u["added"]:
+		links.unlink(ref)
+	links.restore(u["removed"])
+	_undo.erase(task_id)
+	return {"ok": true, "message": "Zurückgenommen."}
 
 
 ## Bricht den Auftrag für diese Aufgabe ab. Angelegt bleibt sie.
@@ -193,9 +247,10 @@ func cancel(task_id: String) -> void:
 
 func _end(task_id: String, ok: bool, message: String) -> Dictionary:
 	running.erase(task_id)
+	started.erase(task_id)
 	_handles.erase(task_id)
-	var show := not _from_web.has(task_id)
-	_from_web.erase(task_id)
+	var show := not _quiet.has(task_id)
+	_quiet.erase(task_id)
 	changed.emit()
 	_say(message, not ok)
 	finished.emit(task_id, ok, message, show)

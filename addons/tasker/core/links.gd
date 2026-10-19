@@ -56,6 +56,35 @@ func here() -> Array:
 	return [] if scene.is_empty() else Refs.of_scene(all(), scene["uid"], scene["path"])
 
 
+## Was an Prefabs hängt, die in der offenen Szene als Instanz stecken – auch
+## verschachtelt, und je Instanz einmal (Nutzer, 2026-10-19). Es sind Kopien
+## der Referenzen mit `via`: dem Pfad der Instanz in der offenen Szene.
+## Geändert wird über sie, was am Prefab hängt – für alle Instanzen.
+func from_instances() -> Array:
+	var scene := _scene()
+	var refs := all()
+	if scene.is_empty() or refs.is_empty():
+		return []
+	var root: Node = scene["root"]
+	var by_file := {}
+	var out := []
+	var todo: Array = root.get_children()
+	while not todo.is_empty():
+		var node: Node = todo.pop_back()
+		todo.append_array(node.get_children())
+		var file := node.scene_file_path
+		if file == "" or file == scene["path"]:
+			continue
+		if not by_file.has(file):
+			by_file[file] = Refs.of_scene(refs, _uid(file), file)
+		for ref in by_file[file]:
+			var copy: Dictionary = ref.duplicate()
+			copy["via"] = str(root.get_path_to(node))
+			if node_of(copy) != null:
+				out.append(copy)
+	return out
+
+
 ## Die Referenzen an diesem Node der offenen Szene.
 func of_node(node: Node) -> Array:
 	var scene := _scene()
@@ -134,6 +163,16 @@ func unlink(ref: Dictionary) -> void:
 	memory.write(Refs.KEY, Refs.remove(all(), ref))
 
 
+## Hängt gelöste Referenzen wieder an, wie sie waren – für „Rückgängig“.
+func restore(refs: Array) -> void:
+	if refs.is_empty():
+		return
+	var out := all()
+	for ref in refs:
+		out = Refs.add(out, ref)
+	memory.write(Refs.KEY, out)
+
+
 ## Merkt sich, wie weit die Karte dieser Referenz von ihrem Node weggeschoben ist.
 func place(ref: Dictionary, offset: Vector2) -> void:
 	_write_if_changed(Refs.place(all(), ref, offset))
@@ -165,7 +204,13 @@ func prune(ws: Workspace) -> void:
 ## und er dort zu finden ist.
 func node_of(ref: Dictionary) -> Node:
 	var scene := _scene()
-	if scene.is_empty() or not Refs.in_scene(ref, scene["uid"], scene["path"]):
+	if scene.is_empty():
+		return null
+	# Eine Referenz ins Prefab: unter der Instanz, durch die sie hier steckt.
+	if ref.has("via"):
+		var head: Node = scene["root"].get_node_or_null(NodePath(ref["via"]))
+		return head.get_node_or_null(NodePath(ref["nodePath"])) if head != null else null
+	if not Refs.in_scene(ref, scene["uid"], scene["path"]):
 		return null
 	return scene["root"].get_node_or_null(NodePath(ref["nodePath"]))
 
@@ -173,6 +218,10 @@ func node_of(ref: Dictionary) -> Node:
 ## „Zeig mir, wo“: öffnet die Szene und wählt den Node aus. Gibt zurück, warum
 ## es nicht ging – leer, wenn es ging.
 func reveal(ref: Dictionary) -> String:
+	# Eine Karte aus einem Prefab zeigt den Node im Prefab selbst.
+	if ref.has("via"):
+		ref = ref.duplicate()
+		ref.erase("via")
 	var path := _current_path(ref)
 	if not ResourceLoader.exists(path):
 		return "Die Szene %s gibt es nicht mehr." % path

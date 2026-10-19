@@ -23,6 +23,8 @@ const LABELS := {
 const KEY := "scene_cards_show"
 ## … und ob erledigte Karten versteckt sind.
 const HIDE_DONE_KEY := "scene_cards_hide_done"
+## … und ob Karten aus Prefabs versteckt sind.
+const HIDE_PREFABS_KEY := "scene_cards_hide_prefabs"
 
 
 static func mode_of(saved: Variant) -> String:

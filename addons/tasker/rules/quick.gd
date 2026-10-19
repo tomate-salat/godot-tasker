@@ -8,16 +8,23 @@ extends RefCounted
 ## die zu ihr gehören. Claude liest nur – Dateien und den Schnappschuss, den
 ## das Addon beim Klick gemacht hat – und antwortet mit einem festen JSON. Das
 ## Addon trägt es selbst ein (`core/claude_tasks.gd`).
+##
+## Dazu die freie Anweisung aus dem Aufgabenfenster (`INSTRUCT`, Nutzer,
+## 2026-10-19): „das Addon heißt Dialogic“, „Frage 2: ja“ – Claude ändert nur,
+## was verlangt ist, und darf dabei auch Verknüpfungen lösen.
 
 const REWRITE := "rewrite"
 const EXTEND := "extend"
 const LINKS := "links"
+const INSTRUCT := "instruct"
+## Die festen Aufträge – auch die, die Tasker aus der Web-App schicken darf.
 const MODES := [REWRITE, EXTEND, LINKS]
 
 const LABELS := {
 	REWRITE: "Neu schreiben",
 	EXTEND: "Erweitern",
 	LINKS: "Abhängigkeiten finden",
+	INSTRUCT: "Anweisung",
 }
 const TOOLTIPS := {
 	REWRITE: "Claude schreibt die Aufgabe nach der Vorlage neu: Observation, Context, Affected, To-do, Open questions – auf Englisch",
@@ -29,11 +36,13 @@ const BUSY := {
 	REWRITE: "Claude schreibt %s neu",
 	EXTEND: "Claude erweitert %s",
 	LINKS: "Claude sucht, woran %s hängt",
+	INSTRUCT: "Claude ändert %s",
 }
 const DONE := {
 	REWRITE: "%s ist neu geschrieben.",
 	EXTEND: "%s ist erweitert.",
 	LINKS: "Für %s ist gesucht.",
+	INSTRUCT: "%s ist geändert.",
 }
 
 ## Was Claude nennen darf, um eine Aufgabe anzuhängen: Szenen und Nodes darin.
@@ -81,12 +90,17 @@ static func schema(mode: String) -> Dictionary:
 		props["title"] = {"type": "string"}
 		props["desc"] = {"type": "string"}
 		required = ["title", "desc", "links", "note"]
+	# Nur eine Anweisung darf auch lösen, woran die Aufgabe hängt.
+	if mode == INSTRUCT:
+		props["unlink"] = LINK_SCHEMA
+		required.append("unlink")
 	return {"type": "object", "properties": props, "required": required}
 
 
 ## Der Auftrag an Claude. `linked` sind die Verknüpfungen, die schon bestehen
-## (je eine Zeile), `snapshot` ist die Ausgabe von `context` beim Klick.
-static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: String, project_dir: String) -> String:
+## (je eine Zeile), `snapshot` ist die Ausgabe von `context` beim Klick,
+## `instruction` die Anweisung des Nutzers (nur bei `INSTRUCT`).
+static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: String, project_dir: String, instruction := "") -> String:
 	var lines := [
 		"Du arbeitest an einer Aufgabe in Tasker, der Aufgabenverwaltung des Nutzers. Sie gehört zu seinem Godot-Projekt in %s – `res://` ist dieses Verzeichnis." % project_dir,
 		"",
@@ -127,7 +141,24 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 			lines.append("Erweitere die Aufgabe. Was dasteht, bleibt in Sinn und Reihenfolge erhalten; ist es nicht auf Englisch, übersetzt du es sinngemäß. Du ergänzt, was fehlt – Abschnitte der Gliederung, Details aus Szene und Code, Schritte –, und schreibst nichts um, was schon stimmt.")
 		LINKS:
 			lines.append("Finde die Szenen und Nodes, die zu dieser Aufgabe gehören – woran sie im Projekt hängt. Titel und Beschreibung änderst du nicht.")
-	if mode != LINKS:
+		INSTRUCT:
+			lines.append_array([
+				"Ändere die Aufgabe nach dieser Anweisung des Nutzers:",
+				"",
+				"<<<",
+				instruction.strip_edges(),
+				">>>",
+				"",
+				"Ändere nur, was die Anweisung verlangt. Alles andere bleibt wortgleich stehen – Gliederung, Reihenfolge, Häkchen in Checklisten, Verweise. Beantwortet die Anweisung eine offene Frage, nimm die Frage aus „Open questions“ und arbeite die Antwort dort ein, wo sie hingehört. Die Aufgabe bleibt auf Englisch, auch wenn die Anweisung deutsch ist. Musst du für die Anweisung etwas nachsehen, tu es; sonst lies nichts.",
+			])
+	if mode == INSTRUCT:
+		lines.append_array([
+			"",
+			"- `title`: der Titel – unverändert, außer die Anweisung betrifft ihn.",
+			"- `desc`: die ganze Beschreibung mit deinen Änderungen, nicht nur die geänderten Stellen.",
+			"- `unlink`: was von „Schon angehängt“ gelöst werden soll, weil die Anweisung es verlangt – gleiche Form wie `links`, `scene` und `path` genau wie oben. Sonst leere Liste.",
+		])
+	elif mode != LINKS:
 		lines.append_array([
 			"",
 			"- `title`: kurz, auf Englisch, als Tätigkeit („Add pants for the player character“).",
@@ -140,7 +171,8 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 	lines.append_array([
 		"",
 		"- `links`: die betroffenen Szenen und Nodes, die noch nicht angehängt sind. Je Eintrag `scene` (res://-Pfad einer .tscn) und `paths` (Node-Pfade relativ zur Wurzel dieser Szene, \".\" ist die Wurzel – in der .tscn ist das `parent` + \"/\" + `name`, bei `parent=\".\"` nur der Name). Läuft das Spiel, nimmst du nicht den Pfad zur Laufzeit, sondern die Szenendatei, aus der der Node stammt („Instanz: …“). Nur, was du in einer Datei oder im Schnappschuss gesehen hast; im Zweifel weniger. Skripte und Ressourcen ohne Szene lassen sich nicht anhängen – die gehören unter „Affected“. Nichts Passendes: leere Liste.",
-		"- `note`: ein, zwei kurze Sätze auf Deutsch für den Nutzer: welche Annahme du getroffen hast, falls eine, sonst was du getan hast.",
+		"- `note`: ein kurzer Satz auf Deutsch, was du geändert hast (etwa „Titel und 6 Stellen: Third Wheel → Dialogic“)." if mode == INSTRUCT else \
+			"- `note`: ein, zwei kurze Sätze auf Deutsch für den Nutzer: welche Annahme du getroffen hast, falls eine, sonst was du getan hast.",
 	])
 	return "\n".join(lines)
 
@@ -148,7 +180,7 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 ## Prüft die Antwort: `{ ok, error, title, desc, links, note }`. `links` sind
 ## nach Szene gruppiert, `{ scene, paths }`; Unbrauchbares fällt heraus.
 static func parse(mode: String, answer: Variant) -> Dictionary:
-	var out := {"ok": false, "error": "", "title": "", "desc": "", "links": [], "note": ""}
+	var out := {"ok": false, "error": "", "title": "", "desc": "", "links": [], "unlink": [], "note": ""}
 	if not answer is Dictionary:
 		out["error"] = "Claude hat keine lesbare Antwort geschickt."
 		return out
@@ -159,8 +191,15 @@ static func parse(mode: String, answer: Variant) -> Dictionary:
 			out["error"] = "Claude hat keinen Titel geschickt."
 			return out
 	out["note"] = str(answer.get("note", "")).strip_edges()
+	out["links"] = _groups(answer.get("links", []))
+	out["unlink"] = _groups(answer.get("unlink", [])) if mode == INSTRUCT else []
+	out["ok"] = true
+	return out
+
+
+## Szenen und Node-Pfade aus der Antwort, nach Szene gruppiert: `{ scene, paths }`.
+static func _groups(given: Variant) -> Array:
 	var by_scene := {}
-	var given: Variant = answer.get("links", [])
 	for entry in given if given is Array else []:
 		if not entry is Dictionary:
 			continue
@@ -176,9 +215,9 @@ static func parse(mode: String, answer: Variant) -> Dictionary:
 				by_scene[scene] = []
 			if not by_scene[scene].has(path):
 				by_scene[scene].append(path)
+	var out := []
 	for scene in by_scene:
-		out["links"].append({"scene": scene, "paths": by_scene[scene]})
-	out["ok"] = true
+		out.append({"scene": scene, "paths": by_scene[scene]})
 	return out
 
 

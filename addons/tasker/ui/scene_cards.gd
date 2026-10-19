@@ -10,6 +10,10 @@ extends Node
 ##
 ## Gezeichnet und bedient wird über das Plugin, das der Editor dafür aufruft
 ## (`_forward_…_draw_over_viewport`, `_forward_…_gui_input`).
+##
+## Was an einem Prefab hängt, erscheint auch dort, wo es als Instanz steckt –
+## an jeder Instanz, blasser und mit dem Namen des Prefabs (Nutzer,
+## 2026-10-19). Solche Referenzen tragen `via` (`Links.from_instances`).
 
 ## Die Einblendungen sollen neu gezeichnet werden (`EditorPlugin.update_overlays`).
 signal redraw_requested
@@ -45,6 +49,8 @@ const FAN := Vector2(20, -8)
 ## dieser Ecke des Viewports.
 const CORNER := Vector2(18, 52)
 const DONE_ALPHA := 0.5
+## Karten aus Prefabs sind blasser.
+const PREFAB_ALPHA := 0.72
 ## Das Bild einer Karte wird doppelt so groß gerechnet, wie sie im Dock ist.
 const FACE_FACTOR := 2
 
@@ -52,6 +58,7 @@ const MENU_OPEN := 100
 const MENU_BROWSER := 101
 const MENU_UNLINK := 102
 const MENU_HOME := 103
+const MENU_PREFAB := 104
 
 ## Was in `_hits` steht: eine Karte, ein Pin, ein zugeklappter Stapel oder
 ## der Knopf, der einen aufgefächerten wieder zuklappt.
@@ -94,6 +101,8 @@ var links: Links
 var mode := SceneView.ALL: set = set_mode
 ## Ob Karten erledigter Aufgaben versteckt sind. Die Verknüpfung bleibt.
 var hide_done := false: set = set_hide_done
+## Ob Karten aus Prefabs versteckt sind.
+var hide_prefabs := false: set = set_hide_prefabs
 
 ## Die Referenzen in die offene Szene, deren Aufgabe es gibt.
 var _here: Array = []
@@ -127,6 +136,7 @@ var _drop_node: Node
 ## Die Klickflächen über den Karten im 2D-Editor.
 var _pads: Array = []
 var _pads_queued := false
+var _refresh_queued := false
 
 
 func _ready() -> void:
@@ -143,6 +153,7 @@ func _ready() -> void:
 	_plate.set_corner_radius_all(int(Card.RADIUS * SCALE))
 	mode = SceneView.mode_of(links.memory.read(SceneView.KEY))
 	hide_done = links.memory.read(SceneView.HIDE_DONE_KEY, false) == true
+	hide_prefabs = links.memory.read(SceneView.HIDE_PREFABS_KEY, false) == true
 
 	_menu = PopupMenu.new()
 	for i in Model.STATUS.size():
@@ -152,6 +163,7 @@ func _ready() -> void:
 	_menu.add_item("In Tasker öffnen", MENU_BROWSER)
 	_menu.add_separator()
 	_menu.add_item("Karte zurück an den Node", MENU_HOME)
+	_menu.add_item("Prefab öffnen", MENU_PREFAB)
 	_menu.add_item("Vom Node lösen", MENU_UNLINK)
 	_menu.id_pressed.connect(_on_menu)
 	add_child(_menu)
@@ -159,6 +171,9 @@ func _ready() -> void:
 	store.changed.connect(_refresh)
 	links.memory.changed.connect(_refresh)
 	links.scene_changed.connect(_refresh)
+	# Kommt eine Instanz dazu oder geht eine, ändern sich die Karten aus Prefabs.
+	get_tree().node_added.connect(_on_instance_changed)
+	get_tree().node_removed.connect(_on_instance_changed)
 	_refresh()
 
 
@@ -186,6 +201,26 @@ func set_hide_done(value: bool) -> void:
 		links.memory.write(SceneView.HIDE_DONE_KEY, hide_done)
 
 
+func set_hide_prefabs(value: bool) -> void:
+	if value == hide_prefabs:
+		return
+	hide_prefabs = value
+	if is_inside_tree():
+		if links.memory.read(SceneView.HIDE_PREFABS_KEY, false) != hide_prefabs:
+			links.memory.write(SceneView.HIDE_PREFABS_KEY, hide_prefabs)
+		_refresh()
+
+
+func _on_instance_changed(node: Node) -> void:
+	if _refresh_queued or node.scene_file_path == "":
+		return
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null or node == root or not root.is_ancestor_of(node):
+		return
+	_refresh_queued = true
+	_refresh.call_deferred()
+
+
 ## Welche Aufgaben der Filter durchlässt – null heißt alle.
 func _allowed() -> Variant:
 	var m = Tisch.active_milestone(store.ws, store.project_id)
@@ -196,10 +231,14 @@ func _allowed() -> Variant:
 # -------------------------------------------------------------- Bilder
 
 func _refresh() -> void:
+	_refresh_queued = false
 	_here = []
 	if store.state == "ready":
 		var allowed = _allowed()
-		_here = links.here().filter(func(r: Dictionary) -> bool:
+		var refs := links.here()
+		if not hide_prefabs:
+			refs.append_array(links.from_instances())
+		_here = refs.filter(func(r: Dictionary) -> bool:
 			var t = store.ws.task(r["taskId"])
 			if t == null or (hide_done and t.get("status") == "done"):
 				return false
@@ -465,6 +504,9 @@ func _draw_card(overlay: Control, ref: Dictionary, rect: Rect2) -> void:
 	var t = store.ws.task(ref["taskId"])
 	var alpha := DONE_ALPHA if t != null and t.get("status") == "done" else 1.0
 	var marked: bool = ref["taskId"] == _selected or ref["taskId"] == _hover
+	var prefab := ref.has("via")
+	if prefab:
+		alpha *= PREFAB_ALPHA
 	if marked:
 		alpha = maxf(alpha, 0.9)
 	if alpha == 1.0:
@@ -472,6 +514,19 @@ func _draw_card(overlay: Control, ref: Dictionary, rect: Rect2) -> void:
 	overlay.draw_texture_rect(face["viewport"].get_texture(), rect, false, Color(1, 1, 1, alpha))
 	if marked:
 		overlay.draw_rect(rect.grow(2.0), Palette.ACCENT if ref["taskId"] == _selected else Color(Palette.ACCENT, 0.6), false, 2.0)
+	if prefab:
+		_draw_origin(overlay, ref, rect)
+
+
+## Unter einer Karte aus einem Prefab: aus welchem.
+func _draw_origin(overlay: Control, ref: Dictionary, rect: Rect2) -> void:
+	var font := overlay.get_theme_default_font()
+	var text := "◇ " + str(ref["scenePath"]).get_file()
+	var size := 11
+	var wide := minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x, rect.size.x)
+	var at := Vector2(rect.position.x, rect.end.y + 2.0)
+	overlay.draw_rect(Rect2(at, Vector2(wide + 8.0, size + 6.0)), Color(0.05, 0.08, 0.07, 0.85))
+	overlay.draw_string(font, at + Vector2(4.0, 3.0 + font.get_ascent(size)), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x, size, Palette.MUTED)
 
 
 ## Der Faden vom Node zur Karte – zur nächsten Stelle an ihrem Rand.
@@ -500,7 +555,7 @@ func _draw_badge(overlay: Control, at: Vector2, text: String) -> void:
 
 
 static func _key(ref: Dictionary) -> String:
-	return "%s|%s" % [ref["taskId"], ref["nodePath"]]
+	return "%s|%s|%s" % [ref["taskId"], ref.get("via", ""), ref["nodePath"]]
 
 
 ## Der Node, an dessen Stelle die Karte in dieser Ansicht liegt: der Node der
@@ -592,6 +647,12 @@ func _click(ref: Dictionary, event: InputEventMouseButton) -> void:
 	if event.button_index == MOUSE_BUTTON_RIGHT:
 		_menu_ref = ref
 		_menu.set_item_disabled(_menu.get_item_index(MENU_HOME), ref["offset"] == Vector2.ZERO)
+		# Was aus einem Prefab kommt, gilt dort – für alle seine Instanzen.
+		var prefab := ref.has("via")
+		var file := str(ref["scenePath"]).get_file()
+		_menu.set_item_visible(_menu.get_item_index(MENU_PREFAB), prefab)
+		_menu.set_item_text(_menu.get_item_index(MENU_PREFAB), "Prefab öffnen (%s)" % file)
+		_menu.set_item_text(_menu.get_item_index(MENU_UNLINK), "Vom Prefab lösen (%s)" % file if prefab else "Vom Node lösen")
 		_menu.position = Vector2i(DisplayServer.mouse_get_position())
 		_menu.popup()
 	elif event.double_click:
@@ -626,7 +687,8 @@ func _release(event: InputEventMouseButton) -> bool:
 
 
 func _is_grabbed(ref: Dictionary, view: int) -> bool:
-	return not _grab.is_empty() and _grab["moved"] and _grab["view"] == view and Refs.same(ref, _grab["ref"])
+	return not _grab.is_empty() and _grab["moved"] and _grab["view"] == view and Refs.same(ref, _grab["ref"]) \
+		and ref.get("via", "") == _grab["ref"].get("via", "")
 
 
 ## Was an dieser Stelle zuoberst gezeichnet ist – leer, wenn dort nichts ist.
@@ -650,6 +712,10 @@ func _on_menu(id: int) -> void:
 			store.open_in_tasker(t)
 		MENU_HOME:
 			links.place(_menu_ref, Vector2.ZERO)
+		MENU_PREFAB:
+			var problem_text: String = await links.reveal(_menu_ref)
+			if problem_text != "":
+				problem.emit(problem_text)
 		MENU_UNLINK:
 			links.unlink(_menu_ref)
 		_:

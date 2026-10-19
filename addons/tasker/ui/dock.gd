@@ -291,18 +291,25 @@ func _fill_sections() -> void:
 
 
 ## „In dieser Szene“: was an der offenen Szene und ihren Nodes hängt, je
-## Referenz eine Karte mit dem Node darüber.
+## Aufgabe eine Karte – darüber, woran sie hängt (Nutzer, 2026-10-19: je
+## Verknüpfung eine Karte wiederholte sich zu sehr).
 func _fill_scene_section() -> void:
 	if links == null:
 		return
 	var here := links.here().filter(func(r: Dictionary) -> bool: return store.ws.task(r["taskId"]) != null)
 	if here.is_empty():
 		return
+	# Je Aufgabe ihre Verknüpfungen, in der Reihenfolge, in der sie zuerst vorkommt.
+	var by_task := {}
+	for ref in here:
+		if not by_task.has(ref["taskId"]):
+			by_task[ref["taskId"]] = []
+		by_task[ref["taskId"]].append(ref)
 	var collapsed: bool = _collapsed.get("scene", false)
 	var toggle := Button.new()
 	toggle.flat = true
 	toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	toggle.text = "%s In dieser Szene  %d" % ["▸" if collapsed else "▾", here.size()]
+	toggle.text = "%s In dieser Szene  %d" % ["▸" if collapsed else "▾", by_task.size()]
 	toggle.pressed.connect(func() -> void:
 		_collapsed["scene"] = not collapsed
 		_refresh())
@@ -312,13 +319,21 @@ func _fill_scene_section() -> void:
 		flow.add_theme_constant_override("h_separation", 10)
 		flow.add_theme_constant_override("v_separation", 12)
 		_sections.add_child(flow)
-		for ref in here:
+		for task_id in by_task:
+			var refs: Array = by_task[task_id]
 			var cell := VBoxContainer.new()
 			cell.add_theme_constant_override("separation", 2)
-			var found := links.node_of(ref) != null
+			var names := []
+			var lines := []
+			var found := true
+			for ref in refs:
+				var there := links.node_of(ref) != null
+				found = found and there
+				names.append("Szene" if ref["nodePath"] == Refs.ROOT else str(ref["nodePath"]).get_file())
+				lines.append(Refs.label(ref) + ("" if there else "  (nicht mehr zu finden)"))
 			var where := Label.new()
-			where.text = "Szene" if ref["nodePath"] == Refs.ROOT else str(ref["nodePath"]).get_file()
-			where.tooltip_text = Refs.label(ref) if found else "%s\nDer Node ist in der Szene nicht mehr zu finden." % Refs.label(ref)
+			where.text = names[0] if names.size() == 1 else "%s  +%d" % [names[0], names.size() - 1]
+			where.tooltip_text = "\n".join(lines)
 			where.mouse_filter = Control.MOUSE_FILTER_STOP
 			where.custom_minimum_size.x = Card.SIZE.x
 			where.clip_text = true
@@ -328,8 +343,8 @@ func _fill_scene_section() -> void:
 			cell.add_child(where)
 			var card := Card.new()
 			cell.add_child(card)
-			card.show_task(store.ws, store.ws.task(ref["taskId"]), images, true)
-			card.selected = ref["taskId"] == selected_id
+			card.show_task(store.ws, store.ws.task(task_id), images, true)
+			card.selected = task_id == selected_id
 			card.pressed.connect(_on_card)
 			_make_draggable(card)
 			_cards.append(card)

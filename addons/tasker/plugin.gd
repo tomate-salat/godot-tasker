@@ -48,6 +48,8 @@ const PROBE_FILE := "runtime/probe.gd"
 const VERSION := "0.1.0"
 ## Der Eintrag „Erledigtes einblenden“ im Filter-Menü.
 const FILTER_DONE := 100
+## … und „Aus Prefabs“.
+const FILTER_PREFABS := 101
 
 const SHORTCUT_SEARCH := "tasker/search"
 const SHORTCUT_CREATE := "tasker/create"
@@ -417,6 +419,8 @@ func _open_task(task_id: String) -> void:
 	window.set("images", images)
 	window.set("task_id", task_id)
 	window.set("links", links)
+	window.set("tasks", _claude)
+	window.set("scene_tools", _scene_tools)
 	window.visible = false
 	window.connect("task_requested", _open_task)
 	window.connect("image_requested", _open_image)
@@ -558,9 +562,13 @@ func _add_filter(bar: int) -> void:
 		menu.add_radio_check_item(SceneView.LABELS[SceneView.MODES[i]], i)
 	menu.add_separator()
 	menu.add_check_item("Erledigtes einblenden", FILTER_DONE)
+	menu.add_check_item("Aus Prefabs", FILTER_PREFABS)
+	menu.set_item_tooltip(menu.get_item_index(FILTER_PREFABS), "Auch zeigen, was an Prefabs hängt, die hier als Instanz stecken")
 	menu.id_pressed.connect(func(id: int) -> void:
 		if id == FILTER_DONE:
 			_scene_cards.hide_done = not _scene_cards.hide_done
+		elif id == FILTER_PREFABS:
+			_scene_cards.hide_prefabs = not _scene_cards.hide_prefabs
 		else:
 			_scene_cards.mode = SceneView.MODES[id]
 		_show_filters())
@@ -572,7 +580,7 @@ func _add_filter(bar: int) -> void:
 ## Beide Leisten zeigen denselben Filter – aber nur, wenn an der offenen Szene
 ## überhaupt etwas hängt. Sonst gäbe es nichts zu filtern.
 func _show_filters() -> void:
-	var any := not links.here().is_empty()
+	var any := not links.here().is_empty() or not links.from_instances().is_empty()
 	for button in _filters.values():
 		button.visible = any
 		button.text = "▣ " + SceneView.LABELS[_scene_cards.mode]
@@ -580,6 +588,7 @@ func _show_filters() -> void:
 		for i in SceneView.MODES.size():
 			menu.set_item_checked(menu.get_item_index(i), SceneView.MODES[i] == _scene_cards.mode)
 		menu.set_item_checked(menu.get_item_index(FILTER_DONE), not _scene_cards.hide_done)
+		menu.set_item_checked(menu.get_item_index(FILTER_PREFABS), not _scene_cards.hide_prefabs)
 
 
 ## Zeigt die Verknüpfungen, die ins Leere zeigen, zum Aufräumen.
