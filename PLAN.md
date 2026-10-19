@@ -220,7 +220,7 @@ Gebaut am 2026-10-07. Geprüft per Test (Zerlegen der Ereignisse, Anwenden auf d
 - **Planen am Tisch:** eingeplant, siehe den eigenen Abschnitt unten.
 - **Abhängigkeiten als Fäden:** am Spieltisch fraglich, siehe unten.
 - **Aufgaben bearbeiten:** eingeplant, siehe den eigenen Abschnitt unten. Den Anfang macht die Beschreibung.
-- **Aufgaben aus Godot anlegen:** offen, ob und wie. Bisher entstehen Aufgaben in der Web-App oder über MCP, das Addon arbeitet mit vorhandenen.
+- **Aufgaben aus Godot anlegen:** seit 2026-10-19 über das Schnellanlegen, siehe „Ausbau: Schnellanlegen und Claude-Knöpfe“.
 - **Karten in Szenen:** Aufgaben an Szenen und Nodes hängen und im 2D- und 3D-Editor einblenden, siehe den eigenen Abschnitt unten.
 
 ## Ausbau: Planen am Tisch
@@ -477,7 +477,7 @@ Der Weg zum Milestone soll ein Ziel haben. Statt Hand und Nachziehstapel liegen 
 ### Festgelegt
 
 - **Schädlinge:** Auf einer Karte sitzt für alles, was sie noch braucht, ein Schädling: je offener Voraussetzung einer und, bei einem Stapel, je offener Unteraufgabe einer. Steht die Karte selbst auf „Blockiert“, liegt eine Mauer darauf – daran ändert keine andere Karte etwas.
-- **Tappen:** Ein Doppelklick nimmt eine Karte in Arbeit („In Progress“) oder gibt sie wieder frei; ein einzelner Klick öffnet die Aufgabe (Nutzer, 2026-10-10 – vorher umgekehrt, da wurde zu oft versehentlich getappt). Die getappte Karte liegt quer, um 90° gedreht. Wird eine Karte gezogen, bleibt an ihrem Platz ihr Umriss liegen, damit die Figuren an ihr nicht im Nichts stehen. Tappen geht nur bei freien Karten ohne Unteraufgaben – dieselbe Regel wie beim Ausspielen. Ein Stapel wird nicht von Hand getappt: Tasker stellt ihn selbst auf „In Progress“, sobald darunter etwas läuft oder erledigt ist, und zurück auf „Offen“, wenn alles darunter wieder offen ist (`rules/parent_status.gd`, aus Taskers `shared/parentStatus.ts`). Solange darunter etwas läuft oder erledigt ist, lässt er sich deshalb auch nicht zurücknehmen.
+- **Tappen:** Ein Doppelklick nimmt eine Karte in Arbeit („In Progress“) oder gibt sie wieder frei; ein einzelner Klick öffnet die Aufgabe (Nutzer, 2026-10-10 – vorher umgekehrt, da wurde zu oft versehentlich getappt). Die getappte Karte liegt quer, um 90° gedreht. Wird eine Karte gezogen, bleibt an ihrem Platz ihr Umriss liegen, damit die Figuren an ihr nicht im Nichts stehen. Tappen geht nur bei freien Karten ohne Unteraufgaben – dieselbe Regel wie beim Ausspielen. Ein Stapel wird nicht von Hand getappt: Tasker stellt ihn selbst auf „In Progress“, sobald darunter etwas läuft oder erledigt ist, und zurück auf „Offen“, wenn alles darunter wieder offen ist (`rules/parent_status.gd`, aus Taskers `shared/parentStatus.ts`). Solange darunter etwas läuft oder erledigt ist, lässt er sich deshalb auch nicht zurücknehmen. **Wieder umgedreht** (Nutzer, 2026-10-17): Jetzt tappt der einfache Klick, und der Doppelklick öffnet. Getappt wird erst, wenn nach kurzer Wartezeit kein zweiter Klick folgt, damit das Öffnen den Status nicht mit umschaltet. Im Lageplan öffnet weiterhin schon der Klick.
 - **Marienkäfer:** Eine getappte Karte schickt einen Marienkäfer zu jedem Schädling, den sie stellt – eine Unteraufgabe also zu ihrem Schädling auf dem Stapel. Im innersten Ring greift er den großen Käfer an. So hat jedes Tappen ein Ziel.
 - **Figuren:** Zum Ausprobieren gibt es zwei Arten, umzuschalten in den Editor-Einstellungen (`tasker/field_style`): **Soldaten** (Vorgabe) – eigene in Blau, gegnerische in Rot, der Milestone ein Panzer; die Gegner stehen am rechten Kartenrand, die eigenen ihnen gegenüber am linken, und sie schießen über die Karte aufeinander, unter einem Gegner steht, wie viel er noch aushält – und **Käfer** – Marienkäfer gegen Schädlinge, der Milestone ein Hirschkäfer. Die Regeln sind dieselben, nur die Zeichnung wechselt.
 - **Angriffe:** Von jeder getappten Karte laufen rote Striche zu dem, was sie angreift – zur Karte mit ihrem Schädling oder zum großen Käfer.
@@ -540,6 +540,56 @@ Was sich zu einer Karte öffnet – Aufgabe, Milestone, Abhängigkeiten –, sie
 - `DisplayServer.window_start_drag()` und `window_start_resize()` übergeben Verschieben und Größe ans Betriebssystem; eingebettete Fenster rechnen selbst.
 - Maximieren von Hand auf die nutzbare Bildschirmfläche, einen Pixel kleiner: deckt ein rahmenloses Fenster die Fläche genau (auch über `MODE_MAXIMIZED`), wirft Godot Fehler aus `screen_get_position/size/usable_rect` (`screen_count = 0`).
 - Vor dem Editor hält ein Fenster nur `always_on_top` – und das gilt dann vor allen Anwendungen. `transient` bindet es zwar an das Editor-Fenster, hält es unter Windows aber nicht vorn. `always_on_top` wirkt nur sauber, wenn es beim Erzeugen des Fensters gesetzt ist. Bei einem offenen Fenster greift es sonst erst nach einem Umschalten des Rahmens (`borderless` aus und an) oder der Größe – beides flackert. Die Stecknadel tauscht das Fenster deshalb unsichtbar aus: ein Hilfsfenster mit einem Bild der Karte (`get_texture().get_image()`) legt sich an ihre Stelle, dahinter wird die Karte versteckt, umgestellt und neu gezeigt, dann geht das Hilfsfenster wieder. Verworfen: Aus- und Einblenden beim Umschalten – das Foto des Hintergrunds stimmt nach dem Verschieben nicht mehr. Beides zugleich geht nicht (`popup_centered()` macht ein Fenster `transient` und wirft dann Fehler), darum öffnen Karten über `open_centered()`. Auswahllisten und Menüs einer solchen Karte erscheinen weiterhin vor ihr.
+
+
+## Ausbau: Schnellanlegen und Claude-Knöpfe
+
+Wunsch des Nutzers (2026-10-19): Aufgaben aus dem Addon anlegen und sie von Claude überarbeiten lassen – statt eines eigenen Chats (Entwurf verworfen: „schaut mehr nach einem eigenen Addon aus“). Die Regel „aus der Oberfläche wird nichts angelegt“ (2026-10-13) ist damit aufgehoben: sie war da, um sich erst aufs Wichtigste zu konzentrieren; inzwischen ist das Addon so weit, dass Anlegen immer wichtiger wird.
+
+### Festgelegt
+
+- **Zwei Schritte.** Zuerst nur das Schnellanlegen. Die Claude-Knöpfe im Aufgabenfenster kommen später, zusammen mit einem neuen Entwurf des Fensters – die Verknüpfungen brauchen dort schon jetzt viel Platz (Bildschirmfoto des Nutzers, $414).
+- **Ein Feld für Titel und Beschreibung**, wie beim Bearbeiten: die erste Zeile ist der Titel. Kein eigenes Feld „Was dir auffällt“ – das gehört in die Beschreibung.
+- **Aufbau:** oben die Knöpfe in einer Reihe (die drei Claude-Knöpfe, rechts „Anlegen“), in der Mitte das Feld, darunter, woran die Aufgabe hängen soll. Nach dem Anlegen geht die Aufgabe in ihrem Fenster auf.
+- **Abhängigkeiten heißt hier: Szenen und Nodes**, an denen die Aufgabe hängt (die Verknüpfungen aus „Karten in Szenen“) – nicht Abhängigkeiten zwischen Aufgaben in Tasker. Die bleiben vorerst, wie sie sind.
+- **Der Schnappschuss ist intern.** Er wird beim Klick gemacht (derselbe wie `context` des MCP-Servers); danach darf man sofort die Szene wechseln. Gezeigt wird davon nichts.
+- **Dasselbe Feld wie beim Bearbeiten** (Nutzer, nach dem ersten Versuch): `ContentEditor` als Entwurf (`open_draft`) – mit `/`-Befehlen, `$`-Verweisen und den Listentasten; ohne „Fertig“/„Abbrechen“, Strg+Enter legt an.
+- **Die Aufgabe geht erst auf, wenn Claude fertig ist** (Nutzer, nach dem ersten Versuch: sie sofort zu öffnen war verwirrend, weil nirgends stand, dass noch etwas läuft). Bis dahin zeigt das Fenster, was passiert: Kreisel, was gerade dran ist, die Zeit, die letzten Schritte („liest cell.tscn“, „sucht Aufgaben zu …“) und „Abbrechen“. Schließt man es, macht Claude im Hintergrund weiter, und die Aufgabe geht trotzdem auf, wenn sie fertig ist. „Anlegen“ ohne Claude öffnet sie sofort.
+- **Zwei Knöpfe statt vier** (Nutzer, 2026-10-19): „Anlegen“ und „Mit Claude anlegen“ mit Funken-Symbol (`Palette.sparkles_icon`, gezeichnet wie `ti-sparkles` im Entwurf). „Mit Claude“ ist der Auftrag „Neu schreiben“; „Erweitern“ und „Abhängigkeiten finden“ bleiben in `rules/quick.gd` für die Knöpfe im Aufgabenfenster.
+- **`res://`-Pfade im Text sind Links** (`ui/markdown.gd`, auch in Code): Szenen gehen im Editor auf, `.gd` im Skript-Editor, alles andere wird im Dateisystem ausgewählt. Pfade mit Leerzeichen bleiben Text.
+- **Kein Vorher/Nachher.** Was Claude schickt, wird direkt eingetragen – Titel und Beschreibung aber nur, wenn inzwischen niemand daran geändert hat; sonst bleibt der Stand und ein Hinweis sagt es.
+
+### Umsetzung
+
+- `ui/quick_window.gd`: das Fenster. Auf: „+“ im Dock, „Neue Aufgabe …“ im Kontextmenü des Szenenbaums, Befehl „Tasker: Neue Aufgabe“, Strg+Alt+N. Vorbelegt mit der Auswahl im Szenenbaum; „✕“ an einer Verknüpfung nimmt sie heraus, „+ Auswahl“ nimmt die aktuelle dazu. Strg+Enter legt an.
+- `core/claude_tasks.gd`: anlegen (`POST /api/intake/task`, wie `create_task`) und anhängen (`SceneTools.hang` – offene Szene oder nach Datei); die Claude-Aufträge im Hintergrund, je Aufgabe höchstens einer (`running`, Signal `changed` – für spätere Anzeigen). Gemeldet wird über die Hinweise unten rechts im Editor.
+- `core/claude_cli.gd`: `claude -p` mit `--output-format stream-json --verbose` (jeder Werkzeugaufruf kommt als eigene Zeile und wird fürs Fenster mitgelesen; die Zeile vom Typ `result` trägt die Antwort) und `--json-schema`, Modell Haiku, nur `Read`, `Grep`, `Glob` und `find_tasks` (`--permission-mode dontAsk`), ohne Sitzungsverlauf, `--add-dir` auf das Projekt. Der Auftrag liegt als Datei in `.godot/tasker/claude/` (zu lang für eine Befehlszeile) und wird danach gelöscht. Gestartet mit `OS.execute_with_pipe` ohne Blockieren, gelesen alle 0,25 s; nach zehn Minuten wird abgebrochen, beim Beenden des Editors auch. Die CLI wird mit `where`/`which` gesucht (unter Windows nur die .exe), sonst in `~/.local/bin`.
+- `rules/quick.gd`: die drei Aufträge, die Form der Antwort und ihre Prüfung. „Neu schreiben“ folgt der Vorlage des Agenten `tasker-scout` (Observation, Context, Affected, To-do, Open questions, Related; Englisch); „Erweitern“ behält, was dasteht, und ergänzt; „Abhängigkeiten finden“ ändert keinen Text, nur Verknüpfungen. Claude legt nichts an und ändert nichts – es antwortet mit `title`, `desc`, `links` (Szene und Node-Pfade) und `note` (ein, zwei Sätze für den Hinweis); eingetragen wird vom Addon.
+
+### Nachgeschlagen
+
+- Unter Windows setzt Godot Argumente nur in Anführungszeichen, wenn ein Leerzeichen o. ä. darin ist, und lässt Anführungszeichen im Inneren stehen – ein JSON-Schema kam so kaputt an. `ClaudeCli.quote` schreibt sie so, wie die C-Laufzeit sie liest (`\"`, Rückstriche davor verdoppelt). Ausprobiert mit Umlauten und Anführungszeichen.
+- Die CLI wartet drei Sekunden auf Eingaben, wenn die Standardeingabe eine Röhre ist, und macht dann ohne weiter. Das kostet die drei Sekunden, sonst nichts.
+- Ein Auftrag „Erweitern“ gegen das Spielprojekt (nur lesend, ohne Editor) brauchte rund 40 s und lieferte Text, zwei Node-Pfade in `cell.tscn` und eine Annahme. Die Überschriften kamen ohne Leerzeile davor – `Quick.spaced` setzt sie.
+
+### Offen
+
+- Taskers Eingang setzt bei jeder Aufgabe den Tag `ai-created` – auch bei „Anlegen“ ohne Claude. Ob das so bleiben soll, ist mit der Tasker-Sitzung zu klären.
+- Skripte und Ressourcen ohne Szene lassen sich nicht anhängen (Verknüpfungen kennen nur Szenen und Nodes); Claude nennt sie unter „Affected“.
+- Im Editor noch nicht ausprobiert: Fenster, Knöpfe, Hinweise.
+
+### Diktat in Tasker, verfeinert in Godot
+
+Diktieren geht in Godot nicht: Win+H schreibt nicht in Godots Textfelder (Nutzer, 2026-10-19). Die Spracherkennung des Browsers (Web Speech API) läuft in Edge gut, in Brave nicht (Fehler „network“ – der Dienst fehlt dort), in Firefox gar nicht; getestet mit einer Seite aus dem Scratchpad. Der Nutzer hat Tasker deshalb in Edge installiert. Edge schickt das Audio an Microsoft.
+
+Ablauf (Protokoll mit der Tasker-Sitzung abgestimmt, vom Nutzer freigegeben, 2026-10-19): in Tasker diktieren und anlegen; ist für das Projekt ein Godot verbunden, schickt „In Godot verfeinern“ die Aufgabe ans Addon. Das Addon macht in dem Moment den Schnappschuss, lässt Claude arbeiten und trägt ein.
+
+- **Anmelden:** am bestehenden Strom, `GET /api/events?addon=godot&project=<id>&name=<Godot-Projektname>` (`Events.addon_query_for`). Der Server führt die Anwesenheit nur im Speicher und meldet sie der Web-App (Ereignis `addons`, Anfangsstand im Bootstrap).
+- **Neu verbinden:** Der Server beendet den Strom nach zehn Minuten selbst (`event: renew`; der Hoster bricht ihn sonst nach 15 Minuten ab). Das Addon verbindet nach jedem ordentlichen Ende sofort neu (`RENEW_SECONDS`) und lädt danach den Stand neu.
+- **Auftrag:** benanntes SSE-Ereignis `godot-refine { requestId, taskId, mode }`, nur an den zuletzt verbundenen Editor; `mode` aus fester Liste (zunächst `rewrite`). Das Addon (`ClaudeTasks.refine`) meldet sofort `accepted`, lädt bei unbekannter Aufgabe einmal nach, macht den Schnappschuss, meldet `working` mit Zwischenständen (höchstens alle 2 s) und am Ende `done`/`failed` (`POST /api/godot/status`, Meldung bis 300 Zeichen). Tasker gibt nach 10 s ohne `accepted` und nach 5 Minuten auf; das Addon bricht Claude schon nach 4,5 Minuten ab. Die Aufgabe geht dabei in Godot nicht auf – der Nutzer sitzt in der Web-App.
+- **`ai-created`:** Der Eingang bekommt das optionale Feld `aiCreated` (Vorgabe wahr). „Anlegen“ ohne Claude schickt `false`.
+
+Offen: In Tasker gebaut wird gerade; erst nach dem Deploy funktioniert „Anlegen“ im Addon wieder (der Eingang lehnt unbekannte Felder ab), und erst dann lässt sich der ganze Weg ausprobieren.
 
 
 ## Risiken und offene Punkte

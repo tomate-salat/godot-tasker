@@ -6,8 +6,8 @@ extends RefCounted
 ## Gelesen wird, was der Editor gerade zeigt – auch Ungespeichertes. Geändert
 ## wird an der Szene nichts. `link_task` merkt sich eine Verknüpfung
 ## (`core/links.gd`); `create_task` legt eine Aufgabe an und hängt sie gleich
-## an – der einzige Weg, auf dem das Addon etwas anlegt (Nutzer, 2026-10-13:
-## nur über MCP, nicht über die Oberfläche).
+## an. Seit 2026-10-19 legt auch die Oberfläche an (Schnellanlegen,
+## `core/claude_tasks.gd`) und nutzt dafür `snapshot` und `hang` von hier.
 
 const Links := preload("links.gd")
 const Store := preload("store.gd")
@@ -151,6 +151,11 @@ func run(name: String, arguments: Dictionary) -> Dictionary:
 
 
 # ----------------------------------------------------- Schnappschuss
+
+## Der Schnappschuss als Text – für Claude-Aufträge aus der Oberfläche.
+func snapshot() -> String:
+	return (await _context(EditorInterface.get_edited_scene_root()))["text"]
+
 
 ## Alles, was der Editor gerade weiß, in einer Antwort. Danach muss niemand
 ## mehr hineinschauen – und der Nutzer nicht in der Szene bleiben.
@@ -370,6 +375,11 @@ func _linked_tasks() -> Dictionary:
 
 
 # -------------------------------------------------------- Verknüpfen
+
+## Hängt die Aufgabe an Nodes einer Szene, offen oder nicht: `{ text, failed }`.
+func hang(task_id: String, scene: String, paths: Array) -> Dictionary:
+	return _hang(EditorInterface.get_edited_scene_root(), task_id, scene, paths, true)
+
 
 func _link_task(root: Node, wanted: String, paths: Array, scene: String) -> Dictionary:
 	if store == null or store.state != "ready":

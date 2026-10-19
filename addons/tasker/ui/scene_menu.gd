@@ -1,11 +1,13 @@
 @tool
 extends EditorContextMenuPlugin
-## Der Eintrag „Tasker“ im Kontextmenü des Szenenbaums: eine Aufgabe an die
-## ausgewählten Nodes hängen, und je Aufgabe, die schon dran hängt, ein
+## Der Eintrag „Tasker“ im Kontextmenü des Szenenbaums: eine Aufgabe für die
+## ausgewählten Nodes anlegen oder an sie hängen, und je Aufgabe, die schon dran hängt, ein
 ## Untermenü zum Öffnen und Lösen.
 
 ## Für die ausgewählten Nodes soll eine Aufgabe ausgesucht werden.
 signal attach_requested(nodes: Array)
+## Für die ausgewählten Nodes soll eine neue Aufgabe angelegt werden.
+signal create_requested
 signal task_requested(task_id: String)
 ## Die ausgewählten Nodes sollen für Claude vorgemerkt werden (`core/scene_tools.gd`).
 signal mark_requested(nodes: Array)
@@ -19,6 +21,7 @@ const OPEN := 1
 const BROWSER := 2
 const UNLINK := 3
 const MARK := 4
+const CREATE := 5
 
 var store: Store
 var links: Links
@@ -29,11 +32,15 @@ func _popup_menu(_paths: PackedStringArray) -> void:
 		return
 	# Der Editor räumt das Menü mit seinem Kontextmenü wieder weg.
 	var menu := PopupMenu.new()
+	menu.add_item("Neue Aufgabe …", CREATE)
+	menu.set_item_tooltip(menu.item_count - 1, "Legt eine Aufgabe an, die an den ausgewählten Nodes hängt")
 	menu.add_item("Aufgabe anhängen …", ATTACH)
 	menu.add_item("Für Claude vormerken", MARK)
 	menu.set_item_tooltip(menu.item_count - 1, "Hält fest, was hier gerade steht. Claude Code holt es sich über den MCP-Server des Addons –\nauch wenn inzwischen eine andere Szene offen ist.")
 	menu.id_pressed.connect(func(id: int) -> void:
-		if id == ATTACH:
+		if id == CREATE:
+			create_requested.emit()
+		elif id == ATTACH:
 			attach_requested.emit(links.selection())
 		elif id == MARK:
 			mark_requested.emit(links.selection()))

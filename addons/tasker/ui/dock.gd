@@ -8,6 +8,8 @@ extends MarginContainer
 
 signal setup_requested
 signal table_requested
+## Eine neue Aufgabe soll angelegt werden (Schnellanlegen).
+signal create_requested
 ## Die Aufgabe soll in ihrem Fenster gezeigt werden.
 signal task_requested(task_id: String)
 ## Die Abhängigkeiten dieser Aufgabe sollen als Graph gezeigt werden.
@@ -115,6 +117,12 @@ func _build() -> void:
 			store.reload())
 	bar.add_child(_reload_button)
 	set_live(false)
+
+	var create := Button.new()
+	create.text = "+"
+	create.tooltip_text = "Neue Aufgabe (Strg+Alt+N)"
+	create.pressed.connect(func() -> void: create_requested.emit())
+	bar.add_child(create)
 
 	var table := Button.new()
 	table.text = "Tisch"

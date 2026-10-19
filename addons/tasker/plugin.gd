@@ -26,6 +26,9 @@ const Mcp := preload("rules/mcp.gd")
 const McpServer := preload("core/mcp_server.gd")
 const SceneTools := preload("core/scene_tools.gd")
 const GameLink := preload("core/game_link.gd")
+const ClaudeCli := preload("core/claude_cli.gd")
+const ClaudeTasks := preload("core/claude_tasks.gd")
+const QuickWindow := preload("ui/quick_window.gd")
 
 const MENU_SETUP := "Tasker-Einstellungen …"
 const MENU_TABLE := "Tasker-Tisch"
@@ -47,8 +50,10 @@ const VERSION := "0.1.0"
 const FILTER_DONE := 100
 
 const SHORTCUT_SEARCH := "tasker/search"
+const SHORTCUT_CREATE := "tasker/create"
 const COMMANDS := {
 	"tasker/search": "Tasker: Aufgabe suchen",
+	"tasker/create": "Tasker: Neue Aufgabe",
 	"tasker/table": "Tasker: Tisch öffnen",
 	"tasker/reload": "Tasker: Neu laden",
 	"tasker/orphans": "Tasker: Verknüpfungen prüfen",
@@ -87,6 +92,9 @@ var _mcp: McpServer
 var _scene_tools: SceneTools
 var _game: GameLink
 var _mcp_state := ""
+## Schnellanlegen und die Claude-Aufträge im Hintergrund.
+var _claude: ClaudeTasks
+var _quick: QuickWindow
 
 
 func _enter_tree() -> void:
@@ -132,6 +140,7 @@ func _enter_tree() -> void:
 	_scene_menu.store = store
 	_scene_menu.links = links
 	_scene_menu.attach_requested.connect(_open_attach)
+	_scene_menu.create_requested.connect(_open_quick)
 	_scene_menu.task_requested.connect(_open_task)
 	_scene_menu.mark_requested.connect(func(nodes: Array) -> void:
 		EditorInterface.get_editor_toaster().push_toast("Tasker: " + _scene_tools.mark(nodes)))
@@ -164,6 +173,7 @@ func _enter_tree() -> void:
 	_dock.add_child(_panel)
 	_panel.setup_requested.connect(_open_setup)
 	_panel.table_requested.connect(_open_table)
+	_panel.create_requested.connect(_open_quick)
 	_panel.task_requested.connect(_open_task)
 	_panel.graph_requested.connect(_open_graph)
 	_panel.orphans_requested.connect(_open_orphans)
@@ -184,6 +194,22 @@ func _enter_tree() -> void:
 	_mcp = McpServer.new()
 	_mcp.handler = func(body: String) -> String: return await Mcp.answer(body, SceneTools.TOOLS, _scene_tools.run, VERSION)
 	add_child(_mcp)
+	_claude = ClaudeTasks.new()
+	_claude.store = store
+	_claude.links = links
+	_claude.scene_tools = _scene_tools
+	_claude.cli = ClaudeCli.new()
+	_claude.add_child(_claude.cli)
+	# Die Aufgabe geht erst auf, wenn Claude fertig ist – auch wenn das Fenster
+	# zum Anlegen längst zu ist.
+	_claude.finished.connect(func(task_id: String, _ok: bool, _message: String, show: bool) -> void:
+		if show and store.ws.task(task_id) != null:
+			_open_task(task_id))
+	# Aufträge aus der Web-App („In Godot verfeinern“).
+	events.command.connect(func(name: String, data: Dictionary) -> void:
+		if name == "godot-refine":
+			_claude.refine(str(data.get("requestId", "")), str(data.get("taskId", "")), str(data.get("mode", ""))))
+	add_child(_claude)
 	EditorInterface.get_editor_settings().settings_changed.connect(_apply_mcp)
 	_apply_mcp()
 	if Config.mcp_enabled():
@@ -220,6 +246,10 @@ func _exit_tree() -> void:
 		if is_instance_valid(window):
 			window.queue_free()
 	_task_windows.clear()
+	if is_instance_valid(_quick):
+		_quick.queue_free()
+	if _claude != null:
+		_claude.queue_free()
 	if events != null:
 		events.stop()
 	for node in [_dock, _search, _attach, _setup, _table, _orphans, _scene_cards, links, events, store, images, client]:
@@ -239,6 +269,9 @@ func _shortcut_input(event: InputEvent) -> void:
 		if EditorInterface.get_editor_settings().is_shortcut(SHORTCUT_SEARCH, event):
 			_open_search()
 			get_viewport().set_input_as_handled()
+		elif EditorInterface.get_editor_settings().is_shortcut(SHORTCUT_CREATE, event):
+			_open_quick()
+			get_viewport().set_input_as_handled()
 
 
 func _register_commands() -> void:
@@ -251,9 +284,18 @@ func _register_commands() -> void:
 		var shortcut := Shortcut.new()
 		shortcut.events = [key]
 		es.add_shortcut(SHORTCUT_SEARCH, shortcut)
+	if not es.has_shortcut(SHORTCUT_CREATE):
+		var key := InputEventKey.new()
+		key.keycode = KEY_N
+		key.ctrl_pressed = true
+		key.alt_pressed = true
+		var shortcut := Shortcut.new()
+		shortcut.events = [key]
+		es.add_shortcut(SHORTCUT_CREATE, shortcut)
 
 	var palette := EditorInterface.get_command_palette()
 	palette.add_command(COMMANDS["tasker/search"], "tasker/search", _open_search, es.get_shortcut(SHORTCUT_SEARCH).get_as_text())
+	palette.add_command(COMMANDS["tasker/create"], "tasker/create", _open_quick, es.get_shortcut(SHORTCUT_CREATE).get_as_text())
 	palette.add_command(COMMANDS["tasker/table"], "tasker/table", _open_table)
 	palette.add_command(COMMANDS["tasker/reload"], "tasker/reload", _reload)
 	palette.add_command(COMMANDS["tasker/orphans"], "tasker/orphans", _open_orphans)
@@ -277,6 +319,8 @@ func _connect_to_server() -> void:
 	links.home = "%s|%s" % [Config.server_url(), Config.project_id()] if Config.is_configured() else ""
 	if Config.is_configured():
 		_reload()
+		# So weiß die Web-App, dass für dieses Projekt ein Godot offen ist.
+		events.addon_query = Events.addon_query_for(Config.project_id(), str(ProjectSettings.get_setting("application/config/name", "Godot")))
 		events.start()
 	else:
 		events.stop()
@@ -437,6 +481,28 @@ func _open_image(key: String, title: String) -> void:
 	window.always_on_top = true
 	window.position = host.position + (host.size - window.size) / 2
 	window.show()
+
+
+## Schnellanlegen: höchstens ein Fenster; ist es offen, kommt es nach vorn und
+## nimmt die neue Auswahl dazu.
+func _open_quick() -> void:
+	if store.state != "ready":
+		_toast("Erst mit Tasker verbinden – dann lässt sich anlegen.")
+		return
+	if is_instance_valid(_quick):
+		if _quick.mode == Window.MODE_MINIMIZED:
+			_quick.mode = Window.MODE_WINDOWED
+		_quick.add_selection()
+		_quick.grab_focus()
+		return
+	_quick = QuickWindow.new()
+	_quick.tasks = _claude
+	_quick.scene_tools = _scene_tools
+	_quick.links = links
+	_quick.visible = false
+	_quick.task_requested.connect(_open_task)
+	EditorInterface.get_base_control().add_child(_quick)
+	_quick.open_centered()
 
 
 ## Sucht eine Aufgabe aus und hängt sie an die Nodes (aus dem Szenenbaum).

@@ -211,8 +211,8 @@ func open_in_tasker(task: Dictionary) -> void:
 ## Legt eine Aufgabe an: `{ ok, error, object }`. Sie landet lose im Backlog
 ## („Unsortiert“) – Ort, Status und Tags setzt der Server, mehr als
 ## `projectId`, `title`, `desc`, `markId`, `categoryId`, `prio` nimmt er
-## nicht an. Gerufen wird das nur vom MCP-Werkzeug (`core/scene_tools.gd`);
-## die Oberfläche des Addons legt weiterhin nichts an.
+## nicht an. Gerufen vom MCP-Werkzeug `create_task` (`core/scene_tools.gd`)
+## und vom Schnellanlegen (`core/claude_tasks.gd`).
 func intake(fields: Dictionary) -> Dictionary:
 	var res := await client.post("/api/intake/task", fields)
 	if not res["ok"] or not res["data"] is Dictionary:

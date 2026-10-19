@@ -81,3 +81,16 @@ func test_geloeschtes_verschwindet_und_das_tempo_folgt_den_einstellungen() -> vo
 	store.apply_event({"id": 2, "origin": null, "event": {"type": "settings", "settings": {"velocity": 5, "theme": "dark"}}})
 	eq(store.velocity, 5)
 	_free(store)
+
+
+func test_auftraege_kommen_als_benannte_ereignisse() -> void:
+	var events := Events.new()
+	eq(events.feed("event: godot-refine\ndata: {\"requestId\":\"r1\",\"taskId\":\"t\",\"mode\":\"rewrite\"}\n\nevent: renew\ndata: \n\n"), [], "kein Datenereignis")
+	eq(events.commands, [["godot-refine", {"requestId": "r1", "taskId": "t", "mode": "rewrite"}]])
+	eq(events.feed("event: anderes\ndata: {\"x\":1}\n\n"), [])
+	eq(events.commands.size(), 1, "unbekannte Namen sind keine Aufträge")
+	events.free()
+
+
+func test_das_addon_weist_sich_aus() -> void:
+	eq(Events.addon_query_for("p 1", "Carnage Carnival"), "addon=godot&project=p%201&name=Carnage%20Carnival")

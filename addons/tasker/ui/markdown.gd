@@ -6,7 +6,8 @@ extends RefCounted
 ## Hier steht ein kleiner Übersetzer für das, was in Beschreibungen vorkommt:
 ## Überschriften, Listen, Checklisten, Zitate, Code, Hervorhebungen, Links,
 ## Bilder aus der Galerie und Verweise wie `$142`. Wie in Tasker bleibt jeder
-## Zeilenumbruch einer. Tabellen bleiben als Text stehen.
+## Zeilenumbruch einer. Tabellen bleiben als Text stehen. Pfade im Projekt
+## (`res://…`) werden Links – auch in Code (Nutzer, 2026-10-19).
 
 ## Steht im Ergebnis an der Stelle eines Bildes: `IMAGE + id + IMAGE` für ein
 ## Bild der Galerie, `IMAGE + DRAWING + name + IMAGE` für eine Zeichnung.
@@ -18,6 +19,9 @@ const DRAWING := "zeichnung:"
 const CHECK := "haken:"
 ## Verweise auf Aufgaben werden Links mit diesem Anfang: `tasker:142`.
 const REF_SCHEME := "tasker:"
+## Ein Pfad im Projekt. Leerzeichen gehören nicht dazu – Pfade mit Leerzeichen
+## bleiben Text.
+const RES_PATH := "(?<![\\w/\"=\\]])res://[^\\s<>\\[\\]`'\"]+"
 
 const _HOLD := "\u0002"
 const _HEADING_SIZES := [22, 19, 17, 16, 15, 15]
@@ -90,9 +94,9 @@ static func _inline(text: String, resolve_ref: Callable) -> String:
 		held.append(bbcode)
 		return "%s%d%s" % [_HOLD, held.size() - 1, _HOLD]
 
-	# Code zuerst: darin gilt nichts von allem anderen.
+	# Code zuerst: darin gilt nichts von allem anderen – außer Pfaden im Projekt.
 	text = _replace(text, "`([^`]+)`", func(m: RegExMatch) -> String:
-		return hold.call("[code][color=%s]%s[/color][/code]" % [_CODE, _escape(m.get_string(1))]))
+		return hold.call("[code][color=%s]%s[/color][/code]" % [_CODE, _res_links(_escape(m.get_string(1)))]))
 
 	# Zeichnungen rendert Tasker auf Anfrage als Bild.
 	text = _replace(text, "!\\[\\[zeichnung:([^\\]]+)\\]\\]", func(m: RegExMatch) -> String:
@@ -109,6 +113,9 @@ static func _inline(text: String, resolve_ref: Callable) -> String:
 
 	text = _replace(text, "(?<![\\w/\"=])https?://[^\\s<>\\]]+", func(m: RegExMatch) -> String:
 		return hold.call("[url]%s[/url]" % m.get_string(0)))
+
+	text = _replace(text, RES_PATH, func(m: RegExMatch) -> String:
+		return hold.call(_res_links(m.get_string(0))))
 
 	text = _escape(text)
 
@@ -129,6 +136,18 @@ static func _inline(text: String, resolve_ref: Callable) -> String:
 
 	return _replace(text, _HOLD + "(\\d+)" + _HOLD, func(m: RegExMatch) -> String:
 		return held[int(m.get_string(1))])
+
+
+## Macht aus jedem `res://…` einen Link auf sich selbst. Satzzeichen am Ende
+## gehören nicht zum Pfad.
+static func _res_links(text: String) -> String:
+	return _replace(text, RES_PATH, func(m: RegExMatch) -> String:
+		var path := m.get_string(0)
+		var tail := ""
+		while path.length() > 6 and ".,:;!?)".contains(path[-1]):
+			tail = path[-1] + tail
+			path = path.substr(0, path.length() - 1)
+		return "[url=%s]%s[/url]%s" % [path, path, tail])
 
 
 ## Eckige Klammern sind in BBCode die Tags.

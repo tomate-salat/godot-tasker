@@ -9,9 +9,14 @@ extends VBoxContainer
 ## Anders als in Tasker geht der eigene Text nicht verloren, wenn inzwischen
 ## jemand anderes geändert hat: das Feld bleibt offen und sagt es; ein zweites
 ## „Fertig“ überschreibt dann bewusst.
+##
+## Als Entwurf (`open_draft`) gehört das Feld zu keiner Aufgabe: ohne „Fertig“
+## und „Abbrechen“, Strg+Enter meldet `submitted` – fürs Schnellanlegen.
 
 ## Das Feld ist wieder zu – gespeichert oder verworfen.
 signal closed
+## Im Entwurf: Strg+Enter.
+signal submitted
 
 const Store := preload("../core/store.gd")
 const Palette := preload("palette.gd")
@@ -33,6 +38,10 @@ var _text: TextEdit
 var _message: Label
 var _cancel: Button
 var _done: Button
+var _bar: HBoxContainer
+## Ein Entwurf ohne Aufgabe – und das Projekt, in dem `$` sucht.
+var _draft := false
+var _draft_project := ""
 ## Titel und Beschreibung, auf denen der Text im Feld beruht.
 var _base_title := ""
 var _base_desc := ""
@@ -73,6 +82,7 @@ func _init() -> void:
 	var bar := HBoxContainer.new()
 	bar.alignment = BoxContainer.ALIGNMENT_END
 	add_child(bar)
+	_bar = bar
 	_cancel = Button.new()
 	_cancel.text = "Abbrechen"
 	_cancel.flat = true
@@ -153,6 +163,37 @@ func open(item_kind: String, id: String) -> bool:
 	return true
 
 
+## Öffnet das Feld leer, als Entwurf einer neuen Aufgabe in diesem Projekt.
+func open_draft(project_id: String, placeholder := "") -> void:
+	_draft = true
+	_draft_project = project_id
+	kind = "task"
+	item_id = ""
+	_bar.visible = false
+	_text.placeholder_text = placeholder
+	_text.text = ""
+	_text.clear_undo_history()
+	_say("")
+	_lock(false)
+	visible = true
+	_text.grab_focus()
+
+
+## Der Text im Feld, wie er gerade dasteht.
+func get_text() -> String:
+	return _text.text
+
+
+## Sperrt das Feld, etwa während angelegt wird.
+func lock(on: bool) -> void:
+	_lock(on)
+
+
+## Ob die Liste unter der Schreibmarke offen ist – dann gilt ihr Escape.
+func menu_open() -> bool:
+	return _menu_open()
+
+
 ## Verwirft, was getippt wurde.
 func cancel() -> void:
 	if _saving:
@@ -164,6 +205,9 @@ func cancel() -> void:
 ## Übernimmt den Text. Wahr, wenn das Feld danach zu ist.
 func commit() -> bool:
 	if _saving or not visible:
+		return false
+	if _draft:
+		submitted.emit()
 		return false
 	var next := split(_text.text)
 	var current = store._find(kind, item_id)
@@ -293,8 +337,9 @@ func _update_menu() -> void:
 			_close_menu(false)
 			return
 		var item = store._find(self.kind, item_id)
+		var project: Variant = item.get("projectId") if item != null else _draft_project if _draft else null
 		var hits: Array = CaretMenu.slash_matches(q["text"]) if kind == CaretMenu.SLASH else \
-			CaretMenu.ref_search(store.ws, q["text"], item.get("projectId") if item != null else null, item_id)
+			CaretMenu.ref_search(store.ws, q["text"], project, item_id)
 		if hits.is_empty():
 			break
 		if kind != _menu_kind or q["text"] != _menu_query:
@@ -402,7 +447,7 @@ func escape() -> void:
 	if _menu_open():
 		_menu_dismissed = _menu_start
 		_close_menu(false)
-	else:
+	elif not _draft:
 		commit()
 
 

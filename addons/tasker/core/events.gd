@@ -7,22 +7,38 @@ extends Node
 ## Der Strom bleibt offen. Der Server schickt alle 25 Sekunden ein
 ## Lebenszeichen; bleibt es aus oder reißt die Verbindung, wird neu verbunden.
 ## Was in der Lücke passiert ist, holt der Datenbestand dann am Stück nach.
+## Nach zehn Minuten beendet der Server den Strom selbst (`renew`, sonst bricht
+## ihn der Hoster ab) – dann wird sofort neu verbunden.
+##
+## Über den Strom meldet sich das Addon bei Tasker an (`addon_query`), und
+## über ihn kommen Aufträge aus der Web-App als benannte Ereignisse
+## (`command`, etwa `godot-refine`; Protokoll mit Tasker abgestimmt, 2026-10-19).
 
 ## Eine Änderung: `{ id, origin, event }`, siehe Taskers `shared/events.ts`.
 signal received(envelope: Dictionary)
 ## Der Strom steht (wieder). `again` ist wahr nach einer Unterbrechung.
 signal connected(again: bool)
 signal disconnected
+## Ein Auftrag aus der Web-App: der Name des Ereignisses und seine Daten.
+signal command(name: String, data: Dictionary)
 
 const Client := preload("client.gd")
 
 ## Ohne Lebenszeichen so lange gilt die Verbindung als tot.
 const SILENCE_SECONDS := 70.0
 const RETRY_SECONDS := [3.0, 5.0, 10.0, 30.0]
+## Hat der Server den Strom ordentlich beendet, geht es gleich weiter.
+const RENEW_SECONDS := 0.25
+## Benannte Ereignisse, die Aufträge sind – alles andere Benannte sind Lebenszeichen.
+const COMMANDS := ["godot-refine"]
 
 var client: Client
 ## Ob der Strom gerade steht.
 var live := false
+## Wie sich das Addon am Strom ausweist: `addon=godot&project=…&name=…`.
+var addon_query := ""
+## Die Aufträge, die `feed` gefunden hat: `[name, data]`.
+var commands: Array = []
 
 var _http: HTTPClient
 var _active := false
@@ -105,12 +121,14 @@ func _process(delta: float) -> void:
 					"Authorization: Bearer " + client.token,
 					"%s: %s" % [Client.CLIENT_HEADER, client.client_id],
 				])
-				var path: String = parse_url(client.base_url)["prefix"] + "/api/events"
+				var path: String = parse_url(client.base_url)["prefix"] + "/api/events" + ("?" + addon_query if addon_query != "" else "")
 				if _http.request(HTTPClient.METHOD_GET, path, headers) != OK:
 					_retry()
 			elif _streaming:
-				# Der Server hat den Strom beendet.
-				_retry()
+				# Der Server hat den Strom beendet – ordentlich, also gleich neu.
+				_close()
+				_retries = 0
+				_wait = RENEW_SECONDS
 		HTTPClient.STATUS_BODY:
 			if not _streaming:
 				if _http.get_response_code() != 200:
@@ -131,6 +149,9 @@ func _process(delta: float) -> void:
 				_silence = 0.0
 				for envelope in feed(chunk.get_string_from_utf8()):
 					received.emit(envelope)
+				while not commands.is_empty():
+					var c: Array = commands.pop_front()
+					command.emit(c[0], c[1])
 			else:
 				_silence += delta
 				if _silence > SILENCE_SECONDS:
@@ -156,7 +177,11 @@ func feed(text: String) -> Array:
 		var line := _buffer.substr(0, end).trim_suffix("\r")
 		_buffer = _buffer.substr(end + 1)
 		if line == "":
-			if _data.size() > 0 and (_event_name == "" or _event_name == "message"):
+			if _data.size() > 0 and COMMANDS.has(_event_name):
+				var json := JSON.new()
+				if json.parse("\n".join(_data)) == OK and json.data is Dictionary:
+					commands.append([_event_name, json.data])
+			elif _data.size() > 0 and (_event_name == "" or _event_name == "message"):
 				# Über `JSON.new()`, damit Unlesbares keinen Fehler ins Log schreibt.
 				var json := JSON.new()
 				var envelope = json.data if json.parse("\n".join(_data)) == OK else null
@@ -169,6 +194,11 @@ func feed(text: String) -> Array:
 		elif line.begins_with("data:"):
 			_data.append(line.substr(5).trim_prefix(" "))
 	return out
+
+
+## Wie sich das Addon am Strom ausweist.
+static func addon_query_for(project_id: String, name: String) -> String:
+	return "addon=godot&project=%s&name=%s" % [project_id.uri_encode(), name.left(60).uri_encode()]
 
 
 ## Zerlegt die Server-Adresse: `{ host, port, tls, prefix }` – leer, wenn sie

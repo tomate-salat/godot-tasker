@@ -60,3 +60,10 @@ func test_kaestchen_nennen_ihre_zeile_im_quelltext() -> void:
 		return "%s%s%d:%d%s" % [Markdown.IMAGE, Markdown.CHECK, line, 1 if done else 0, Markdown.IMAGE]
 	eq(Markdown.to_bbcode("Text\n\n  - [ ] tief\n```\n- [ ] Code\n```\n1. [X] nummeriert\n- [ ]"),
 		"Text\n\n    %s tief\n[code][color=#e6ae58]- [lb] ] Code[/color][/code]\n%s [color=#9ba49f]nummeriert[/color]\n%s " % [box.call(2, false), box.call(6, true), box.call(7, false)])
+
+
+func test_pfade_im_projekt_werden_links() -> void:
+	eq(Markdown.to_bbcode("siehe res://scenes/cell.tscn."), "siehe [url=res://scenes/cell.tscn]res://scenes/cell.tscn[/url].")
+	ok(Markdown.to_bbcode("`res://a.gd`").contains("[code][color=#e6ae58][url=res://a.gd]res://a.gd[/url][/color][/code]"))
+	ok(Markdown.to_bbcode("- `res://scenes/maps/cell.tscn`: `Cell Level/_Slots`").contains("[url=res://scenes/maps/cell.tscn]"))
+	eq(Markdown.to_bbcode("(res://x.tscn)"), "([url=res://x.tscn]res://x.tscn[/url])")

@@ -137,6 +137,36 @@ const STATUS_LABELS := {
 const PRIO_LABELS := ["Keine", "Hoch", "Mittel", "Niedrig"]
 
 
+static var _sparkles: Texture2D
+
+
+## Das Zeichen für „mit KI“: ein großer und ein kleiner Funken, wie
+## `ti-sparkles` im Entwurf (Nutzer, 2026-10-19). Weiß, damit es die Farbe des
+## Knopfs annimmt.
+static func sparkles_icon() -> Texture2D:
+	if _sparkles != null:
+		return _sparkles
+	var size := 16
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var stars := [[Vector2(6.5, 9.5), 6.2], [Vector2(12.5, 3.5), 3.4]]
+	const GRID := 4
+	for y in size:
+		for x in size:
+			var hits := 0
+			for sy in GRID:
+				for sx in GRID:
+					var p := Vector2(x + (sx + 0.5) / GRID, y + (sy + 0.5) / GRID)
+					for star in stars:
+						# Ein Stern mit vier eingebuchteten Zacken (Astroide).
+						var d: Vector2 = (p - star[0]).abs() / star[1]
+						if sqrt(d.x) + sqrt(d.y) <= 1.0:
+							hits += 1
+							break
+			image.set_pixel(x, y, Color(1, 1, 1, float(hits) / (GRID * GRID)))
+	_sparkles = ImageTexture.create_from_image(image)
+	return _sparkles
+
+
 ## Der Statuspunkt als kleines Bild, für Listen und Menüs.
 static func status_icon(status: Variant) -> Texture2D:
 	if _status_icons.has(status):

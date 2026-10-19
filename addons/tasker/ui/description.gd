@@ -193,6 +193,26 @@ func _on_link(meta: Variant) -> void:
 			target_requested.emit(target["id"])
 	elif link.begins_with("http://") or link.begins_with("https://"):
 		OS.shell_open(link)
+	elif link.begins_with("res://"):
+		_open_file(link)
+
+
+## Öffnet einen Pfad im Projekt im Editor: Szenen als Szene, Skripte im
+## Skript-Editor, alles andere wird im Dateisystem ausgewählt.
+func _open_file(path: String) -> void:
+	if not Engine.is_editor_hint():
+		return
+	if not ResourceLoader.exists(path) and not FileAccess.file_exists(path) and not DirAccess.dir_exists_absolute(path):
+		save_failed.emit("%s gibt es im Projekt nicht (mehr)." % path)
+		return
+	match path.get_extension():
+		"tscn", "scn":
+			EditorInterface.open_scene_from_path(path)
+		"gd":
+			EditorInterface.edit_script(load(path))
+			EditorInterface.set_main_screen_editor("Script")
+		_:
+			EditorInterface.select_file(path)
 
 
 # ------------------------------------------------------------- Abhaken
