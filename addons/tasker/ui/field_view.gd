@@ -4,8 +4,10 @@ extends Control
 ## Käfer, die Karten liegen in Ringen um ihn – was eine Karte braucht, einen
 ## Ring weiter außen. Was gilt, steht in `rules/field.gd`.
 ##
-## Ein Doppelklick tappt eine Karte (in Arbeit) oder nimmt das zurück. Wer eine
-## Karte auf den großen Käfer zieht, erledigt sie. Ein Klick öffnet sie.
+## Ein Klick tappt eine Karte (in Arbeit) oder nimmt das zurück, ein
+## Doppelklick öffnet sie (Nutzer, 2026-10-17 – vorher umgekehrt). Wer eine
+## Karte auf den großen Käfer zieht, erledigt sie. Im Lageplan öffnet schon der
+## Klick: dort wird verteilt, nicht gespielt.
 ##
 ## Die Ansicht ändert selbst nichts: sie meldet, was geschehen soll, und zeigt
 ## den Stand, den sie über `show_field` bekommt.
@@ -1693,11 +1695,9 @@ func _on_card(card: Control, event: InputEventMouseButton) -> void:
 	if event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	_click_ticket += 1
-	# Getappt wird mit dem Doppelklick: ein einzelner Klick soll nichts ändern,
-	# er rutscht zu leicht heraus.
+	# Der Doppelklick öffnet; der Klick davor hat noch nichts getan (siehe unten).
 	if event.double_click:
-		if not plan:
-			_toggle(id)
+		task_requested.emit(id)
 		return
 	# Ob daraus ein Klick oder ein Ziehen wird, zeigt sich in `_input`.
 	_held = card
@@ -1797,11 +1797,15 @@ func _input(event: InputEvent) -> void:
 		if dropped:
 			_finish(id)
 		elif clicked:
-			# Erst wenn feststeht, dass kein Doppelklick folgt, geht die Aufgabe auf.
+			# Erst wenn feststeht, dass kein Doppelklick folgt, wird getappt – sonst
+			# würde das Öffnen jedes Mal auch den Status umschalten.
 			var ticket := _click_ticket
 			await get_tree().create_timer(CLICK_WAIT).timeout
 			if ticket == _click_ticket and is_inside_tree():
-				task_requested.emit(id)
+				if plan:
+					task_requested.emit(id)
+				else:
+					_toggle(id)
 
 
 ## Tappen und zurück: in Arbeit nehmen oder wieder bereit.
