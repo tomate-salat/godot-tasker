@@ -30,6 +30,8 @@ const HIDE_UNREADY_KEY := "scene_cards_hide_unready"
 const UNREADY := ["open", "unclear"]
 ## … und ob Karten aus Prefabs versteckt sind.
 const HIDE_PREFABS_KEY := "scene_cards_hide_prefabs"
+## … und ob Karten verschwinden, deren Node hinter etwas liegt – von Haus aus ja.
+const HIDE_COVERED_KEY := "scene_cards_hide_covered"
 
 
 static func mode_of(saved: Variant) -> String:

@@ -100,6 +100,15 @@ const VIEW_TREE := -1
 ## So nah (in Pixeln) muss eine gezogene Karte an der Stelle eines Nodes sein,
 ## der keine eigene Fläche hat.
 const DROP_REACH := 48.0
+## Verdeckt ist eine Karte, wenn zwischen Kamera und ihrem Node etwas liegt,
+## das mehr als so viele Meter vor dem Node ist – was ihn nur berührt, wie der
+## Boden unter den Füßen, zählt nicht.
+const COVER_MARGIN := 0.1
+## So lange (in Sekunden) braucht eine Karte, um hinter einer Wand zu
+## verschwinden oder wieder aufzutauchen.
+const FADE_TIME := 0.2
+## Was höchstens so viele Meter über dem Node liegt, verdeckt seine Karte nicht.
+const OWN_REACH := 1.5
 
 var store: Store
 var images: Images
@@ -112,6 +121,8 @@ var hide_done := false: set = set_hide_done
 var hide_unready := true: set = set_hide_unready
 ## Ob Karten aus Prefabs versteckt sind.
 var hide_prefabs := false: set = set_hide_prefabs
+## Ob Karten verschwinden, deren Node in 3D hinter etwas liegt (Nutzer, 2026-10-20).
+var hide_covered := true: set = set_hide_covered
 
 ## Die Referenzen in die offene Szene, deren Aufgabe es gibt.
 var _here: Array = []
@@ -146,6 +157,9 @@ var _drop_node: Node
 var _pads: Array = []
 var _pads_queued := false
 var _refresh_queued := false
+## Wie sichtbar jede Karte gerade ist, damit sie hinter Wänden weich
+## verschwindet: Ansicht und `_key` → `{ now, target }`.
+var _fades := {}
 
 
 func _ready() -> void:
@@ -164,17 +178,9 @@ func _ready() -> void:
 	hide_done = links.memory.read(SceneView.HIDE_DONE_KEY, false) == true
 	hide_unready = links.memory.read(SceneView.HIDE_UNREADY_KEY, true) == true
 	hide_prefabs = links.memory.read(SceneView.HIDE_PREFABS_KEY, false) == true
+	hide_covered = links.memory.read(SceneView.HIDE_COVERED_KEY, true) == true
 
 	_menu = PopupMenu.new()
-	for i in Model.STATUS.size():
-		_menu.add_icon_item(Palette.status_icon(Model.STATUS[i]), Palette.STATUS_LABELS[Model.STATUS[i]], i)
-	_menu.add_separator()
-	_menu.add_item("Aufgabe öffnen", MENU_OPEN)
-	_menu.add_item("In Tasker öffnen", MENU_BROWSER)
-	_menu.add_separator()
-	_menu.add_item("Karte zurück an den Node", MENU_HOME)
-	_menu.add_item("Prefab öffnen", MENU_PREFAB)
-	_menu.add_item("Vom Node lösen", MENU_UNLINK)
 	_menu.id_pressed.connect(_on_menu)
 	add_child(_menu)
 
@@ -217,6 +223,16 @@ func set_hide_unready(value: bool) -> void:
 	hide_unready = value
 	if is_inside_tree() and links.memory.read(SceneView.HIDE_UNREADY_KEY, true) != hide_unready:
 		links.memory.write(SceneView.HIDE_UNREADY_KEY, hide_unready)
+
+
+func set_hide_covered(value: bool) -> void:
+	if value == hide_covered:
+		return
+	hide_covered = value
+	if is_inside_tree():
+		if links.memory.read(SceneView.HIDE_COVERED_KEY, true) != hide_covered:
+			links.memory.write(SceneView.HIDE_COVERED_KEY, hide_covered)
+		redraw_requested.emit()
 
 
 func set_hide_prefabs(value: bool) -> void:
@@ -318,7 +334,14 @@ func _render(task_id: String) -> void:
 
 
 ## Bewegt sich ein Node mit Karte oder eine Kamera, müssen die Karten mit.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	var fading := false
+	for f in _fades.values():
+		if f["now"] != f["target"]:
+			f["now"] = move_toward(f["now"], f["target"], delta / FADE_TIME)
+			fading = true
+	if fading:
+		redraw_requested.emit()
 	if _here.is_empty():
 		return
 	var state := []
@@ -380,12 +403,82 @@ func draw_3d(overlay: Control) -> void:
 			var far := camera.global_position.distance_to(at)
 			var scale := 1.0 if flat else clampf(NEAR / maxf(far, 0.01), MIN_SCALE, MAX_SCALE)
 			var pin := camera.size > PIN_SIZE if flat else far > PIN_FAR
-			placed.append({"ref": ref, "at": camera.unproject_position(at) * stretch, "scale": scale, "depth": far, "pin": pin})
+			placed.append({"ref": ref, "at": camera.unproject_position(at) * stretch, "scale": scale, "depth": far, "pin": pin, "fade": _fade(camera, _key(ref), hide_covered and _covered(node, camera, ref, scale, stretch))})
 		elif node == null and _has_no_place(ref):
 			placed.append({"ref": ref, "scale": 1.0, "depth": 0.0})
 	# Fernes zuerst, damit Nahes darüber liegt.
 	placed.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["depth"] > b["depth"])
 	_draw(overlay, camera.get_instance_id(), placed)
+
+
+## Wie sichtbar die Karte in dieser Ansicht gerade ist. Sie blendet zu ihrem
+## Ziel über (`_process`); beim ersten Zeichnen steht sie gleich dort.
+func _fade(camera: Camera3D, key: String, covered: bool) -> float:
+	var target := 0.0 if covered else 1.0
+	key = "%d|%s" % [camera.get_instance_id(), key]
+	if not _fades.has(key):
+		_fades[key] = {"now": target, "target": target}
+	_fades[key]["target"] = target
+	return _fades[key]["now"]
+
+
+## Ob die Karte verdeckt ist: der Blick auf ihren Node und der durch die Mitte
+## der Karte bis in dieselbe Tiefe sind beide versperrt. Liegt der Punkt des
+## Nodes unter seinem eigenen Modell – unter einer Tischplatte –, sieht man
+## die Karte darüber trotzdem; und eine Karte, die zum Himmel hin gezogen ist,
+## bleibt von weitem sichtbar (Nutzer, 2026-10-20).
+func _covered(node: Node3D, camera: Camera3D, ref: Dictionary, scale: float, stretch: Vector2) -> bool:
+	var at := node.global_position
+	var spot := camera.unproject_position(at)
+	if not _blocked(node, camera, camera.project_ray_origin(spot), at):
+		return false
+	var size: Vector2 = Card.SIZE * SCALE * scale
+	var middle: Vector2 = spot + (ref["offset"] * scale - Vector2(0.0, size.y / 2.0 + RISE * scale)) / stretch
+	var depth := -(camera.global_transform.affine_inverse() * at).z
+	return _blocked(node, camera, camera.project_ray_origin(middle), camera.project_position(middle, depth))
+
+
+## Ob zwischen `from` und `at` etwas aus der Szene liegt. Erst grob über die
+## Hüllen, die der Strahl trifft – dieselbe Abfrage, mit der der Editor Klicks
+## auflöst –, dann genau gegen die Dreiecke. Was zum Node selbst gehört, zählt
+## nicht: sein Punkt liegt meist im eigenen Modell.
+func _blocked(node: Node3D, camera: Camera3D, from: Vector3, at: Vector3) -> bool:
+	var root := EditorInterface.get_edited_scene_root()
+	var length := from.distance_to(at)
+	if root == null or length < COVER_MARGIN:
+		return false
+	var dir := (at - from) / length
+	for id in RenderingServer.instances_cull_ray(from, at, camera.get_world_3d().scenario):
+		var thing = instance_from_id(id)
+		if not thing is GeometryInstance3D or thing == node or node.is_ancestor_of(thing) \
+				or not root.is_ancestor_of(thing) or not thing.is_visible_in_tree():
+			continue
+		var mesh := _mesh_of(thing)
+		var faces: TriangleMesh = mesh.generate_triangle_mesh() if mesh != null else null
+		if faces == null:
+			continue
+		var inverse: Transform3D = thing.global_transform.affine_inverse()
+		var hit := faces.intersect_ray(inverse * from, inverse.basis * dir)
+		if hit.is_empty() or from.distance_to(thing.global_transform * hit["position"]) >= length - COVER_MARGIN:
+			continue
+		# Was gleich über dem Node liegt, gehört zu ihm, auch wenn es kein Kind ist:
+		# der Tisch, unter dessen Platte die versteckte Figur wartet. Eine Wand
+		# daneben verdeckt weiter (Nutzer, 2026-10-20).
+		var up := faces.intersect_ray(inverse * node.global_position, inverse.basis * Vector3.UP)
+		if not up.is_empty() and node.global_position.distance_to(thing.global_transform * up["position"]) <= OWN_REACH:
+			continue
+		return true
+	return false
+
+
+## Das Mesh, das ein Objekt zeigt – null, wenn sich das nicht sagen lässt.
+static func _mesh_of(thing: GeometryInstance3D) -> Mesh:
+	if thing is MeshInstance3D:
+		return thing.mesh
+	if thing is CSGShape3D and thing.is_root_shape():
+		var meshes: Array = thing.get_meshes()
+		return meshes[1] if meshes.size() > 1 else null
+	return null
 
 
 ## Zeichnet, was in dieser Ansicht liegt, und merkt sich in `_hits`, wo.
@@ -409,13 +502,19 @@ func _draw(overlay: Control, view: int, placed: Array) -> void:
 		# Rand kleben (Nutzer, 2026-10-20). Nur die gegriffene bleibt.
 		if not mine and not Rect2(Vector2.ZERO, overlay.size).has_point(p["at"]):
 			continue
+		# Hinter einer Wand ganz verschwunden.
+		if mine:
+			p["fade"] = 1.0
+		elif p.get("fade", 1.0) <= 0.0:
+			continue
 		var offset: Vector2 = (_grab["offset"] if mine else p["ref"]["offset"]) * p["scale"]
 		p["home"] = p["at"] - Vector2(size.x / 2.0, size.y + RISE * p["scale"])
 		p["rect"] = Rect2(p["home"] + offset, size)
 		if mine:
 			grabbed.append(p)
 		elif p["pin"]:
-			pins.append(p)
+			if p.get("fade", 1.0) >= 0.5:
+				pins.append(p)
 		else:
 			cards.append(p)
 
@@ -478,8 +577,8 @@ func _groups(items: Array, as_pins: bool) -> Array:
 
 ## Eine Karte für sich: Faden zum Node, die Karte, und sie lässt sich wegziehen.
 func _draw_single(overlay: Control, p: Dictionary, hits: Array) -> void:
-	_draw_thread(overlay, p["at"], p["rect"])
-	_draw_card(overlay, p["ref"], p["rect"])
+	_draw_thread(overlay, p["at"], p["rect"], p.get("fade", 1.0))
+	_draw_card(overlay, p["ref"], p["rect"], p.get("fade", 1.0))
 	hits.append({"kind": CARD, "rect": p["rect"], "ref": p["ref"], "home": p["home"], "scale": p["scale"]})
 
 
@@ -487,11 +586,15 @@ func _draw_single(overlay: Control, p: Dictionary, hits: Array) -> void:
 ## und die Anzahl. Ein Klick fächert ihn auf.
 func _draw_stack(overlay: Control, group: Array, hits: Array) -> void:
 	var rect: Rect2 = group[0]["rect"]
+	var fade: float = group[0].get("fade", 1.0)
 	for p in group:
-		_draw_thread(overlay, p["at"], rect)
-	for k in [2, 1]:
-		overlay.draw_style_box(_plate, Rect2(rect.position + Vector2(5, -5) * k, rect.size))
-	_draw_card(overlay, group[0]["ref"], rect)
+		_draw_thread(overlay, p["at"], rect, fade)
+	if fade == 1.0:
+		for k in [2, 1]:
+			overlay.draw_style_box(_plate, Rect2(rect.position + Vector2(5, -5) * k, rect.size))
+	_draw_card(overlay, group[0]["ref"], rect, fade)
+	if fade < 0.5:
+		return
 	_draw_badge(overlay, Vector2(rect.end.x - 2.0, rect.position.y + 2.0), str(group.size()))
 	hits.append({"kind": STACK, "rect": rect.grow(4.0), "key": _key(group[0]["ref"])})
 
@@ -511,9 +614,9 @@ func _draw_spread(overlay: Control, group: Array, hits: Array, from_pins: bool, 
 	var rects := []
 	for i in group.size():
 		rects.append(Rect2(start + Vector2(i * (size.x + SPREAD_GAP), 0.0), size))
-		_draw_thread(overlay, group[i]["at"], rects[i])
+		_draw_thread(overlay, group[i]["at"], rects[i], group[i].get("fade", 1.0))
 	for i in group.size():
-		_draw_card(overlay, group[i]["ref"], rects[i])
+		_draw_card(overlay, group[i]["ref"], rects[i], group[i].get("fade", 1.0))
 		var hit := {"kind": CARD, "rect": rects[i], "ref": group[i]["ref"]}
 		# Aus dem Fächer lässt sich eine Karte herausziehen – so trennt man einen Stapel.
 		if not from_pins:
@@ -527,7 +630,8 @@ func _draw_spread(overlay: Control, group: Array, hits: Array, from_pins: bool, 
 	hits.append({"kind": CLOSE, "rect": Rect2(close - Vector2(11, 11), Vector2(22, 22))})
 
 
-func _draw_card(overlay: Control, ref: Dictionary, rect: Rect2) -> void:
+## `fade` ist, wie sichtbar die Karte noch ist: 1 ganz, 0 hinter einer Wand verschwunden.
+func _draw_card(overlay: Control, ref: Dictionary, rect: Rect2, fade := 1.0) -> void:
 	var face = _faces.get(ref["taskId"])
 	if face == null:
 		return
@@ -539,12 +643,13 @@ func _draw_card(overlay: Control, ref: Dictionary, rect: Rect2) -> void:
 		alpha *= PREFAB_ALPHA
 	if marked:
 		alpha = maxf(alpha, 0.9)
+	alpha *= fade
 	if alpha == 1.0:
 		overlay.draw_style_box(_shadow, rect)
 	overlay.draw_texture_rect(face["viewport"].get_texture(), rect, false, Color(1, 1, 1, alpha))
 	if marked:
-		overlay.draw_rect(rect.grow(2.0), Palette.ACCENT if ref["taskId"] == _selected else Color(Palette.ACCENT, 0.6), false, 2.0)
-	if prefab:
+		overlay.draw_rect(rect.grow(2.0), Color(Palette.ACCENT, fade if ref["taskId"] == _selected else 0.6 * fade), false, 2.0)
+	if prefab and fade == 1.0:
 		_draw_origin(overlay, ref, rect)
 
 
@@ -560,11 +665,11 @@ func _draw_origin(overlay: Control, ref: Dictionary, rect: Rect2) -> void:
 
 
 ## Der Faden vom Node zur Karte – zur nächsten Stelle an ihrem Rand.
-func _draw_thread(overlay: Control, at: Vector2, rect: Rect2) -> void:
+func _draw_thread(overlay: Control, at: Vector2, rect: Rect2, fade := 1.0) -> void:
 	var to := at.clamp(rect.position, rect.end)
 	if to != at:
-		overlay.draw_line(at, to, Color(Palette.ACCENT, 0.8), 1.5, true)
-	overlay.draw_circle(at, 3.5, Palette.ACCENT)
+		overlay.draw_line(at, to, Color(Palette.ACCENT, 0.8 * fade), 1.5, true)
+	overlay.draw_circle(at, 3.5, Color(Palette.ACCENT, fade))
 
 
 ## Ein Pin in der Farbe des Status; stehen mehrere Karten dahinter, mit Anzahl.
@@ -676,17 +781,32 @@ func _click(ref: Dictionary, event: InputEventMouseButton) -> void:
 	task_selected.emit(ref["taskId"])
 	if event.button_index == MOUSE_BUTTON_RIGHT:
 		_menu_ref = ref
-		_menu.set_item_disabled(_menu.get_item_index(MENU_HOME), ref["offset"] == Vector2.ZERO)
-		# Was aus einem Prefab kommt, gilt dort – für alle seine Instanzen.
-		var prefab := ref.has("via")
-		var file := str(ref["scenePath"]).get_file()
-		_menu.set_item_visible(_menu.get_item_index(MENU_PREFAB), prefab)
-		_menu.set_item_text(_menu.get_item_index(MENU_PREFAB), "Prefab öffnen (%s)" % file)
-		_menu.set_item_text(_menu.get_item_index(MENU_UNLINK), "Vom Prefab lösen (%s)" % file if prefab else "Vom Node lösen")
+		_fill_menu(ref)
 		_menu.position = Vector2i(DisplayServer.mouse_get_position())
 		_menu.popup()
 	elif event.double_click:
 		task_requested.emit(ref["taskId"])
+
+
+## Baut das Menü für diese Karte. Neu bei jedem Rechtsklick, weil sich Einträge
+## eines PopupMenu nicht verstecken lassen.
+func _fill_menu(ref: Dictionary) -> void:
+	_menu.clear()
+	for i in Model.STATUS.size():
+		_menu.add_icon_item(Palette.status_icon(Model.STATUS[i]), Palette.STATUS_LABELS[Model.STATUS[i]], i)
+	_menu.add_separator()
+	_menu.add_item("Aufgabe öffnen", MENU_OPEN)
+	_menu.add_item("In Tasker öffnen", MENU_BROWSER)
+	_menu.add_separator()
+	_menu.add_item("Karte zurück an den Node", MENU_HOME)
+	_menu.set_item_disabled(_menu.get_item_index(MENU_HOME), ref["offset"] == Vector2.ZERO)
+	# Was aus einem Prefab kommt, gilt dort – für alle seine Instanzen.
+	var file := str(ref["scenePath"]).get_file()
+	if ref.has("via"):
+		_menu.add_item("Prefab öffnen (%s)" % file, MENU_PREFAB)
+		_menu.add_item("Vom Prefab lösen (%s)" % file, MENU_UNLINK)
+	else:
+		_menu.add_item("Vom Node lösen", MENU_UNLINK)
 
 
 ## Zieht die gegriffene Karte mit dem Zeiger. Wahr, solange eine gegriffen ist.

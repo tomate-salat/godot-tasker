@@ -52,6 +52,8 @@ const FILTER_DONE := 100
 const FILTER_PREFABS := 101
 ## … und „Nicht Bereites einblenden“.
 const FILTER_UNREADY := 102
+## … und „Verdeckte einblenden“.
+const FILTER_COVERED := 103
 
 const SHORTCUT_SEARCH := "tasker/search"
 const SHORTCUT_CREATE := "tasker/create"
@@ -561,6 +563,8 @@ func _add_filter(bar: int) -> void:
 	menu.add_check_item("Erledigtes einblenden", FILTER_DONE)
 	menu.add_check_item("Nicht Bereites einblenden", FILTER_UNREADY)
 	menu.set_item_tooltip(menu.get_item_index(FILTER_UNREADY), "Auch Aufgaben zeigen, die noch offen oder unklar sind")
+	menu.add_check_item("Verdeckte einblenden", FILTER_COVERED)
+	menu.set_item_tooltip(menu.get_item_index(FILTER_COVERED), "In 3D auch Karten zeigen, deren Node hinter einer Wand oder einem anderen Objekt liegt")
 	menu.add_check_item("Aus Prefabs", FILTER_PREFABS)
 	menu.set_item_tooltip(menu.get_item_index(FILTER_PREFABS), "Auch zeigen, was an Prefabs hängt, die hier als Instanz stecken")
 	menu.id_pressed.connect(func(id: int) -> void:
@@ -568,6 +572,8 @@ func _add_filter(bar: int) -> void:
 			_scene_cards.hide_done = not _scene_cards.hide_done
 		elif id == FILTER_UNREADY:
 			_scene_cards.hide_unready = not _scene_cards.hide_unready
+		elif id == FILTER_COVERED:
+			_scene_cards.hide_covered = not _scene_cards.hide_covered
 		elif id == FILTER_PREFABS:
 			_scene_cards.hide_prefabs = not _scene_cards.hide_prefabs
 		else:
@@ -590,6 +596,7 @@ func _show_filters() -> void:
 			menu.set_item_checked(menu.get_item_index(i), SceneView.MODES[i] == _scene_cards.mode)
 		menu.set_item_checked(menu.get_item_index(FILTER_DONE), not _scene_cards.hide_done)
 		menu.set_item_checked(menu.get_item_index(FILTER_UNREADY), not _scene_cards.hide_unready)
+		menu.set_item_checked(menu.get_item_index(FILTER_COVERED), not _scene_cards.hide_covered)
 		menu.set_item_checked(menu.get_item_index(FILTER_PREFABS), not _scene_cards.hide_prefabs)
 
 
