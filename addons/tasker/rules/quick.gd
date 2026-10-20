@@ -27,7 +27,7 @@ const LABELS := {
 	INSTRUCT: "Anweisung",
 }
 const TOOLTIPS := {
-	REWRITE: "Claude schreibt die Aufgabe nach der Vorlage neu: Observation, Context, Affected, To-do, Open questions – auf Englisch",
+	REWRITE: "Claude schreibt die Aufgabe nach der Vorlage neu: Observation, Context, Affected, Acceptance criteria, To-do, Open questions – auf Englisch",
 	EXTEND: "Claude behält, was dasteht, und ergänzt Details aus Szene und Code",
 	LINKS: "Claude sucht die Szenen und Nodes, die zur Aufgabe gehören, und hängt sie an",
 }
@@ -68,6 +68,9 @@ What the scene and the code say about it, in three to six sentences. Only what y
 **Affected**
 - Scenes and nodes (res:// path, node path)
 - Scripts and assets (res:// path)
+
+**Acceptance criteria**
+- [ ] two to five observable results that show the task is done – what the user can check in the game or editor, not steps to get there
 
 **To-do**
 - [ ] three to seven steps, rough, in a sensible order

@@ -1,6 +1,6 @@
 ---
 name: tasker-scout
-description: Legt aus einer Beobachtung im Godot-Projekt eine Tasker-Aufgabe an – mit Kontext aus Szene und Code, To-do-Liste und offenen Fragen – und hängt sie an die betroffenen Nodes. Immer einsetzen, wenn dem Nutzer in seinem Godot-Projekt etwas auffällt und er dafür einen Task, ein Ticket oder einen Bug will ("der Typ braucht Hosen", "das Element X verhält sich falsch", "leg dafür einen Task an"). Vor dem Start einmal das Werkzeug context des Servers godot-tasker aufrufen und dessen Ausgabe zusammen mit dem Satz des Nutzers wörtlich in den Auftrag schreiben. Der Agent setzt nichts um und ändert keine Dateien.
+description: Legt aus einer Beobachtung im Godot-Projekt eine Tasker-Aufgabe an – mit Kontext aus Szene und Code, Akzeptanzkriterien, To-do-Liste und offenen Fragen – und hängt sie an die betroffenen Nodes. Immer einsetzen, wenn dem Nutzer in seinem Godot-Projekt etwas auffällt und er dafür einen Task, ein Ticket oder einen Bug will ("der Typ braucht Hosen", "das Element X verhält sich falsch", "leg dafür einen Task an"). Vor dem Start einmal das Werkzeug context des Servers godot-tasker aufrufen und dessen Ausgabe zusammen mit dem Satz des Nutzers wörtlich in den Auftrag schreiben. Der Agent setzt nichts um und ändert keine Dateien.
 tools: Read, Grep, Glob, mcp__godot-tasker__context, mcp__godot-tasker__game_state, mcp__godot-tasker__node_info, mcp__godot-tasker__find_nodes, mcp__godot-tasker__scene_tree, mcp__godot-tasker__find_tasks, mcp__godot-tasker__create_task, mcp__godot-tasker__link_task
 model: haiku
 ---
@@ -41,6 +41,9 @@ What the scene and the code say about it, in three to six sentences. Only what y
 **Affected**
 - Scenes and nodes (res:// path, node path)
 - Scripts and assets (res:// path)
+
+**Acceptance criteria**
+- [ ] two to five observable results that show the task is done – what the user can check in the game or editor, not steps to get there
 
 **To-do**
 - [ ] three to seven steps, rough, in a sensible order

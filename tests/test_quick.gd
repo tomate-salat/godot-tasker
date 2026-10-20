@@ -112,3 +112,9 @@ func test_die_anweisung_steht_im_auftrag() -> void:
 	ok(text.contains("Das Addon heißt Dialogic"))
 	ok(text.contains("`unlink`"))
 	ok(not text.contains("**Observation**"), "keine Vorlage – der Rest bleibt, wie er ist")
+
+
+func test_neu_geschriebene_aufgaben_haben_akzeptanzkriterien() -> void:
+	var task := {"ref": 1, "title": "x", "desc": ""}
+	ok(Quick.prompt(Quick.REWRITE, task, [], "", "C:/spiel").contains("**Acceptance criteria**"))
+	ok(Quick.prompt(Quick.EXTEND, task, [], "", "C:/spiel").contains("**Acceptance criteria**"), "Erweitern ergänzt sie, wo sie fehlen")

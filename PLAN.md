@@ -582,6 +582,8 @@ Wunsch des Nutzers (2026-10-19): Aufgaben aus dem Addon anlegen und sie von Clau
 - Skripte und Ressourcen ohne Szene lassen sich nicht anhängen (Verknüpfungen kennen nur Szenen und Nodes); Claude nennt sie unter „Affected“.
 - Im Editor noch nicht ausprobiert: Fenster, Knöpfe, Hinweise.
 
+**Akzeptanzkriterien** (Nutzer, 2026-10-20): Die Vorlage hat zwischen „Affected“ und „To-do“ den Abschnitt **Acceptance criteria** – zwei bis fünf prüfbare Ergebnisse als Checkliste, was man im Spiel oder Editor sieht, keine Schritte. Gilt für „Neu schreiben“, „Erweitern“ (ergänzt, wo er fehlt) und den Agenten `tasker-scout`; eine freie Anweisung lässt die Gliederung, wie sie ist. Probelauf: vier brauchbare Kriterien („Walking into the healer's area … opens the healer dialog, and leaving closes it, as before“).
+
 ### Claude im Aufgabenfenster
 
 Entwurf mit dem Nutzer abgestimmt (2026-10-19):
