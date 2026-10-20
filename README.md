@@ -38,15 +38,20 @@ Alle Bilder stammen aus den Beispieldaten des Addons.
 - **Tisch** – ein eigenes Editor-Fenster (Werkzeug-Menü „Tasker-Tisch“), das sich auf einen
   zweiten Monitor schieben lässt:
   - **Feld:** der laufende Milestone als Stadt. Was eine Aufgabe noch braucht, sitzt als Gegner
-    auf ihr; ein Doppelklick nimmt sie in Arbeit und schickt Truppen los. Dazu Wochenziel, Serie
+    auf ihr; ein Klick nimmt sie in Arbeit und schickt Truppen los, ein Doppelklick öffnet sie. Dazu Wochenziel, Serie
     und eine Ablage, was in welcher Woche erledigt wurde.
   - **Feldzugskarte:** alle Milestones eines Releases auf einen Blick.
   - **Planen:** Aufgaben aus Bereitschaft und Backlog auf die Milestones verteilen.
 - **Milestone- und Release-Fenster** mit Fortschritt, Burnup und Prognose.
-- **Karten in Szenen:** Aufgaben lassen sich an Nodes hängen und erscheinen im Viewport an ihnen.
+- **Karten in Szenen:** Aufgaben lassen sich an Nodes hängen und erscheinen im Viewport an ihnen –
+  auch an jeder Instanz eines Prefabs, an dem sie hängen.
+- **Schnellanlegen mit Claude** (Strg+Alt+N, „+“ im Dock, Kontextmenü im Szenenbaum): eine
+  Beobachtung aufschreiben, und Claude (über die Claude-CLI) macht daraus eine Aufgabe mit Kontext,
+  Akzeptanzkriterien, To-do und offenen Fragen, angehängt an die betroffenen Nodes. Im
+  Aufgabenfenster nimmt Claude Anweisungen entgegen („das Addon heißt Dialogic“).
+- **In Godot verfeinern:** eine Aufgabe aus der Tasker-Web-App an den offenen Editor schicken.
 - **MCP-Server für Claude Code** (optional): Claude Code kann die offene Szene und das laufende
-  Spiel lesen und aus einer Beobachtung („der Typ braucht Hosen“) eine Aufgabe anlegen, die gleich
-  an den betroffenen Nodes hängt. Dazu bringt das Addon den Agenten `tasker-scout` mit.
+  Spiel lesen, Aufgaben anlegen und an Nodes hängen.
 
 ## Installation
 
@@ -64,7 +69,7 @@ die Projektwahl liegt unversioniert unter `.godot/`. Im Repository landet davon 
 
 In den Tasker-Einstellungen unter „Claude Code“ den MCP-Server einschalten (Vorgabe-Port 9309,
 nur auf `127.0.0.1`, mit eigenem Kennwort), den angezeigten Befehl kopieren und im Terminal
-ausführen. Dort lässt sich auch der Agent `tasker-scout` nach `~/.claude/agents` installieren.
+ausführen.
 
 Für den Blick ins laufende Spiel trägt das Addon bei eingeschaltetem MCP-Server den Autoload
 `TaskerProbe` in `project.godot` ein. Er antwortet nur bei einem Start aus dem Editor, liest nur

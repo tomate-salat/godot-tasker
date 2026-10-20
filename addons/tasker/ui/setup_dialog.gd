@@ -18,13 +18,10 @@ const Client := preload("../core/client.gd")
 
 ## Was das Plugin für den Abschnitt „Claude Code“ beisteuert:
 ## `mcp_status() -> String` sagt, ob der Server läuft;
-## `mcp_copy() -> String` legt den Befehl für Claude Code in die Zwischenablage,
-## `agent_install() -> String` den Agenten in den Nutzerordner – beide geben
-## zurück, was dem Nutzer dazu zu sagen ist; `agent_status() -> String`.
+## `mcp_copy() -> String` legt den Befehl für Claude Code in die Zwischenablage
+## und gibt zurück, was dem Nutzer dazu zu sagen ist.
 var mcp_status: Callable
 var mcp_copy: Callable
-var agent_install: Callable
-var agent_status: Callable
 
 var _url: LineEdit
 var _token: LineEdit
@@ -42,7 +39,6 @@ var _style: OptionButton
 var _mcp_on: CheckBox
 var _mcp_port: SpinBox
 var _mcp_state: Label
-var _agent_state: Label
 ## Solange die Felder gefüllt werden, ist das keine Änderung des Nutzers.
 var _filling := false
 
@@ -143,15 +139,7 @@ func _init() -> void:
 	copy.pressed.connect(func() -> void:
 		_mcp_state.text = mcp_copy.call() if mcp_copy.is_valid() else "")
 	buttons.add_child(copy)
-	var agent := Button.new()
-	agent.text = "Agent „tasker-scout“ installieren"
-	agent.tooltip_text = "Legt den Agenten, den das Addon mitbringt, in den Agenten-Ordner von Claude Code –\ner gilt dann in allen Projekten und bereitet Aufgaben vor."
-	agent.pressed.connect(func() -> void:
-		_agent_state.text = agent_install.call() if agent_install.is_valid() else "")
-	buttons.add_child(agent)
 	_row(grid, "", buttons)
-	_agent_state = _note()
-	_row(grid, "", _agent_state)
 
 
 func open() -> void:
@@ -227,7 +215,7 @@ func _store(key: String, value: Variant) -> void:
 	changed.emit()
 
 
-## Zeigt, wie es um Server und Agent steht – kurz nach einer Änderung, wenn
+## Zeigt, wie es um den Server steht – kurz nach einer Änderung, wenn
 ## das Plugin sie umgesetzt hat.
 func _refresh_claude() -> void:
 	if not is_inside_tree():
@@ -235,7 +223,6 @@ func _refresh_claude() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_mcp_state.text = mcp_status.call() if mcp_status.is_valid() else ""
-	_agent_state.text = agent_status.call() if agent_status.is_valid() else ""
 
 
 func _connect_now() -> void:

@@ -217,13 +217,30 @@ func intake(fields: Dictionary) -> Dictionary:
 	var res := await client.post("/api/intake/task", fields)
 	if not res["ok"] or not res["data"] is Dictionary:
 		var error: String = res["error"]
-		if res["status"] == 404 or res["status"] == 401:
+		if res["status"] == 404 and fields.has("parentId"):
+			error = "Die übergeordnete Aufgabe kennt Tasker nicht."
+		elif res["status"] == 404 or res["status"] == 401:
 			error = "Dieser Tasker-Server lässt das Anlegen per Token (noch) nicht zu (%d)." % res["status"]
 		return {"ok": false, "error": error if error != "" else "Der Server hat nichts angelegt.", "object": null}
 	# Der eigene Hall wird überhört – darum hier einsetzen.
 	if state == "ready":
 		_upsert("task", res["data"])
 	return {"ok": true, "error": "", "object": res["data"]}
+
+
+## Nimmt eine Aufgabe zurück, die über den Eingang angelegt wurde – fürs
+## „Rückgängig“ von Unteraufgaben, die Claude angelegt hat. Tasker löscht nur
+## solche, und nur in dieser `version` (sie landet im Papierkorb).
+## Antwort: `{ ok, error }`.
+func delete_task(id: String, version: int) -> Dictionary:
+	var res := await client.request(HTTPClient.METHOD_DELETE, "/api/intake/task/%s?version=%d" % [id.uri_encode(), version])
+	if not res["ok"]:
+		var why: String = res["error"]
+		if res["status"] == 404:
+			why = "nicht über den Eingang angelegt"
+		return {"ok": false, "error": why}
+	await reload()
+	return {"ok": true, "error": ""}
 
 
 func apply_event(envelope: Dictionary) -> void:

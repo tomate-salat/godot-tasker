@@ -3,8 +3,7 @@ extends RefCounted
 ## Schnellanlegen und die Claude-Knöpfe (Nutzer, 2026-10-19): eine Aufgabe
 ## aus dem Addon anlegen und sie danach von der Claude-CLI überarbeiten lassen.
 ##
-## Drei Aufträge: die Aufgabe nach der Vorlage des Agenten `tasker-scout` neu
-## schreiben, sie um Details erweitern, oder nur die Szenen und Nodes finden,
+## Drei Aufträge: die Aufgabe nach der Vorlage (`FORMAT`) neu schreiben, sie um Details erweitern, oder nur die Szenen und Nodes finden,
 ## die zu ihr gehören. Claude liest nur – Dateien und den Schnappschuss, den
 ## das Addon beim Klick gemacht hat – und antwortet mit einem festen JSON. Das
 ## Addon trägt es selbst ein (`core/claude_tasks.gd`).
@@ -12,6 +11,8 @@ extends RefCounted
 ## Dazu die freie Anweisung aus dem Aufgabenfenster (`INSTRUCT`, Nutzer,
 ## 2026-10-19): „das Addon heißt Dialogic“, „Frage 2: ja“ – Claude ändert nur,
 ## was verlangt ist, und darf dabei auch Verknüpfungen lösen.
+
+const TaskChanges := preload("task_changes.gd")
 
 const REWRITE := "rewrite"
 const EXTEND := "extend"
@@ -58,7 +59,8 @@ const LINK_SCHEMA := {
 	},
 }
 
-## Die Gliederung der Beschreibung – dieselbe wie in `claude/tasker-scout.md`.
+## Die Gliederung der Beschreibung. Früher stand sie auch im Agenten
+## „tasker-scout“; den gibt es nicht mehr, sie steht nur noch hier.
 const FORMAT := """**Observation**
 What the user noticed, close to their own words.
 
@@ -93,17 +95,19 @@ static func schema(mode: String) -> Dictionary:
 		props["title"] = {"type": "string"}
 		props["desc"] = {"type": "string"}
 		required = ["title", "desc", "links", "note"]
-	# Nur eine Anweisung darf auch lösen, woran die Aufgabe hängt.
+	# Nur eine Anweisung darf auch lösen, woran die Aufgabe hängt, und die
+	# Felder ändern, die man sonst in der Web-App setzt.
 	if mode == INSTRUCT:
 		props["unlink"] = LINK_SCHEMA
-		required.append("unlink")
+		props.merge(TaskChanges.SCHEMA)
+		required.append_array(["unlink", "changes", "subtasks"])
 	return {"type": "object", "properties": props, "required": required}
 
 
 ## Der Auftrag an Claude. `linked` sind die Verknüpfungen, die schon bestehen
 ## (je eine Zeile), `snapshot` ist die Ausgabe von `context` beim Klick,
 ## `instruction` die Anweisung des Nutzers (nur bei `INSTRUCT`).
-static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: String, project_dir: String, instruction := "") -> String:
+static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: String, project_dir: String, instruction := "", facts := "") -> String:
 	var lines := [
 		"Du arbeitest an einer Aufgabe in Tasker, der Aufgabenverwaltung des Nutzers. Sie gehört zu seinem Godot-Projekt in %s – `res://` ist dieses Verzeichnis." % project_dir,
 		"",
@@ -157,8 +161,14 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 	if mode == INSTRUCT:
 		lines.append_array([
 			"",
+			"So steht die Aufgabe in Tasker:",
+			"",
+			facts if facts != "" else "(unbekannt)",
+			"",
 			"- `title`: der Titel – unverändert, außer die Anweisung betrifft ihn.",
 			"- `desc`: die ganze Beschreibung mit deinen Änderungen, nicht nur die geänderten Stellen.",
+			"- `changes`: nur, was die Anweisung an diesen Feldern verlangt; alles andere weglassen. `status`, `prio` aus der jeweiligen Wahl; `mark`, `category`, `place` mit dem Namen aus der Wahl (`place`: Milestone, Gruppe oder \"Backlog\"); `tags` und `deps` jeweils die ganze neue Liste (`deps` als Nummern wie \"$142\" – die Aufgaben, auf die diese wartet).",
+			"- `subtasks`: neue Unteraufgaben, wenn die Anweisung sie verlangt (etwa „teil das auf“) – je `title` (kurz, englisch, als Tätigkeit) und `desc` (darf leer sein). Was du in Unteraufgaben auslagerst, nimmst du aus der Beschreibung heraus, statt es doppelt zu führen. Sonst leere Liste.",
 			"- `unlink`: was von „Schon angehängt“ gelöst werden soll, weil die Anweisung es verlangt – gleiche Form wie `links`, `scene` und `path` genau wie oben. Sonst leere Liste.",
 		])
 	elif mode != LINKS:
@@ -183,7 +193,7 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 ## Prüft die Antwort: `{ ok, error, title, desc, links, note }`. `links` sind
 ## nach Szene gruppiert, `{ scene, paths }`; Unbrauchbares fällt heraus.
 static func parse(mode: String, answer: Variant) -> Dictionary:
-	var out := {"ok": false, "error": "", "title": "", "desc": "", "links": [], "unlink": [], "note": ""}
+	var out := {"ok": false, "error": "", "title": "", "desc": "", "links": [], "unlink": [], "changes": {}, "subtasks": [], "note": ""}
 	if not answer is Dictionary:
 		out["error"] = "Claude hat keine lesbare Antwort geschickt."
 		return out
@@ -196,6 +206,9 @@ static func parse(mode: String, answer: Variant) -> Dictionary:
 	out["note"] = str(answer.get("note", "")).strip_edges()
 	out["links"] = _groups(answer.get("links", []))
 	out["unlink"] = _groups(answer.get("unlink", [])) if mode == INSTRUCT else []
+	var more := TaskChanges.parse(answer) if mode == INSTRUCT else {"changes": {}, "subtasks": []}
+	out["changes"] = more["changes"]
+	out["subtasks"] = more["subtasks"]
 	out["ok"] = true
 	return out
 

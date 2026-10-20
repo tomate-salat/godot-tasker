@@ -20,7 +20,7 @@ const VERSIONS := ["2025-06-18", "2025-03-26", "2024-11-05"]
 const INSTRUCTIONS := "Der Godot-Editor des Nutzers mit dem Tasker-Addon: sehen, was dort offen und ausgewählt ist, Tasker-Aufgaben anlegen und an Nodes hängen." \
 	+ "\n\nFällt dem Nutzer in seinem Godot-Projekt etwas auf und er will dafür einen Task, ein Ticket oder einen Bug:" \
 	+ "\n1. Sofort und als Erstes context aufrufen – ein Aufruf, der alles liefert, was der Editor gerade weiß. Der Nutzer wechselt die Szene oft Sekunden später; danach nicht noch einmal im Editor nachsehen, sondern mit diesem Schnappschuss und den Dateien des Projekts arbeiten." \
-	+ "\n2. Gibt es den Agenten tasker-scout, ihm den Satz des Nutzers und den Schnappschuss wörtlich übergeben und ihn im Hintergrund arbeiten lassen. Sonst selbst weitermachen: mit find_tasks nach Vorhandenem sehen, im Projekt nachlesen, mit create_task anlegen (`scene` und `paths` aus dem Schnappschuss)." \
+	+ "\n2. Mit find_tasks nach Vorhandenem sehen, im Projekt nachlesen und mit create_task anlegen (`scene` und `paths` aus dem Schnappschuss)." \
 	+ "\n3. Die Aufgabe wird in jedem Fall angelegt. Ist etwas unklar, die naheliegendste Annahme treffen, sie in die Aufgabe schreiben und dem Nutzer sagen – nicht stattdessen zurückfragen." \
 	+ "\nAufgaben zu Dingen im Godot-Projekt laufen über diesen Server, nicht über einen anderen Tasker-Zugang: nur hier hängen sie danach an ihren Nodes."
 

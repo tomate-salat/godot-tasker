@@ -25,6 +25,7 @@ const ClaudeCli := preload("claude_cli.gd")
 const Config := preload("config.gd")
 const Quick := preload("../rules/quick.gd")
 const Refs := preload("../rules/refs.gd")
+const TaskChanges := preload("../rules/task_changes.gd")
 
 ## Hier liegen die Aufträge, solange Claude sie liest.
 const JOB_DIR := "res://.godot/tasker/claude"
@@ -88,8 +89,12 @@ func hang(task_id: String, groups: Array) -> Array:
 ## Ein Auftrag aus der Web-App (`godot-refine`): sofort annehmen, dann den
 ## Schnappschuss machen und Claude losschicken; Tasker erfährt über
 ## `POST /api/godot/status`, wie es steht.
-func refine(request_id: String, task_id: String, mode: String) -> void:
+##
+## Bringt der Auftrag einen `prompt` mit (Eingabe in der Web-App, wie die
+## Claude-Zeile im Aufgabenfenster), wird daraus eine Anweisung (`Quick.INSTRUCT`).
+func refine(request_id: String, task_id: String, mode: String, prompt := "") -> void:
 	_report(request_id, "accepted", "")
+	prompt = prompt.strip_edges().left(2000)
 	if not Quick.MODES.has(mode):
 		_report(request_id, "failed", "Diesen Auftrag („%s“) kennt das Addon nicht." % mode)
 		return
@@ -113,7 +118,7 @@ func refine(request_id: String, task_id: String, mode: String) -> void:
 			last[0] = Time.get_ticks_msec()
 			_report(request_id, "working", line)
 	progress.connect(tell)
-	var res: Dictionary = await improve(task_id, mode, snapshot, WEB_PATIENCE_MSEC, "", false)
+	var res: Dictionary = await improve(task_id, Quick.INSTRUCT if prompt != "" else mode, snapshot, WEB_PATIENCE_MSEC, prompt, false)
 	progress.disconnect(tell)
 	_report(request_id, "done" if res["ok"] else "failed", res["message"])
 
@@ -147,7 +152,8 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 	var job := FileAccess.open(file, FileAccess.WRITE)
 	if job == null:
 		return _end(task_id, false, "%s: Der Auftrag für Claude ließ sich nicht schreiben (%s)." % [label, file])
-	job.store_string(Quick.prompt(mode, task, lines, snapshot, project_dir, instruction))
+	var facts := TaskChanges.facts(store.ws, Config.project_id(), task) if mode == Quick.INSTRUCT else ""
+	job.store_string(Quick.prompt(mode, task, lines, snapshot, project_dir, instruction, facts))
 	job.close()
 
 	running[task_id] = mode
@@ -170,7 +176,7 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 
 	# Bei einer Anweisung sagt Claudes Satz, was geändert ist – sonst das Übliche.
 	var said := [] if mode == Quick.INSTRUCT and answer["note"] != "" else [Quick.DONE[mode] % label]
-	var undo := {"title": base_title, "desc": base_desc, "text": false, "added": [], "removed": []}
+	var undo := {"title": base_title, "desc": base_desc, "text": false, "added": [], "removed": [], "fields": {}, "place": null, "created": []}
 	if mode != Quick.LINKS:
 		var now: Variant = store.ws.task(task_id)
 		if now == null:
@@ -204,13 +210,68 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 		said.append("Nicht alles ließ sich anhängen: %s" % "; ".join(problems))
 	if not undo["removed"].is_empty():
 		said.append("Gelöst von %s." % ("1 Node" if undo["removed"].size() == 1 else "%d Nodes" % undo["removed"].size()))
+	var trouble := await _apply_changes(task_id, answer, undo)
+	problems.append_array(trouble)
+	if not undo["created"].is_empty():
+		said.append("%s angelegt." % ("1 Unteraufgabe" if undo["created"].size() == 1 else "%d Unteraufgaben" % undo["created"].size()))
+	if not trouble.is_empty():
+		said.append("Nicht übernommen: %s." % "; ".join(trouble))
 	if answer["note"] != "":
 		said.append(answer["note"])
-	if undo["text"] or not undo["added"].is_empty() or not undo["removed"].is_empty():
+	if undo["text"] or not undo["added"].is_empty() or not undo["removed"].is_empty() or not undo["fields"].is_empty() or undo["place"] != null or not undo["created"].is_empty():
 		_undo[task_id] = undo
 	else:
 		_undo.erase(task_id)
 	return _end(task_id, problems.is_empty(), " ".join(said))
+
+
+## Setzt, was eine Anweisung an Feldern, Ort und Unteraufgaben verlangt
+## (`rules/task_changes.gd`), und merkt sich in `undo`, wie es vorher war.
+## Gibt zurück, was nicht ging.
+func _apply_changes(task_id: String, answer: Dictionary, undo: Dictionary) -> Array:
+	var task: Variant = store.ws.task(task_id)
+	if task == null or (answer["changes"].is_empty() and answer["subtasks"].is_empty()):
+		return []
+	var project := Config.project_id()
+	var resolved := TaskChanges.resolve(store.ws, project, task, answer["changes"])
+	var problems: Array = resolved["problems"]
+	if not resolved["patch"].is_empty():
+		progress.emit(task_id, "ändert Felder")
+		var before := {}
+		for key in resolved["patch"]:
+			before[key] = task.get(key)
+		var saved: Dictionary = await store.patch("task", task_id, resolved["patch"])
+		if saved["ok"]:
+			undo["fields"] = before
+		else:
+			problems.append("Felder: %s" % saved["error"])
+	if resolved["place"] != null:
+		progress.emit(task_id, "verschiebt")
+		var before := TaskChanges.place_body(store.ws.task(task_id))
+		var moved: Dictionary = await store.move(task_id, _with_project(resolved["place"], project))
+		if moved["ok"]:
+			undo["place"] = before
+		else:
+			problems.append("Ort: %s" % moved["error"])
+	for sub in answer["subtasks"]:
+		progress.emit(task_id, "legt „%s“ an" % sub["title"])
+		var fields := {"projectId": project, "title": sub["title"], "parentId": task_id}
+		if sub["desc"] != "":
+			fields["desc"] = sub["desc"]
+		var made: Dictionary = await store.intake(fields)
+		if not made["ok"]:
+			problems.append("Unteraufgabe „%s“: %s" % [sub["title"], made["error"]])
+			break
+		undo["created"].append({"id": made["object"]["id"], "version": int(made["object"].get("version", 1))})
+	return problems
+
+
+## Ein Ziel ohne Milestone und Gruppe braucht für Tasker das Projekt.
+static func _with_project(place: Dictionary, project: String) -> Dictionary:
+	var body := place.duplicate()
+	if body.get("milestoneId") == null and body.get("groupId") == null and body.get("parentId") == null:
+		body["projectId"] = project
+	return body
 
 
 ## Ob sich zurücknehmen lässt, was Claude zuletzt an der Aufgabe geändert hat.
@@ -235,7 +296,29 @@ func undo(task_id: String) -> Dictionary:
 	for ref in u["added"]:
 		links.unlink(ref)
 	links.restore(u["removed"])
+	var left := []
+	if not u["fields"].is_empty():
+		var back: Dictionary = await store.patch("task", task_id, u["fields"])
+		if not back["ok"]:
+			left.append("Felder: %s" % back["error"])
+	if u["place"] != null:
+		var back: Dictionary = await store.move(task_id, _with_project(u["place"], Config.project_id()))
+		if not back["ok"]:
+			left.append("Ort: %s" % back["error"])
+	# Angelegte Unteraufgaben nur, solange niemand sie angefasst hat.
+	for made in u["created"]:
+		var sub: Variant = store.ws.task(made["id"])
+		if sub == null:
+			continue
+		if int(sub.get("version", 0)) != made["version"] or not store.ws.kids(made["id"]).is_empty():
+			left.append("„%s“ ist seitdem geändert worden und bleibt" % sub.get("title", ""))
+			continue
+		var gone: Dictionary = await store.delete_task(made["id"], made["version"])
+		if not gone["ok"]:
+			left.append("„%s“: %s" % [sub.get("title", ""), gone["error"]])
 	_undo.erase(task_id)
+	if not left.is_empty():
+		return {"ok": false, "message": "Zurückgenommen, bis auf: %s." % "; ".join(left)}
 	return {"ok": true, "message": "Zurückgenommen."}
 
 

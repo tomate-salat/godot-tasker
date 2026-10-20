@@ -36,10 +36,10 @@ const MENU_TABLE := "Tasker-Tisch"
 const SCREEN_TABLE := "Tisch"
 const MENU_ORPHANS := "Tasker: Verknüpfungen prüfen …"
 const MCP_NAME := "godot-tasker"
-## Der Agent für Claude Code, den das Addon mitbringt (`claude/tasker-scout.md`):
-## beim Einrichten landet er im Ordner des Nutzers, damit er in allen Projekten
-## gilt – und auf einem neuen Rechner mit dem Addon wieder da ist.
-const AGENT_FILE := "tasker-scout.md"
+## Den Agenten „tasker-scout“ brachte das Addon bis 2026-10-20 mit und legte
+## ihn nach ~/.claude/agents. Aufgaben entstehen jetzt im Addon und in der
+## Web-App (Nutzer); die alte Kopie wird beim Start einmal weggeräumt.
+const OLD_AGENT_FILE := "tasker-scout.md"
 ## Das Skript, das im Spiel mitläuft und dem Editor sagt, was dort geladen ist
 ## (`runtime/probe.gd`). Es kommt als Autoload ins Projekt – einen anderen Weg,
 ## Code des Addons im Spielprozess zu haben, kennt Godot nicht (Nutzer, 2026-10-13).
@@ -210,12 +210,11 @@ func _enter_tree() -> void:
 	# Aufträge aus der Web-App („In Godot verfeinern“).
 	events.command.connect(func(name: String, data: Dictionary) -> void:
 		if name == "godot-refine":
-			_claude.refine(str(data.get("requestId", "")), str(data.get("taskId", "")), str(data.get("mode", ""))))
+			_claude.refine(str(data.get("requestId", "")), str(data.get("taskId", "")), str(data.get("mode", "")), str(data.get("prompt", ""))))
 	add_child(_claude)
 	EditorInterface.get_editor_settings().settings_changed.connect(_apply_mcp)
 	_apply_mcp()
-	if Config.mcp_enabled():
-		_install_agent(true)
+	_remove_old_agent()
 	_register_commands()
 
 	_connect_to_server()
@@ -340,10 +339,6 @@ func _open_setup() -> void:
 		_setup.changed.connect(_apply_settings)
 		_setup.mcp_status = _mcp_status
 		_setup.mcp_copy = _mcp_copy
-		_setup.agent_install = func() -> String:
-			var problem := _install_agent()
-			return problem if problem != "" else _agent_status()
-		_setup.agent_status = _agent_status
 		EditorInterface.get_base_control().add_child(_setup)
 	_setup.open()
 
@@ -623,34 +618,15 @@ func _disable_plugin() -> void:
 		remove_autoload_singleton(PROBE_NAME)
 
 
-## Wo Claude Code die Agenten des Nutzers sucht.
-static func _agents_dir() -> String:
+## Räumt den früher mitgebrachten Agenten aus dem Ordner des Nutzers – nur
+## die Datei, die das Addon selbst dort hingelegt hat.
+static func _remove_old_agent() -> void:
 	var home := OS.get_environment("USERPROFILE") if OS.has_feature("windows") else OS.get_environment("HOME")
-	return home.path_join(".claude/agents") if home != "" else ""
-
-
-## Legt den mitgebrachten Agenten in den Ordner des Nutzers. Mit
-## `only_update` nur, wenn er dort schon liegt und veraltet ist – so zieht
-## ein neuer Stand des Addons nach, ohne dass jemand daran denken muss.
-## Gibt zurück, warum es nicht ging – leer, wenn es ging oder nichts zu tun war.
-func _install_agent(only_update := false) -> String:
-	var source: String = (get_script() as Script).resource_path.get_base_dir().path_join("claude").path_join(AGENT_FILE)
-	var text := FileAccess.get_file_as_string(source)
-	var dir := _agents_dir()
-	if text == "" or dir == "":
-		return "Der Agent ließ sich nicht finden."
-	var target := dir.path_join(AGENT_FILE)
-	if FileAccess.file_exists(target):
-		if FileAccess.get_file_as_string(target) == text:
-			return ""
-	elif only_update:
-		return ""
-	DirAccess.make_dir_recursive_absolute(dir)
-	var file := FileAccess.open(target, FileAccess.WRITE)
-	if file == null:
-		return "Der Agent ließ sich nicht nach %s schreiben." % target
-	file.store_string(text)
-	return ""
+	if home == "":
+		return
+	var target := home.path_join(".claude/agents").path_join(OLD_AGENT_FILE)
+	if FileAccess.file_exists(target) and FileAccess.get_file_as_string(target).begins_with("---\nname: tasker-scout\n"):
+		DirAccess.remove_absolute(target)
 
 
 ## Wie es um den MCP-Server steht, für die Einstellungsseite.
@@ -672,17 +648,6 @@ func _mcp_copy() -> String:
 		return "Erst den Server einschalten. %s" % _mcp.problem
 	DisplayServer.clipboard_set("claude mcp add --transport http --scope user %s http://127.0.0.1:%d%s --header \"Authorization: Bearer %s\"" % [MCP_NAME, _mcp.port(), McpServer.ROUTE, Config.mcp_token()])
 	return "Der Befehl liegt in der Zwischenablage – einmal in einem Terminal einfügen und ausführen. Er enthält das Kennwort."
-
-
-## Ob der mitgebrachte Agent im Nutzerordner liegt und auf dem Stand des Addons ist.
-func _agent_status() -> String:
-	var source: String = (get_script() as Script).resource_path.get_base_dir().path_join("claude").path_join(AGENT_FILE)
-	var target := _agents_dir().path_join(AGENT_FILE)
-	if not FileAccess.file_exists(target):
-		return "Der Agent „tasker-scout“ ist noch nicht installiert."
-	if FileAccess.get_file_as_string(target) != FileAccess.get_file_as_string(source):
-		return "Der Agent „tasker-scout“ ist installiert, aber älter als der im Addon."
-	return "Der Agent „tasker-scout“ liegt in %s und ist aktuell." % _agents_dir()
 
 
 func _open_orphans() -> void:

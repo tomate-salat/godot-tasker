@@ -40,6 +40,13 @@ func mark(id: String, project_id: String, o := {}) -> Builder:
 	return self
 
 
+func group(id: String, project_id: String, o := {}) -> Builder:
+	var g := {"id": id, "version": 1, "projectId": project_id, "title": id, "order": data["groups"].size()}
+	g.merge(o, true)
+	data["groups"].append(g)
+	return self
+
+
 func release(id: String, project_id: String, o := {}) -> Builder:
 	var r := {"id": id, "version": 1, "projectId": project_id, "name": id, "title": "", "desc": "", "order": data["releases"].size(), "archivedAt": null}
 	r.merge(o, true)
