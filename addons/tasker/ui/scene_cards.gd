@@ -36,11 +36,18 @@ const SceneView := preload("../rules/scene_view.gd")
 const Hand := preload("../rules/hand.gd")
 
 ## So groß erscheint eine Karte im Viewport, gemessen an der im Dock.
-const SCALE := 0.62
+const SCALE := 0.7
 ## In 3D schrumpft die Karte mit dem Abstand: volle Größe bis hier (in Metern) …
-const NEAR := 6.0
+const NEAR := 8.0
 ## … und nie kleiner als so.
 const MIN_SCALE := 0.38
+## Näher heran – in 2D weiter hineingezoomt – wächst sie bis auf so viel; das
+## Bild der Karte ist dafür groß genug gerechnet (`FACE_FACTOR`). Sonst stehen
+## die Karten hart an der Grenze zum Lesbaren (Nutzer, 2026-10-20).
+const MAX_SCALE := 1.8
+## Ab dieser Größe fächert sich ein Stapel von selbst auf: wer so nah
+## herangeht, will die Karten lesen.
+const FAN_SCALE := 1.2
 ## Abstand der Karte über ihrem Node, in Pixeln.
 const RISE := 18.0
 ## Mehrere Karten am selben Node liegen so weit versetzt.
@@ -328,13 +335,15 @@ func draw_2d(overlay: Control) -> void:
 	var to_screen := EditorInterface.get_editor_viewport_2d().global_canvas_transform
 	# Weit herausgezoomt bleibt von der Karte nur ein Pin.
 	var pin := to_screen.get_scale().x < PIN_ZOOM
+	# Hineingezoomt wächst die Karte mit.
+	var scale := clampf(to_screen.get_scale().x, 1.0, MAX_SCALE)
 	var placed := []
 	for ref in _here:
 		var node := _placed_node(ref, false)
 		if node is Control:
-			placed.append({"ref": ref, "at": to_screen * (node.get_global_transform_with_canvas() * Vector2(node.size.x / 2.0, 0.0)), "scale": 1.0, "depth": 0.0, "pin": pin})
+			placed.append({"ref": ref, "at": to_screen * (node.get_global_transform_with_canvas() * Vector2(node.size.x / 2.0, 0.0)), "scale": scale, "depth": 0.0, "pin": pin})
 		elif node is CanvasItem:
-			placed.append({"ref": ref, "at": to_screen * node.get_global_transform_with_canvas().origin, "scale": 1.0, "depth": 0.0, "pin": pin})
+			placed.append({"ref": ref, "at": to_screen * node.get_global_transform_with_canvas().origin, "scale": scale, "depth": 0.0, "pin": pin})
 		elif node == null and _has_no_place(ref):
 			placed.append({"ref": ref, "scale": 1.0, "depth": 0.0})
 	_draw(overlay, VIEW_2D, placed)
@@ -357,7 +366,7 @@ func draw_3d(overlay: Control) -> void:
 			if camera.is_position_behind(at):
 				continue
 			var far := camera.global_position.distance_to(at)
-			var scale := 1.0 if flat else clampf(NEAR / maxf(far, 0.01), MIN_SCALE, 1.0)
+			var scale := 1.0 if flat else clampf(NEAR / maxf(far, 0.01), MIN_SCALE, MAX_SCALE)
 			var pin := camera.size > PIN_SIZE if flat else far > PIN_FAR
 			placed.append({"ref": ref, "at": camera.unproject_position(at) * stretch, "scale": scale, "depth": far, "pin": pin})
 		elif node == null and _has_no_place(ref):
@@ -384,6 +393,10 @@ func _draw(overlay: Control, view: int, placed: Array) -> void:
 			hits.append({"kind": CARD, "rect": rect, "ref": p["ref"]})
 			continue
 		var mine := _is_grabbed(p["ref"], view)
+		# Ist der Node aus dem Bild, geht seine Karte mit – sie bliebe sonst am
+		# Rand kleben (Nutzer, 2026-10-20). Nur die gegriffene bleibt.
+		if not mine and not Rect2(Vector2.ZERO, overlay.size).has_point(p["at"]):
+			continue
 		var offset: Vector2 = (_grab["offset"] if mine else p["ref"]["offset"]) * p["scale"]
 		p["home"] = p["at"] - Vector2(size.x / 2.0, size.y + RISE * p["scale"])
 		p["rect"] = Rect2(p["home"] + offset, size)
@@ -400,6 +413,9 @@ func _draw(overlay: Control, view: int, placed: Array) -> void:
 			_draw_single(overlay, group[0], hits)
 		elif _open == _key(group[0]["ref"]):
 			_draw_spread(overlay, group, hits, false)
+		elif group.all(func(p: Dictionary) -> bool: return p["scale"] >= FAN_SCALE):
+			# Von selbst aufgefächert – zu klappt er, wenn man wieder weggeht.
+			_draw_spread(overlay, group, hits, false, false)
 		else:
 			_draw_stack(overlay, group, hits)
 	for group in _groups(pins, true):
@@ -469,8 +485,8 @@ func _draw_stack(overlay: Control, group: Array, hits: Array) -> void:
 
 
 ## Ein aufgefächerter Stapel: seine Karten nebeneinander, daneben der Knopf
-## zum Zuklappen.
-func _draw_spread(overlay: Control, group: Array, hits: Array, from_pins: bool) -> void:
+## zum Zuklappen – ohne ihn, wenn er sich von selbst aufgefächert hat.
+func _draw_spread(overlay: Control, group: Array, hits: Array, from_pins: bool, closable := true) -> void:
 	var scale: float = SPREAD_SCALE if from_pins else group[0]["scale"]
 	var size: Vector2 = Card.SIZE * SCALE * scale
 	var middle := Vector2.ZERO
@@ -492,6 +508,8 @@ func _draw_spread(overlay: Control, group: Array, hits: Array, from_pins: bool) 
 			hit["home"] = group[i]["home"]
 			hit["scale"] = group[i]["scale"]
 		hits.append(hit)
+	if not closable:
+		return
 	var close := start + Vector2(-14.0, 10.0)
 	_draw_badge(overlay, close, "×")
 	hits.append({"kind": CLOSE, "rect": Rect2(close - Vector2(11, 11), Vector2(22, 22))})
