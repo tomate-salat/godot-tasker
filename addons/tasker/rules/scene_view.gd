@@ -23,6 +23,11 @@ const LABELS := {
 const KEY := "scene_cards_show"
 ## … und ob erledigte Karten versteckt sind.
 const HIDE_DONE_KEY := "scene_cards_hide_done"
+## … und ob Aufgaben, die noch nicht bereit sind (`UNREADY`), versteckt sind –
+## von Haus aus ja (Nutzer, 2026-10-20).
+const HIDE_UNREADY_KEY := "scene_cards_hide_unready"
+## Was vor „Bereit“ steht.
+const UNREADY := ["open", "unclear"]
 ## … und ob Karten aus Prefabs versteckt sind.
 const HIDE_PREFABS_KEY := "scene_cards_hide_prefabs"
 

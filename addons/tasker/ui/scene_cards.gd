@@ -108,6 +108,8 @@ var links: Links
 var mode := SceneView.ALL: set = set_mode
 ## Ob Karten erledigter Aufgaben versteckt sind. Die Verknüpfung bleibt.
 var hide_done := false: set = set_hide_done
+## Ob Karten von Aufgaben versteckt sind, die noch nicht bereit sind.
+var hide_unready := true: set = set_hide_unready
 ## Ob Karten aus Prefabs versteckt sind.
 var hide_prefabs := false: set = set_hide_prefabs
 
@@ -160,6 +162,7 @@ func _ready() -> void:
 	_plate.set_corner_radius_all(int(Card.RADIUS * SCALE))
 	mode = SceneView.mode_of(links.memory.read(SceneView.KEY))
 	hide_done = links.memory.read(SceneView.HIDE_DONE_KEY, false) == true
+	hide_unready = links.memory.read(SceneView.HIDE_UNREADY_KEY, true) == true
 	hide_prefabs = links.memory.read(SceneView.HIDE_PREFABS_KEY, false) == true
 
 	_menu = PopupMenu.new()
@@ -208,6 +211,14 @@ func set_hide_done(value: bool) -> void:
 		links.memory.write(SceneView.HIDE_DONE_KEY, hide_done)
 
 
+func set_hide_unready(value: bool) -> void:
+	if value == hide_unready:
+		return
+	hide_unready = value
+	if is_inside_tree() and links.memory.read(SceneView.HIDE_UNREADY_KEY, true) != hide_unready:
+		links.memory.write(SceneView.HIDE_UNREADY_KEY, hide_unready)
+
+
 func set_hide_prefabs(value: bool) -> void:
 	if value == hide_prefabs:
 		return
@@ -247,7 +258,7 @@ func _refresh() -> void:
 			refs.append_array(links.from_instances())
 		_here = refs.filter(func(r: Dictionary) -> bool:
 			var t = store.ws.task(r["taskId"])
-			if t == null or (hide_done and t.get("status") == "done"):
+			if t == null or (hide_done and t.get("status") == "done") or (hide_unready and SceneView.UNREADY.has(t.get("status"))):
 				return false
 			return allowed == null or allowed.has(r["taskId"]))
 		_here = SceneView.leaves(_here)
