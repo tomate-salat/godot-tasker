@@ -56,3 +56,27 @@ func test_nahe_punkte_ruecken_zu_einem_stapel_zusammen() -> void:
 	var points := [Vector2(0, 0), Vector2(100, 0), Vector2(8, 4), Vector2(104, 2), Vector2(300, 300), Vector2(15, 0)]
 	eq(SceneView.clusters(points, 20.0), [[0, 2, 5], [1, 3], [4]])
 	eq(SceneView.clusters([], 20.0), [])
+
+
+func _ref(task_id: String, node_path: String, via := "") -> Dictionary:
+	var ref := {"taskId": task_id, "nodePath": node_path}
+	if via != "":
+		ref["via"] = via
+	return ref
+
+
+func test_nur_die_tiefsten_nodes_einer_aufgabe_zeigen_eine_karte() -> void:
+	var refs := [
+		_ref("a", "."), _ref("a", "Dummies"), _ref("a", "Dummies/Model"),
+		_ref("a", "Dummies/Model2"), _ref("a", "Dummies2"),
+		_ref("b", "Dummies"),
+	]
+	eq(SceneView.leaves(refs).map(func(r: Dictionary) -> String: return r["taskId"] + ":" + r["nodePath"]),
+		["a:Dummies/Model", "a:Dummies/Model2", "a:Dummies2", "b:Dummies"])
+
+
+func test_blaetter_gehen_durch_instanzen_hindurch() -> void:
+	# Am Prefab hängt die Aufgabe an seiner Wurzel und an einem Kind, in der
+	# Szene an der Instanz selbst.
+	var refs := [_ref("a", "Npc"), _ref("a", ".", "Npc"), _ref("a", "Body", "Npc"), _ref("a", "Npcs")]
+	eq(SceneView.leaves(refs), [_ref("a", "Body", "Npc"), _ref("a", "Npcs")])

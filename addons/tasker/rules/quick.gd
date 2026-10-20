@@ -13,6 +13,7 @@ extends RefCounted
 ## was verlangt ist, und darf dabei auch Verknüpfungen lösen.
 
 const TaskChanges := preload("task_changes.gd")
+const Model := preload("model.gd")
 
 const REWRITE := "rewrite"
 const EXTEND := "extend"
@@ -278,3 +279,15 @@ static func without_linked(groups: Array, linked: Array) -> Array:
 		if not fresh.is_empty():
 			out.append({"scene": g["scene"], "paths": fresh})
 	return out
+
+
+## Die Aufgaben eines Milestones, für die Claude noch suchen soll, woran sie
+## hängen (Nutzer, 2026-10-20): offene Wurzelaufgaben ohne Referenz.
+## `roots` sind die Wurzelaufgaben, `refs` alle Referenzen (`rules/refs.gd`).
+static func unlinked(roots: Array, refs: Array) -> Array:
+	var linked := {}
+	for ref in refs:
+		linked[ref["taskId"]] = true
+	return roots.filter(func(t: Dictionary) -> bool:
+		return not Model.is_done(t) and not Model.is_archived(t) and not linked.has(t["id"])) \
+		.map(func(t: Dictionary) -> String: return t["id"])

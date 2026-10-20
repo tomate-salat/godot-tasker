@@ -250,6 +250,7 @@ func _refresh() -> void:
 			if t == null or (hide_done and t.get("status") == "done"):
 				return false
 			return allowed == null or allowed.has(r["taskId"]))
+		_here = SceneView.leaves(_here)
 	var wanted := {}
 	for ref in _here:
 		wanted[ref["taskId"]] = true

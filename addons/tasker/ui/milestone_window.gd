@@ -23,6 +23,9 @@ const Model := preload("../rules/model.gd")
 const Progress := preload("../rules/progress.gd")
 const Burnup := preload("../rules/burnup.gd")
 const Release := preload("../rules/release.gd")
+const ClaudeTasks := preload("../core/claude_tasks.gd")
+const Links := preload("../core/links.gd")
+const Quick := preload("../rules/quick.gd")
 
 ## Was dieses Fenster zeigt – für das Speichern.
 const KIND := "milestone"
@@ -31,6 +34,9 @@ var store: Store
 var images: Images
 ## Die ID des Milestones – heißt wie beim Aufgabenfenster, damit beide gleich geöffnet werden.
 var task_id := ""
+## Für den Knopf, der Claude suchen lässt, woran die Aufgaben hängen.
+var tasks: ClaudeTasks
+var links: Links
 
 var _segments: Array = []
 
@@ -56,6 +62,7 @@ var _legend: RichTextLabel
 var _burnup_notes: Label
 var _tasks_head: Label
 var _tasks: VBoxContainer
+var _search: Button
 
 
 func _init() -> void:
@@ -72,6 +79,9 @@ func _ready() -> void:
 	_desc.images = images
 	if store != null:
 		store.changed.connect(refresh)
+	if tasks != null:
+		tasks.changed.connect(_show_search)
+		links.memory.changed.connect(_show_search)
 	refresh()
 
 
@@ -119,6 +129,7 @@ func refresh() -> void:
 	_tasks_head.text = "Tasks · %d/%d" % [done_roots, roots.size()]
 	for r in roots:
 		_tasks.add_child(_task_row(r))
+	_show_search()
 
 
 func _show_burnup(d: Variant) -> void:
@@ -169,6 +180,28 @@ func _task_row(t: Dictionary) -> Control:
 		row.add_child(count)
 	return row
 
+
+## Die offenen Aufgaben des Milestones, an denen noch nichts hängt.
+func _unlinked() -> Array:
+	var m = store.ws.milestone(task_id)
+	return Quick.unlinked(store.ws.ms_counted(m), links.all()) if m != null else []
+
+
+## Der Knopf zeigt, für wie viele Aufgaben gesucht würde – oder wie weit die Suche ist.
+func _show_search() -> void:
+	if tasks == null or links == null or store.ws.milestone(task_id) == null:
+		_search.visible = false
+		return
+	var job = tasks.searching.get(task_id)
+	if job != null:
+		_search.visible = true
+		_search.disabled = true
+		_search.text = "✦ Sucht … %d/%d" % [job["done"], job["total"]]
+		return
+	var n := _unlinked().size()
+	_search.visible = n > 0 and store.state == "ready"
+	_search.disabled = false
+	_search.text = "✦ Abhängigkeiten finden (%d)" % n
 
 static func _date(iso: Variant) -> String:
 	return Burnup.format_day(Burnup.day_of_date(iso), true) if iso else "offen"
@@ -331,8 +364,16 @@ func _build() -> void:
 	_burnup.add_child(_burnup_notes)
 
 	box.add_child(HSeparator.new())
+	var tasks_row := HBoxContainer.new()
+	box.add_child(tasks_row)
 	_tasks_head = _heading("Tasks")
-	box.add_child(_tasks_head)
+	_tasks_head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tasks_row.add_child(_tasks_head)
+	_search = Button.new()
+	_search.tooltip_text = "Claude sucht für jede offene Aufgabe ohne Verknüpfung die Szenen und Nodes, die zu ihr gehören, und hängt sie an"
+	_search.pressed.connect(func() -> void:
+		tasks.find_links(task_id, _unlinked()))
+	tasks_row.add_child(_search)
 	_tasks = VBoxContainer.new()
 	_tasks.add_theme_constant_override("separation", 0)
 	box.add_child(_tasks)

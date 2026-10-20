@@ -31,6 +31,8 @@ const TaskChanges := preload("../rules/task_changes.gd")
 const JOB_DIR := "res://.godot/tasker/claude"
 ## Aufträge aus der Web-App: Tasker gibt nach 5 Minuten auf, das Addon vorher.
 const WEB_PATIENCE_MSEC := 270_000
+## So viele Suchen nach Verknüpfungen laufen für einen Milestone zugleich.
+const LINKS_AT_ONCE := 3
 ## Zwischenmeldungen an Tasker höchstens so oft.
 const STATUS_EVERY_MSEC := 2000
 
@@ -49,6 +51,11 @@ var _quiet := {}
 ## Aufgabe → was Claude zuletzt geändert hat, zum Zurücknehmen: `{ title,
 ## desc, after_title, after_desc, text, added, removed }`.
 var _undo := {}
+## Milestone → die Suche nach Verknüpfungen, die für ihn läuft: `{ left,
+## total, done, found }`.
+var searching := {}
+## Aufgaben einer solchen Suche – was dabei gelingt, meldet die Suche als Ganzes.
+var _batched := {}
 
 
 ## Legt eine Aufgabe an und hängt sie an die Nodes (`{ scene, path }`).
@@ -322,6 +329,35 @@ func undo(task_id: String) -> Dictionary:
 	return {"ok": true, "message": "Zurückgenommen."}
 
 
+## Sucht für diese Aufgaben eines Milestones, woran sie hängen (`Quick.LINKS`),
+## höchstens `LINKS_AT_ONCE` zugleich, mit einem Schnappschuss für alle.
+func find_links(milestone_id: String, ids: Array) -> void:
+	if searching.has(milestone_id) or ids.is_empty():
+		return
+	var job := {"left": ids.duplicate(), "total": ids.size(), "done": 0, "found": 0}
+	searching[milestone_id] = job
+	changed.emit()
+	var snapshot := await scene_tools.snapshot()
+	for i in mini(LINKS_AT_ONCE, ids.size()):
+		_search_next(milestone_id, job, snapshot)
+
+
+func _search_next(milestone_id: String, job: Dictionary, snapshot: String) -> void:
+	while not job["left"].is_empty():
+		var id: String = job["left"].pop_front()
+		_batched[id] = true
+		await improve(id, Quick.LINKS, snapshot, ClaudeCli.PATIENCE_MSEC, "", false)
+		_batched.erase(id)
+		job["done"] += 1
+		if not links.of_task(id).is_empty():
+			job["found"] += 1
+		changed.emit()
+	if job["done"] == job["total"] and searching.get(milestone_id) == job:
+		searching.erase(milestone_id)
+		changed.emit()
+		_say("Gesucht für %d %s – %d hängen jetzt an Szenen." % [job["total"], "Aufgabe" if job["total"] == 1 else "Aufgaben", job["found"]])
+
+
 ## Bricht den Auftrag für diese Aufgabe ab. Angelegt bleibt sie.
 func cancel(task_id: String) -> void:
 	if _handles.has(task_id):
@@ -335,7 +371,8 @@ func _end(task_id: String, ok: bool, message: String) -> Dictionary:
 	var show := not _quiet.has(task_id)
 	_quiet.erase(task_id)
 	changed.emit()
-	_say(message, not ok)
+	if not (ok and _batched.has(task_id)):
+		_say(message, not ok)
 	finished.emit(task_id, ok, message, show)
 	return {"ok": ok, "message": message}
 

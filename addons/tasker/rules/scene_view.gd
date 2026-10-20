@@ -80,3 +80,37 @@ static func clusters(points: Array, reach: float) -> Array:
 		else:
 			groups[home].append(i)
 	return groups
+
+
+## Hängt eine Aufgabe an einem Node und an etwas darunter, zeigt nur das
+## Tiefere eine Karte – dort ist gemeint, worum es geht (Nutzer, 2026-10-20).
+## Verglichen wird über den Pfad in der offenen Szene, auch durch Instanzen
+## hindurch (`via`). Die Reihenfolge bleibt erhalten.
+static func leaves(refs: Array) -> Array:
+	var paths := refs.map(_path_here)
+	var out := []
+	for i in refs.size():
+		var covered := false
+		for j in refs.size():
+			if i != j and refs[j]["taskId"] == refs[i]["taskId"] and _below(paths[j], paths[i]):
+				covered = true
+				break
+		if not covered:
+			out.append(refs[i])
+	return out
+
+
+## Der Pfad des Nodes einer Referenz, von der Wurzel der offenen Szene aus.
+static func _path_here(ref: Dictionary) -> String:
+	var via: String = ref.get("via", "")
+	var path: String = ref["nodePath"]
+	if via == "" or via == ".":
+		return path
+	return via if path == "." else via + "/" + path
+
+
+## Ob `path` echt unter `above` liegt.
+static func _below(path: String, above: String) -> bool:
+	if path == above:
+		return false
+	return above == "." or path.begins_with(above + "/")

@@ -118,3 +118,14 @@ func test_neu_geschriebene_aufgaben_haben_akzeptanzkriterien() -> void:
 	var task := {"ref": 1, "title": "x", "desc": ""}
 	ok(Quick.prompt(Quick.REWRITE, task, [], "", "C:/spiel").contains("**Acceptance criteria**"))
 	ok(Quick.prompt(Quick.EXTEND, task, [], "", "C:/spiel").contains("**Acceptance criteria**"), "Erweitern ergänzt sie, wo sie fehlen")
+
+
+func test_gesucht_wird_nur_fuer_offene_aufgaben_ohne_referenz() -> void:
+	var roots := [
+		{"id": "a", "status": "open", "archivedAt": null},
+		{"id": "b", "status": "progress", "archivedAt": null},
+		{"id": "c", "status": "done", "archivedAt": null},
+		{"id": "d", "status": "open", "archivedAt": "2026-10-01"},
+		{"id": "e", "status": "ready", "archivedAt": null},
+	]
+	eq(Quick.unlinked(roots, [{"taskId": "b"}, {"taskId": "x"}]), ["a", "e"])
