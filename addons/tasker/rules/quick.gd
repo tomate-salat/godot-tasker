@@ -68,13 +68,13 @@ const LINK_SCHEMA := {
 const FORMAT := """As a <who>, I want <what> so that <why>.
 
 **Acceptance criteria**
-- [ ] two to four results the user can check in the game or editor – one short line each, no file names
+- [ ] two to four results the user can check in the game or editor – one short line each, no file names. Each one must be able to fail if the work is done badly; nothing that a tool or file format guarantees anyway ("POT supports plurals" is not a criterion)
 
 **To-do**
-- [ ] two to six work packages in plain words, one short line each ("Show the dialog when the player stands in front of the NPC") – no file names, classes, node paths or keys
+- [ ] two to six work packages in plain words, one short line each ("Show the dialog when the player stands in front of the NPC") – no file names, classes, node paths or keys. Only real work: hints and references go under Notes, and nothing that already happens as part of another step
 
 **Notes**
-Only if it really helps, otherwise leave the section out: for a bug the cause you found, then precisely (file and line); a decision the user still has to make, one line each."""
+Only if it really helps, otherwise leave the section out: for a bug the cause you found, then precisely (file and line); a reference worth knowing; a decision the user still has to make – one line each. Paths always as full res:// paths (res://translations/csv/hud.csv), so the user can click them."""
 
 
 ## Die Form der Antwort für `--json-schema`.
