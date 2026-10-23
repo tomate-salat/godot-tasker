@@ -156,6 +156,11 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(JOB_DIR))
 	var file := ProjectSettings.globalize_path(JOB_DIR.path_join("%s-%s.md" % [task_id, mode]))
 	var lines := linked.map(func(ref: Dictionary) -> String: return "- scene: %s   path: %s" % [ref["scenePath"], ref["nodePath"]])
+	# Bei einer Anweisung auch, woran die Unteraufgaben hängen – sie lassen sich mit verteilen.
+	if mode == Quick.INSTRUCT:
+		for kid in store.ws.desc(task):
+			for ref in links.of_task(kid["id"]):
+				lines.append("- an $%d: scene: %s   path: %s" % [int(kid.get("ref", 0)), ref["scenePath"], ref["nodePath"]])
 	var job := FileAccess.open(file, FileAccess.WRITE)
 	if job == null:
 		return _end(task_id, false, "%s: Der Auftrag für Claude ließ sich nicht schreiben (%s)." % [label, file])
@@ -207,13 +212,8 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 				undo["removed"].append(ref)
 	var before := links.of_task(task_id)
 	var fresh := Quick.without_linked(answer["links"], before)
-	var problems := hang(task_id, fresh)
-	for ref in links.of_task(task_id):
-		if not before.any(func(b: Dictionary) -> bool: return Refs.same(b, ref)):
-			undo["added"].append(ref)
-	if not undo["added"].is_empty() and problems.is_empty():
-		said.append("Hängt jetzt auch an %s." % ("1 Node" if undo["added"].size() == 1 else "%d Nodes" % undo["added"].size()))
-	elif not problems.is_empty():
+	var problems := _hang_new(task_id, fresh, undo)
+	if not problems.is_empty():
 		said.append("Nicht alles ließ sich anhängen: %s" % "; ".join(problems))
 	if not undo["removed"].is_empty():
 		said.append("Gelöst von %s." % ("1 Node" if undo["removed"].size() == 1 else "%d Nodes" % undo["removed"].size()))
@@ -221,6 +221,8 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 	problems.append_array(trouble)
 	if not undo["created"].is_empty():
 		said.append("%s angelegt." % ("1 Unteraufgabe" if undo["created"].size() == 1 else "%d Unteraufgaben" % undo["created"].size()))
+	if not undo["added"].is_empty():
+		said.append("%s neu verknüpft." % ("1 Node" if undo["added"].size() == 1 else "%d Nodes" % undo["added"].size()))
 	if not trouble.is_empty():
 		said.append("Nicht übernommen: %s." % "; ".join(trouble))
 	if answer["note"] != "":
@@ -237,7 +239,7 @@ func improve(task_id: String, mode: String, snapshot: String, patience := Claude
 ## Gibt zurück, was nicht ging.
 func _apply_changes(task_id: String, answer: Dictionary, undo: Dictionary) -> Array:
 	var task: Variant = store.ws.task(task_id)
-	if task == null or (answer["changes"].is_empty() and answer["subtasks"].is_empty()):
+	if task == null or (answer["changes"].is_empty() and answer["subtasks"].is_empty() and answer["kid_links"].is_empty()):
 		return []
 	var project := Config.project_id()
 	var resolved := TaskChanges.resolve(store.ws, project, task, answer["changes"])
@@ -270,6 +272,28 @@ func _apply_changes(task_id: String, answer: Dictionary, undo: Dictionary) -> Ar
 			problems.append("Unteraufgabe „%s“: %s" % [sub["title"], made["error"]])
 			break
 		undo["created"].append({"id": made["object"]["id"], "version": int(made["object"].get("version", 1))})
+		problems.append_array(_hang_new(made["object"]["id"], sub["links"], undo))
+	# Bestehende Unteraufgaben an Nodes – nur, was wirklich unter dieser Aufgabe liegt.
+	var below := store.ws.desc(task).map(func(k: Dictionary) -> String: return k["id"])
+	for k in answer["kid_links"]:
+		var kid: Variant = TaskChanges.by_ref(store.ws, k["task"])
+		if kid == null or not below.has(kid["id"]):
+			problems.append("%s ist keine Unteraufgabe hiervon" % k["task"])
+			continue
+		problems.append_array(_hang_new(kid["id"], Quick.without_linked([{"scene": k["scene"], "paths": k["paths"]}], links.of_task(kid["id"])), undo))
+	return problems
+
+
+## Hängt eine Aufgabe an Nodes und merkt sich fürs Rückgängig, was neu dazukam.
+## Gibt zurück, was nicht ging.
+func _hang_new(task_id: String, groups: Array, undo: Dictionary) -> Array:
+	if groups.is_empty():
+		return []
+	var before := links.of_task(task_id)
+	var problems := hang(task_id, groups)
+	for ref in links.of_task(task_id):
+		if not before.any(func(b: Dictionary) -> bool: return Refs.same(b, ref)):
+			undo["added"].append(ref)
 	return problems
 
 

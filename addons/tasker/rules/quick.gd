@@ -29,8 +29,8 @@ const LABELS := {
 	INSTRUCT: "Anweisung",
 }
 const TOOLTIPS := {
-	REWRITE: "Claude schreibt die Aufgabe nach der Vorlage neu: Observation, Context, Affected, Acceptance criteria, To-do, Open questions – auf Englisch",
-	EXTEND: "Claude behält, was dasteht, und ergänzt Details aus Szene und Code",
+	REWRITE: "Claude schreibt die Aufgabe kurz nach der Vorlage neu: User Story, Acceptance criteria, To-do, wenn nötig Notes – auf Englisch",
+	EXTEND: "Claude behält, was dasteht, und ergänzt fehlende Abschnitte der Vorlage – kurz",
 	LINKS: "Claude sucht die Szenen und Nodes, die zur Aufgabe gehören, und hängt sie an",
 }
 ## Was im Fenster steht, solange Claude arbeitet – `%s` ist die Nummer.
@@ -60,29 +60,21 @@ const LINK_SCHEMA := {
 	},
 }
 
-## Die Gliederung der Beschreibung. Früher stand sie auch im Agenten
-## „tasker-scout“; den gibt es nicht mehr, sie steht nur noch hier.
-const FORMAT := """**Observation**
-What the user noticed, close to their own words.
-
-**Context**
-What the scene and the code say about it, in three to six sentences. Only what you checked.
-
-**Affected**
-- Scenes and nodes (res:// path, node path)
-- Scripts and assets (res:// path)
+## Die Gliederung der Beschreibung: kurz und high-level (Nutzer, 2026-10-23 –
+## die ausführliche mit Observation, Context, Affected, Open questions und
+## Related war ihm viel zu lang; er brauchte Minuten, um die To-dos zu
+## verstehen). Die betroffenen Nodes stehen in den Verknüpfungen, nicht im Text.
+## Das wird mit der Zeit verfeinert.
+const FORMAT := """As a <who>, I want <what> so that <why>.
 
 **Acceptance criteria**
-- [ ] two to five observable results that show the task is done – what the user can check in the game or editor, not steps to get there
+- [ ] two to four results the user can check in the game or editor – one short line each, no file names
 
 **To-do**
-- [ ] three to seven steps, rough, in a sensible order
+- [ ] two to six work packages in plain words, one short line each ("Show the dialog when the player stands in front of the NPC") – no file names, classes, node paths or keys
 
-**Open questions**
-- Assumptions you made, and what the user still has to decide
-
-**Related**
-- $number title"""
+**Notes**
+Only if it really helps, otherwise leave the section out: for a bug the cause you found, then precisely (file and line); a decision the user still has to make, one line each."""
 
 
 ## Die Form der Antwort für `--json-schema`.
@@ -144,9 +136,9 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 	]
 	match mode:
 		REWRITE:
-			lines.append("Schreib die Aufgabe neu. Was der Nutzer geschrieben hat, ist seine Beobachtung; sie kommt sinngemäß unter „Observation“, nichts davon geht verloren.")
+			lines.append("Schreib die Aufgabe neu, kurz. Was der Nutzer geschrieben hat, ist seine Beobachtung; sie geht in die User Story ein, ohne dass ihr Sinn verloren geht.")
 		EXTEND:
-			lines.append("Erweitere die Aufgabe. Was dasteht, bleibt in Sinn und Reihenfolge erhalten; ist es nicht auf Englisch, übersetzt du es sinngemäß. Du ergänzt, was fehlt – Abschnitte der Gliederung, Details aus Szene und Code, Schritte –, und schreibst nichts um, was schon stimmt.")
+			lines.append("Erweitere die Aufgabe. Was dasteht, bleibt in Sinn und Reihenfolge erhalten; ist es nicht auf Englisch, übersetzt du es sinngemäß. Du ergänzt nur, was nach der Gliederung fehlt – etwa Acceptance criteria oder To-dos –, genauso kurz, und schreibst nichts um, was schon stimmt.")
 		LINKS:
 			lines.append("Finde die Szenen und Nodes, die zu dieser Aufgabe gehören – woran sie im Projekt hängt. Titel und Beschreibung änderst du nicht.")
 		INSTRUCT:
@@ -157,7 +149,7 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 				instruction.strip_edges(),
 				">>>",
 				"",
-				"Ändere nur, was die Anweisung verlangt. Alles andere bleibt wortgleich stehen – Gliederung, Reihenfolge, Häkchen in Checklisten, Verweise. Beantwortet die Anweisung eine offene Frage, nimm die Frage aus „Open questions“ und arbeite die Antwort dort ein, wo sie hingehört. Die Aufgabe bleibt auf Englisch, auch wenn die Anweisung deutsch ist. Musst du für die Anweisung etwas nachsehen, tu es; sonst lies nichts.",
+				"Ändere nur, was die Anweisung verlangt. Alles andere bleibt wortgleich stehen – Gliederung, Reihenfolge, Häkchen in Checklisten, Verweise. Beantwortet die Anweisung eine offene Frage (unter „Notes“ oder einer älteren Überschrift wie „Open questions“), nimm die Frage heraus und arbeite die Antwort dort ein, wo sie hingehört. Die Aufgabe bleibt auf Englisch, auch wenn die Anweisung deutsch ist. Musst du für die Anweisung etwas nachsehen, tu es; sonst lies nichts.",
 			])
 	if mode == INSTRUCT:
 		lines.append_array([
@@ -169,14 +161,15 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 			"- `title`: der Titel – unverändert, außer die Anweisung betrifft ihn.",
 			"- `desc`: die ganze Beschreibung mit deinen Änderungen, nicht nur die geänderten Stellen.",
 			"- `changes`: nur, was die Anweisung an diesen Feldern verlangt; alles andere weglassen. `status`, `prio` aus der jeweiligen Wahl; `mark`, `category`, `place` mit dem Namen aus der Wahl (`place`: Milestone, Gruppe oder \"Backlog\"); `tags` und `deps` jeweils die ganze neue Liste (`deps` als Nummern wie \"$142\" – die Aufgaben, auf die diese wartet).",
-			"- `subtasks`: neue Unteraufgaben, wenn die Anweisung sie verlangt (etwa „teil das auf“) – je `title` (kurz, englisch, als Tätigkeit) und `desc` (darf leer sein). Was du in Unteraufgaben auslagerst, nimmst du aus der Beschreibung heraus, statt es doppelt zu führen. Sonst leere Liste.",
+			"- `subtasks`: neue Unteraufgaben, wenn die Anweisung sie verlangt (etwa „teil das auf“) – je `title` (kurz, englisch, als Tätigkeit), `desc` (darf leer sein) und `links` (woran die Unteraufgabe hängen soll, gleiche Form wie unten; sonst leere Liste). Was du in Unteraufgaben auslagerst, nimmst du aus der Beschreibung heraus, statt es doppelt zu führen. Sonst leere Liste.",
+			"- `kid_links`: Verknüpfungen für Unteraufgaben, die es schon gibt (oben unter „Unteraufgaben“) – je `task` (ihre Nummer, etwa \"$528\"), `scene` und `paths` wie bei `links`. So verteilst du Unteraufgaben auf die Objekte einer Szene. Was dort schon hängt, steht oben unter „Schon angehängt“. Sonst leere Liste.",
 			"- `unlink`: was von „Schon angehängt“ gelöst werden soll, weil die Anweisung es verlangt – gleiche Form wie `links`, `scene` und `path` genau wie oben. Sonst leere Liste.",
 		])
 	elif mode != LINKS:
 		lines.append_array([
 			"",
 			"- `title`: kurz, auf Englisch, als Tätigkeit („Add pants for the player character“).",
-			"- `desc`: Markdown auf Englisch, in dieser Gliederung, mit einer Leerzeile vor jeder Überschrift; Abschnitte ohne Inhalt weglassen. Nur, was du gesehen hast – Vermutungen stehen unter „Open questions“, nicht unter „Context“.",
+			"- `desc`: Markdown auf Englisch, in dieser Gliederung, mit einer Leerzeile vor jeder Überschrift. Kurz halten: lieber zu wenig als zu viel. Der Nutzer soll jede Zeile in Sekunden verstehen. Dateien, Klassen und Node-Pfade nur unter „Notes“ und nur, wenn eine konkrete Stelle gefunden ist. Nichts erfinden, was du nicht gesehen hast.",
 			"",
 			"```",
 			FORMAT,
@@ -184,7 +177,7 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 		])
 	lines.append_array([
 		"",
-		"- `links`: die betroffenen Szenen und Nodes, die noch nicht angehängt sind. Je Eintrag `scene` (res://-Pfad einer .tscn) und `paths` (Node-Pfade relativ zur Wurzel dieser Szene, \".\" ist die Wurzel – in der .tscn ist das `parent` + \"/\" + `name`, bei `parent=\".\"` nur der Name). Läuft das Spiel, nimmst du nicht den Pfad zur Laufzeit, sondern die Szenendatei, aus der der Node stammt („Instanz: …“). Nur, was du in einer Datei oder im Schnappschuss gesehen hast; im Zweifel weniger. Skripte und Ressourcen ohne Szene lassen sich nicht anhängen – die gehören unter „Affected“. Nichts Passendes: leere Liste.",
+		"- `links`: die betroffenen Szenen und Nodes, die noch nicht angehängt sind. Je Eintrag `scene` (res://-Pfad einer .tscn) und `paths` (Node-Pfade relativ zur Wurzel dieser Szene, \".\" ist die Wurzel – in der .tscn ist das `parent` + \"/\" + `name`, bei `parent=\".\"` nur der Name). Läuft das Spiel, nimmst du nicht den Pfad zur Laufzeit, sondern die Szenendatei, aus der der Node stammt („Instanz: …“). Nur, was du in einer Datei oder im Schnappschuss gesehen hast; im Zweifel weniger. Skripte und Ressourcen ohne Szene lassen sich nicht anhängen. Nichts Passendes: leere Liste.",
 		"- `note`: ein kurzer Satz auf Deutsch, was du geändert hast (etwa „Titel und 6 Stellen: Third Wheel → Dialogic“)." if mode == INSTRUCT else \
 			"- `note`: ein, zwei kurze Sätze auf Deutsch für den Nutzer: welche Annahme du getroffen hast, falls eine, sonst was du getan hast.",
 	])
@@ -194,7 +187,7 @@ static func prompt(mode: String, task: Dictionary, linked: Array, snapshot: Stri
 ## Prüft die Antwort: `{ ok, error, title, desc, links, note }`. `links` sind
 ## nach Szene gruppiert, `{ scene, paths }`; Unbrauchbares fällt heraus.
 static func parse(mode: String, answer: Variant) -> Dictionary:
-	var out := {"ok": false, "error": "", "title": "", "desc": "", "links": [], "unlink": [], "changes": {}, "subtasks": [], "note": ""}
+	var out := {"ok": false, "error": "", "title": "", "desc": "", "links": [], "unlink": [], "changes": {}, "subtasks": [], "kid_links": [], "note": ""}
 	if not answer is Dictionary:
 		out["error"] = "Claude hat keine lesbare Antwort geschickt."
 		return out
@@ -205,40 +198,17 @@ static func parse(mode: String, answer: Variant) -> Dictionary:
 			out["error"] = "Claude hat keinen Titel geschickt."
 			return out
 	out["note"] = str(answer.get("note", "")).strip_edges()
-	out["links"] = _groups(answer.get("links", []))
-	out["unlink"] = _groups(answer.get("unlink", [])) if mode == INSTRUCT else []
-	var more := TaskChanges.parse(answer) if mode == INSTRUCT else {"changes": {}, "subtasks": []}
+	out["links"] = TaskChanges.link_groups(answer.get("links", []))
+	out["unlink"] = TaskChanges.link_groups(answer.get("unlink", [])) if mode == INSTRUCT else []
+	var more := TaskChanges.parse(answer) if mode == INSTRUCT else {"changes": {}, "subtasks": [], "kid_links": []}
 	out["changes"] = more["changes"]
 	out["subtasks"] = more["subtasks"]
+	out["kid_links"] = more["kid_links"]
 	out["ok"] = true
 	return out
 
 
-## Szenen und Node-Pfade aus der Antwort, nach Szene gruppiert: `{ scene, paths }`.
-static func _groups(given: Variant) -> Array:
-	var by_scene := {}
-	for entry in given if given is Array else []:
-		if not entry is Dictionary:
-			continue
-		var scene := str(entry.get("scene", "")).strip_edges()
-		if not scene.begins_with("res://") or scene.get_extension() != "tscn":
-			continue
-		var paths: Variant = entry.get("paths", [])
-		for p in paths if paths is Array else []:
-			var path := str(p).strip_edges().trim_prefix("./")
-			if path == "":
-				path = "."
-			if not by_scene.has(scene):
-				by_scene[scene] = []
-			if not by_scene[scene].has(path):
-				by_scene[scene].append(path)
-	var out := []
-	for scene in by_scene:
-		out.append({"scene": scene, "paths": by_scene[scene]})
-	return out
-
-
-## Eine Leerzeile vor jeder Überschrift der Gliederung (`**Context**`) – ohne
+## Eine Leerzeile vor jeder Überschrift der Gliederung (`**To-do**`) – ohne
 ## sie liefe die Überschrift im Markdown in den Absatz davor.
 static func spaced(desc: String) -> String:
 	var lines := desc.replace("\r\n", "\n").split("\n")

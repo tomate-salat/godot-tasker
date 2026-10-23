@@ -19,7 +19,17 @@ const Planning := preload("planning.gd")
 const PRIOS := {"none": 0, "high": 1, "medium": 2, "low": 3}
 const BACKLOG := "Backlog"
 
-## Die Form von `changes` und `subtasks` in der Antwort.
+## Szenen und Node-Pfade – wie `links` in `rules/quick.gd`.
+const LINKS := {
+	"type": "array",
+	"items": {
+		"type": "object",
+		"properties": {"scene": {"type": "string"}, "paths": {"type": "array", "items": {"type": "string"}}},
+		"required": ["scene", "paths"],
+	},
+}
+
+## Die Form von `changes`, `subtasks` und `kid_links` in der Antwort.
 const SCHEMA := {
 	"changes": {
 		"type": "object",
@@ -37,8 +47,18 @@ const SCHEMA := {
 		"type": "array",
 		"items": {
 			"type": "object",
-			"properties": {"title": {"type": "string"}, "desc": {"type": "string"}},
+			"properties": {"title": {"type": "string"}, "desc": {"type": "string"}, "links": LINKS},
 			"required": ["title"],
+		},
+	},
+	# Unteraufgaben, die es schon gibt, an Nodes hängen (Nutzer, 2026-10-20:
+	# „verteil die Unteraufgaben auf die Objekte der Szene“).
+	"kid_links": {
+		"type": "array",
+		"items": {
+			"type": "object",
+			"properties": {"task": {"type": "string"}, "scene": {"type": "string"}, "paths": {"type": "array", "items": {"type": "string"}}},
+			"required": ["task", "scene", "paths"],
 		},
 	},
 }
@@ -97,8 +117,40 @@ static func parse(answer: Dictionary) -> Dictionary:
 	var list: Variant = answer.get("subtasks", [])
 	for s in list if list is Array else []:
 		if s is Dictionary and str(s.get("title", "")).strip_edges() != "":
-			subtasks.append({"title": str(s["title"]).strip_edges(), "desc": str(s.get("desc", "")).strip_edges()})
-	return {"changes": changes, "subtasks": subtasks}
+			subtasks.append({"title": str(s["title"]).strip_edges(), "desc": str(s.get("desc", "")).strip_edges(), "links": link_groups(s.get("links", []))})
+	var kid_links := []
+	var given_links: Variant = answer.get("kid_links", [])
+	for k in given_links if given_links is Array else []:
+		if not k is Dictionary or str(k.get("task", "")).strip_edges() == "":
+			continue
+		for g in link_groups([k]):
+			kid_links.append({"task": str(k["task"]).strip_edges(), "scene": g["scene"], "paths": g["paths"]})
+	return {"changes": changes, "subtasks": subtasks, "kid_links": kid_links}
+
+
+## Szenen und Node-Pfade aus der Antwort, nach Szene gruppiert: `{ scene, paths }`.
+## Nur .tscn mit res://-Pfad; `./` vorn fällt weg, leer heißt die Wurzel.
+static func link_groups(given: Variant) -> Array:
+	var by_scene := {}
+	for entry in given if given is Array else []:
+		if not entry is Dictionary:
+			continue
+		var scene := str(entry.get("scene", "")).strip_edges()
+		if not scene.begins_with("res://") or scene.get_extension() != "tscn":
+			continue
+		var paths: Variant = entry.get("paths", [])
+		for p in paths if paths is Array else []:
+			var path := str(p).strip_edges().trim_prefix("./")
+			if path == "":
+				path = "."
+			if not by_scene.has(scene):
+				by_scene[scene] = []
+			if not by_scene[scene].has(path):
+				by_scene[scene].append(path)
+	var out := []
+	for scene in by_scene:
+		out.append({"scene": scene, "paths": by_scene[scene]})
+	return out
 
 
 ## Übersetzt `changes` in Taskers Felder: `{ patch, place, problems }`.

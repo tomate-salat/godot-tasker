@@ -69,4 +69,13 @@ func test_claude_erfaehrt_stand_und_wahl() -> void:
 func test_die_antwort_wird_geprueft() -> void:
 	var got := TaskChanges.parse({"changes": {"prio": "high", "tags": ["a", " ", 3], "status": 5}, "subtasks": [{"title": " Add NPC "}, {"title": ""}, "quatsch"]})
 	eq(got["changes"], {"prio": "high", "tags": ["a", "3"]})
-	eq(got["subtasks"], [{"title": "Add NPC", "desc": ""}])
+	eq(got["subtasks"], [{"title": "Add NPC", "desc": "", "links": []}])
+
+
+func test_unteraufgaben_lassen_sich_verteilen() -> void:
+	var got := TaskChanges.parse({
+		"subtasks": [{"title": "Repair", "links": [{"scene": "res://cell.tscn", "paths": ["Repair Npc"]}]}],
+		"kid_links": [{"task": "$528", "scene": "res://cell.tscn", "paths": ["./Shop Npc"]}, {"task": "", "scene": "res://cell.tscn", "paths": ["X"]}, {"task": "$529", "scene": "kaputt", "paths": ["Y"]}],
+	})
+	eq(got["subtasks"][0]["links"], [{"scene": "res://cell.tscn", "paths": ["Repair Npc"]}])
+	eq(got["kid_links"], [{"task": "$528", "scene": "res://cell.tscn", "paths": ["Shop Npc"]}])

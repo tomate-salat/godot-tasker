@@ -52,7 +52,7 @@ func test_schon_angehaengtes_faellt_heraus() -> void:
 func test_der_auftrag_nennt_aufgabe_schnappschuss_und_vorlage() -> void:
 	var task := {"ref": 412, "title": "Hose weg", "desc": "beim Angriff"}
 	var text := Quick.prompt(Quick.REWRITE, task, ["- scene: res://arena.tscn   path: Player"], "Szene: res://arena.tscn", "C:/spiel")
-	for part in ["$412", "Hose weg", "beim Angriff", "res://arena.tscn   path: Player", "Szene: res://arena.tscn", "C:/spiel", "**Observation**", "`title`"]:
+	for part in ["$412", "Hose weg", "beim Angriff", "res://arena.tscn   path: Player", "Szene: res://arena.tscn", "C:/spiel", "As a <who>", "**To-do**", "`title`"]:
 		ok(text.contains(part), part)
 	var links_only := Quick.prompt(Quick.LINKS, task, [], "", "C:/spiel")
 	ok(not links_only.contains("`title`"), "beim Suchen bleibt der Text, wie er ist")
@@ -111,7 +111,7 @@ func test_die_anweisung_steht_im_auftrag() -> void:
 	var text := Quick.prompt(Quick.INSTRUCT, {"ref": 414, "title": "Introduce Third Wheel", "desc": "x"}, [], "", "C:/spiel", "Das Addon heißt Dialogic")
 	ok(text.contains("Das Addon heißt Dialogic"))
 	ok(text.contains("`unlink`"))
-	ok(not text.contains("**Observation**"), "keine Vorlage – der Rest bleibt, wie er ist")
+	ok(not text.contains("As a <who>"), "keine Vorlage – der Rest bleibt, wie er ist")
 
 
 func test_neu_geschriebene_aufgaben_haben_akzeptanzkriterien() -> void:
