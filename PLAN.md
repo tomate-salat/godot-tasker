@@ -617,6 +617,45 @@ Ablauf (Protokoll mit der Tasker-Sitzung abgestimmt, vom Nutzer freigegeben, 202
 Offen: In Tasker gebaut wird gerade; erst nach dem Deploy funktioniert „Anlegen“ im Addon wieder (der Eingang lehnt unbekannte Felder ab), und erst dann lässt sich der ganze Weg ausprobieren.
 
 
+## Ausbau: Nebenquests
+
+Geplant mit dem Nutzer am 2026-10-24, noch nicht gebaut. Anlass: Aufgaben, die zu keinem Milestone passen, landeten bisher in irgendeinem Milestone; einen allgemeinen Milestone nachträglich ins Release zu ziehen fühlte sich falsch an. Die Tasker-Seite (Datenmodell, Regeln) plant der Nutzer mit der Tasker-Sitzung; was hier steht, ist die Godot-Seite und was sie von Tasker braucht.
+
+### Festgelegt
+
+- **Kein Milestone.** Die Nebenquests sind eine Vorsortierung aus dem Backlog, vermutlich eine besondere Gruppe – wie genau, klärt Tasker. Manche bereiten Aufgaben sind für Milestones gedacht und sollen nicht vorzeitig starten; nur was in den Nebenquests liegt, lässt sich so ins Release holen.
+- **Stempel `releasedIn`:** Jede Aufgabe, auch jede Unteraufgabe, bekommt das aktive Release, sobald sie in Arbeit geht oder erledigt wird – auch Aufgaben, die nicht über die Nebenquests kommen. Der Stempel heißt „gehört zu diesem Release“; Release-Fenster und Changelog listen danach das Erledigte. Beim Veröffentlichen behalten Erledigte ihn, Unerledigte verlieren ihn und gehen zurück auf „Bereit“ in die Liste. Bei einem Task mit Kindern bleiben die erledigten Kinder beim alten Release, der Rest kommt zurück. Gibt es kein aktives Release, wird nachgestempelt, sobald es eins gibt.
+- **Optional:** Nebenquests zählen nicht dafür, dass ein Release „bereit“ ist, und nicht im Nenner des Boss-Fortschritts („noch 24 von 31“), sondern als Bonus. Wochenziel und Serie zählen sie voll.
+- **Planen:** Ist im Lageplan das Release das Ziel (die Feldzugskarte als Blaupause), zeigt die Reserve links nur die Nebenquests, in Taskers Reihenfolge (keine Gruppen nach Priorität; die Sortierung nach Wert geht der Nutzer später in Tasker an). Auf die Festung ziehen: „In Arbeit“ und Stempel. Zurück auf die Reserve: „Bereit“, Stempel weg – nur, solange nicht erledigt. Ziehen heißt im Planen also immer „hinlegen“, abgehakt wird im Feld.
+- **Stellungen auf der Weltkarte:** Jede Nebenquest in Arbeit ist eine eigene Stellung, verteilt in den Lücken um die Festung innerhalb des Rings der Städte, alle auf die Mitte gerichtet. Modern, nicht mittelalterlich:
+  - ohne Unteraufgaben: **Mörser** oder **Raketenwerfer**;
+  - mit Unteraufgaben: **Feuerstellung** (Sandsackring, ein Geschütz je Unteraufgabe) oder **Flugplatz** (ein Jet je Unteraufgabe; erledigt rollt er zur Startbahn und greift an).
+  - Gewählt wird nach Größe (Nutzer: größere Nebenquests sollen sich immer nach mehr Belohnung anfühlen): Unteraufgaben plus alle Kästchen, eigene und die der Kinder. Ohne Kinder bis 3 Mörser, sonst Raketenwerfer; mit Kindern unterhalb einer Schwelle (zum Ausprobieren 12) Feuerstellung, darüber Flugplatz. Die Schwellen werden beim Bauen nachjustiert. Nicht nach Markierung.
+- **Ausbau nach Checkliste:** Jedes Gerät hat eine feste Reihe Bauteile (Raketenwerfer: Pflöcke, drei Sandsäcke, Fahrgestell, Kabine, Werfer, Tarnnetz). Zu sehen ist der Anteil, der dem Anteil der abgehakten Schritte entspricht: bei wenigen Kästchen bringt eins mehrere Bauteile, bei sehr vielen braucht ein Bauteil mehrere. Die Pflöcke stehen ab „In Arbeit“. Schritte sind die Kästchen, bei einem Task mit Kindern Kinder und eigene Kästchen zusammen; ein in einem früheren Release erledigtes Kind zählt als fertig und steht grau mit dessen Version.
+- **Erledigt:** Das Gerät hisst die Fahne und feuert auf die Festung, bis das Release veröffentlicht ist; jeder Bonus füllt einen goldenen Bogen außen um den Boss-Ring, darunter „+N Bonus“.
+- **Bedienung wie im Feld:** einfacher Klick tappt, Doppelklick zoomt hinein. Im Zoom steht das Gerät in der Mitte, im Ring die Teile – Unteraufgaben als Abzeichen (tappen, öffnen wie Karten) oder, ohne Unteraufgaben, die Kästchen als Bautrupps (Klick hakt ab; das Gerät wächst sofort). Doppelklick auf die Mitte öffnet die Aufgabe, „0.8.0 ›“ oder Herauszoomen führt zurück. Ohne Kinder und Kästchen steht nur die Mitte mit „Keine Teile – Doppelklick öffnet“.
+- **Nur Nebenquests** bauen vorerst Geräte; Aufgaben in Milestones behalten Soldaten und Bisse. Mehr Spiel für Milestones ist erwünscht, aber später.
+- **Verworfen:** ein Nebenquest-Milestone ohne Release (Zweckentfremdung); ein eingebauter „Lager“-Milestone je Release; das Kopfgeldbrett; ein Lager mit Quest-NPCs (erst gewählt, dann durch die Stellungen ersetzt); die Liste auf der Weltkarte statt im Planen; Katapulte; ein Lager, das mit dem Gold wächst (verlangt endlos neue Grafiken).
+
+### Was Tasker liefern müsste
+
+- Im Bootstrap: welche Aufgaben in den Nebenquests liegen (Gruppe oder Kennung), `releasedIn` an jeder Aufgabe.
+- Stempeln beim Wechsel auf „In Arbeit“ oder „Erledigt“, auch wenn der Wechsel aus dem Addon kommt (`PATCH kind/task` mit `status`); Entstempeln beim Zurückziehen und beim Veröffentlichen nach den Regeln oben.
+- „Bereit“, Fortschritt und Changelog des Releases nach den Regeln oben.
+- Ob das Ziehen auf die Festung eine eigene Route braucht oder ein `status`-PATCH genügt, entscheidet Tasker.
+
+### Schritte
+
+1. **Nebenquests nutzbar machen:** Reserve im Planen auf Release-Ebene, Ziehen auf die Festung und zurück, Stellungen auf der Weltkarte mit Ausbau nach Checkliste, Zoom, Bonus an der Festung, Release-Fenster mit Bonus-Abschnitt. Erst, wenn Tasker gebaut und deployt hat.
+2. **Numbers go up:** Gold je erledigter Aufgabe nach Priorität (z. B. hoch 300, mittel 200, niedrig 100, keine 50), Nebenquests mit Kopfgeld-Aufschlag. Wofür, ist offen; ohne neue Grafiken denkbar sind Beute je Release (im Release-Fenster, „Rekord“) und Rekorde wie bestes Release und beste Woche, wie die Ablage sie fürs Wochenziel kennt. Gold für alle erledigten Aufgaben aller Zeiten bräuchte eine Summe von Tasker, weil das Addon archivierte Aufgaben nicht einzeln sieht.
+
+### Später, als Idee notiert
+
+- Bugs als Minenräumboote auf einem Fluss um die Festung (Kästchen räumen Minen) – erst, wenn Bugs und Features zu gleich aussehen.
+- Der Fluss im Feld: Brücken gesprengt, bis alles außerhalb erledigt ist, dann bauen Pioniere sie (Etappe „Fluss überquert“); Eis bei Stillstand über mehrere Tage.
+- Geräte auch für Aufgaben in Milestones.
+
+
 ## Risiken und offene Punkte
 
 - **Animationen im Editor-Fenster:** Der Editor zeichnet sparsam neu. Ob Karten dort flüssig laufen, klärt der Prototyp in Schritt 1. Ausweichweg wäre ein eigener Prozess, mit den Nachteilen, dass das Token durchgereicht werden muss und die Autoloads des Spiels mitstarten.
