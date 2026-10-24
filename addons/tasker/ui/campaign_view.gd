@@ -8,6 +8,10 @@ extends Control
 ##
 ## Die Karte ist zum Ansehen und Hineinspringen: ein Klick auf eine Stadt
 ## öffnet ihr Feld. Geändert wird hier nichts.
+##
+## Um die Festung stehen die Stellungen der Nebenquests (`rules/sidequest.gd`):
+## ein Gerät je Nebenquest, das mit ihren Schritten wächst und die Festung
+## beschießt, sobald sie erledigt ist. Ein Klick oder Hineinzoomen öffnet sie.
 
 ## Eine Stadt wurde gewählt: ihr Feld soll aufgehen.
 signal milestone_chosen(milestone_id: String)
@@ -15,9 +19,15 @@ signal milestone_chosen(milestone_id: String)
 signal details_requested(milestone_id: String)
 ## Das Release selbst soll in seinem Fenster gezeigt werden (Klick auf die Festung in der Mitte).
 signal release_requested(release_id: String)
+## In eine Stellung soll hineingezoomt werden (Doppelklick).
+signal position_chosen(task_id: String)
+## Die Aufgabe einer Stellung soll aufgehen (Rechtsklick).
+signal task_requested(task_id: String)
 
 const Campaign := preload("../rules/campaign.gd")
 const Release := preload("../rules/release.gd")
+const Sidequest := preload("../rules/sidequest.gd")
+const Emplacement := preload("emplacement.gd")
 const Workspace := preload("../rules/workspace.gd")
 const Palette := preload("palette.gd")
 
@@ -72,6 +82,14 @@ const BOMB_FALL := 0.55
 const BOMBS := 4
 const BOMB_EVERY := 0.13
 const BOMB_APART := 15.0
+## Wo die Stellungen stehen: auf einer Bahn zwischen Festung und innerstem Ring
+## (Anteil des Wegs dorthin), und so oft feuert eine fertige.
+const POSTS_AT := 0.52
+## So groß stehen die Stellungen auf der Karte.
+const POST_SCALE := 1.3
+const FIRE_EVERY := 3.2
+const SHELL_SECONDS := 1.1
+const GOLD := Color("e8b04a")
 
 var _campaign := {}
 var _release: Variant
@@ -99,6 +117,17 @@ var _woods := []
 var _river := PackedVector2Array()
 var _towns := {}
 var _message: Label
+## Die Stellungen der Nebenquests: `Sidequest.positions` und je ID der Platz.
+var _posts: Array = []
+var _post_at := {}
+var _bonus := {"done": 0, "open": 0}
+var _hovered_post := ""
+## Im Lageplan: ruhig, ohne Gefechte – und die Festung als Ziel beim Ziehen.
+var plan := false
+var drop_hint := false:
+	set(value):
+		drop_hint = value
+		queue_redraw()
 
 
 func _init() -> void:
@@ -128,6 +157,9 @@ func show_campaign(ws: Workspace, release: Variant) -> void:
 	_shown_release = str(release["id"])
 	_campaign = Campaign.build(ws, release)
 	_status = Release.LABEL[Release.status(ws, release)]
+	_posts = Sidequest.positions(ws, release)
+	var bonus := Release.bonus(ws, release)
+	_bonus = {"done": int(bonus["done"]) + Release.archived_bonus(release), "open": bonus["open"]}
 	_nodes = {}
 	for n in _campaign["nodes"]:
 		_nodes[n["id"]] = n
@@ -141,6 +173,7 @@ func show_campaign(ws: Workspace, release: Variant) -> void:
 		_step_shift(0.0)
 	if not _nodes.has(_hovered):
 		_hovered = ""
+	_place_posts()
 	queue_redraw()
 
 
@@ -264,6 +297,39 @@ func _scatter(seed_value: int) -> void:
 		_towns[id] = blocks
 
 
+## Verteilt die Stellungen auf ihre Bahn um die Festung: in die Lücken
+## zwischen den Straßen der innersten Städte, eine nach der anderen in fester
+## Reihenfolge – so behält jede ihren Platz, wenn eine neue dazukommt.
+func _place_posts() -> void:
+	_post_at = {}
+	if _posts.is_empty():
+		return
+	var band := Vector2(BOSS_RADIUS, BOSS_RADIUS) + (_reach(1) - Vector2(BOSS_RADIUS, BOSS_RADIUS)) * POSTS_AT
+	var roads := []
+	for n in _campaign["nodes"]:
+		if n["inner"] == "" and _centers.has(n["id"]):
+			roads.append(_centers[n["id"]].angle())
+	# Oben steht das Schild der Festung.
+	roads.append(-PI / 2.0)
+	var taken := []
+	var slots := 48
+	for p in _posts:
+		var best := 0.0
+		var best_score := -1.0
+		for k in slots:
+			var a := -PI + TAU * k / slots
+			var score := PI
+			for r in roads:
+				score = minf(score, absf(angle_difference(a, r)) * 1.4)
+			for t in taken:
+				score = minf(score, absf(angle_difference(a, t)))
+			if score > best_score + 0.001:
+				best_score = score
+				best = a
+		taken.append(best)
+		_post_at[p["id"]] = Vector2(cos(best) * band.x, sin(best) * band.y)
+
+
 # -------------------------------------------------------------- Bedienen
 
 ## Wie die Karte gerade im Fenster liegt: Maß und Ursprung.
@@ -282,6 +348,20 @@ func _on_fort(point: Vector2) -> bool:
 	return _release != null and not _campaign.is_empty() and (_view().affine_inverse() * point).length() <= BOSS_RADIUS
 
 
+## Die Stellung unter dem Punkt (in Fensterkoordinaten), sonst leer.
+func post_at(point: Vector2) -> String:
+	var at := _view().affine_inverse() * point
+	for p in _posts:
+		if _post_at.has(p["id"]) and at.distance_to(_post_at[p["id"]]) <= Emplacement.reach(p["kind"]) * POST_SCALE + 6.0:
+			return p["id"]
+	return ""
+
+
+## Ob der Punkt (in Fensterkoordinaten) auf der Festung liegt.
+func over_fort(point: Vector2) -> bool:
+	return _on_fort(point)
+
+
 func _city_at(point: Vector2) -> String:
 	var at := _view().affine_inverse() * point
 	for id in _centers:
@@ -298,7 +378,8 @@ func _gui_input(event: InputEvent) -> void:
 		var over := _city_at(event.position)
 		if over != _hovered:
 			_hovered = over
-		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if over != "" or _on_fort(event.position) else Control.CURSOR_ARROW
+		_hovered_post = post_at(event.position)
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if over != "" or _hovered_post != "" or _on_fort(event.position) else Control.CURSOR_ARROW
 		queue_redraw()
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_MIDDLE:
@@ -310,12 +391,24 @@ func _gui_input(event: InputEvent) -> void:
 			_zoom = clampf(_zoom * (ZOOM_STEP if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / ZOOM_STEP), ZOOM_MIN, ZOOM_MAX)
 			var middle := Vector2(size.x / 2.0, TOP + (size.y - TOP - MARGIN) / 2.0)
 			_pan += (event.position - middle - _pan) * (1.0 - _zoom / before)
-			# Weit genug über einer Stadt hineingezoomt: aufs Feld.
+			# Weit genug über einer Stadt hineingezoomt: aufs Feld – über einer Stellung in sie hinein.
 			var over := _city_at(event.position)
-			if over != "" and _zoom >= ZOOM_ENTER and _zoom > before:
-				_enter(over)
+			var post := post_at(event.position)
+			if _zoom >= ZOOM_ENTER and _zoom > before and not plan:
+				if post != "":
+					_panning = false
+					reset_view()
+					position_chosen.emit(post)
+				elif over != "":
+					_enter(over)
 			accept_event()
 			queue_redraw()
+		elif event.pressed and event.button_index == MOUSE_BUTTON_LEFT and post_at(event.position) != "":
+			# Ein Klick zoomt in die Stellung, wie in eine Stadt (Nutzer, 2026-10-24).
+			_panning = false
+			position_chosen.emit(post_at(event.position))
+		elif event.pressed and event.button_index == MOUSE_BUTTON_RIGHT and post_at(event.position) != "":
+			task_requested.emit(post_at(event.position))
 		elif event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			var over := _city_at(event.position)
 			if over != "":
@@ -342,8 +435,9 @@ func _enter(id: String) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_MOUSE_EXIT and _hovered != "":
+	if what == NOTIFICATION_MOUSE_EXIT and (_hovered != "" or _hovered_post != ""):
 		_hovered = ""
+		_hovered_post = ""
 		queue_redraw()
 
 
@@ -449,14 +543,18 @@ func _draw() -> void:
 	_draw_boss(view)
 	for id in _centers:
 		_draw_city(view, _nodes[id])
+	_draw_posts()
 
 	# Auf jeder Angriffsstraße ein Gefecht, darüber kreist ein Flieger. Solange
 	# sich die Karte neu ordnet, ruht beides: die Straßen sind in Bewegung.
-	if _shift >= 1.0:
+	# Im Lageplan ist es ruhig.
+	if _shift >= 1.0 and not plan:
 		for path in units:
 			_draw_battle(view, path)
 		for k in units.size():
 			_draw_sortie(view, units[k], goals[k])
+		_draw_fire(view)
+	_draw_post_plate()
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
@@ -680,7 +778,16 @@ func _draw_boss(view: Transform2D) -> void:
 	draw_line(Vector2(0, -8), Vector2(0, -28), Color("2b2622"), 2.4, true)
 	draw_colored_polygon(PackedVector2Array([Vector2(0, -28), Vector2(12, -28), Vector2(8, -24), Vector2(12, -20), Vector2(0, -20)]), Palette.P1)
 	var text := "noch %d von %d" % [left, total] if left > 0 else "eingenommen"
-	draw_string(Palette.sharp_body_font(), Vector2(-BOSS_RADIUS, 58.0), text, HORIZONTAL_ALIGNMENT_CENTER, BOSS_RADIUS * 2.0, 12, Color(1, 1, 1, 0.75))
+	draw_string(Palette.sharp_body_font(), Vector2(-BOSS_RADIUS, 52.0), text, HORIZONTAL_ALIGNMENT_CENTER, BOSS_RADIUS * 2.0, 12, Color(1, 1, 1, 0.75))
+	# Der Bonus: ein goldener Bogen außen, so weit, wie die Nebenquests erledigt sind.
+	var bonus_all: int = _bonus["done"] + _bonus["open"]
+	if bonus_all > 0:
+		draw_arc(Vector2.ZERO, BOSS_RADIUS + 10.0, 0.0, TAU, 96, Color(GOLD, 0.16), 3.0, true)
+		if _bonus["done"] > 0:
+			draw_arc(Vector2.ZERO, BOSS_RADIUS + 10.0, -PI / 2.0, -PI / 2.0 + TAU * _bonus["done"] / bonus_all, 96, GOLD, 3.0, true)
+			draw_string(Palette.sharp_body_font(), Vector2(-BOSS_RADIUS, 67.0), "+%d Bonus" % _bonus["done"], HORIZONTAL_ALIGNMENT_CENTER, BOSS_RADIUS * 2.0, 12, GOLD)
+	if drop_hint:
+		draw_arc(Vector2.ZERO, BOSS_RADIUS + 18.0, 0.0, TAU, 96, Color(GOLD, 0.5 + 0.3 * sin(_time * 5.0)), 2.0, true)
 	_draw_plate(Vector2(0, -BOSS_RADIUS - 34.0), Release.label(_release), "Release · %s" % _status, Palette.P1, false)
 
 
@@ -739,6 +846,64 @@ func _draw_city(view: Transform2D, n: Dictionary) -> void:
 	var word := "archiviert" if n.get("archived", false) else "eingenommen" if state == Campaign.DONE else "umkämpft" if state == Campaign.ACTIVE else "beim Gegner"
 	_draw_plate(mid + Vector2(0, -CITY * SQUASH - 30.0 if above else CITY * SQUASH + 30.0), str(n["milestone"].get("title", "")),
 		"%d/%d · %s" % [n["done"], n["total"], word], tone, id == _hovered)
+
+
+## Die Stellungen der Nebenquests. Jede zeigt mit dem Rohr zur Festung.
+func _draw_posts() -> void:
+	for p in _posts:
+		if not _post_at.has(p["id"]):
+			continue
+		var at: Vector2 = _post_at[p["id"]]
+		var turn := (Vector2.ZERO - at).angle()
+		if p["kind"] == Sidequest.AIRFIELD:
+			# Die Bahn liegt quer zur Festung.
+			turn += PI / 2.0
+		Emplacement.draw_position(self, p, at, POST_SCALE, turn, _time if not plan else 0.0)
+		if p["id"] == _hovered_post:
+			draw_arc(at, Emplacement.reach(p["kind"]) * POST_SCALE + 8.0, 0.0, TAU, 48, Color(GOLD, 0.8), 1.5, true)
+
+
+## Was die fertigen Stellungen tun: Granaten auf die Festung, Jets im Anflug.
+func _draw_fire(view: Transform2D) -> void:
+	for p in _posts:
+		if not _post_at.has(p["id"]):
+			continue
+		var at: Vector2 = _post_at[p["id"]]
+		var to_fort := (Vector2.ZERO - at).normalized()
+		var hit := -to_fort * BOSS_RADIUS * 0.7 + to_fort.orthogonal() * float(hash(p["id"]) % 30 - 15)
+		if p["kind"] == Sidequest.AIRFIELD:
+			for u in p["units"]:
+				if u["done"] and u["earlier"] == null:
+					var path := PackedVector2Array()
+					for i in 25:
+						path.append(at.lerp(-to_fort * (BOSS_RADIUS + 6.0), i / 24.0))
+					_draw_sortie(view, path, Vector2.ZERO)
+			continue
+		var firing: bool = p["done"] or p["units"].any(func(u: Dictionary) -> bool: return u["done"] and u["earlier"] == null)
+		if not firing:
+			continue
+		# Eine Granate im Bogen, in eigenem Takt je Stellung.
+		var t := fposmod(_time + float(hash(p["id"]) % 997) / 97.0, FIRE_EVERY)
+		if t < SHELL_SECONDS:
+			var k := t / SHELL_SECONDS
+			var lift := Vector2(0, -60.0) * 4.0 * k * (1.0 - k)
+			draw_circle(at.lerp(hit, k) + lift, 2.6, DARK)
+		else:
+			_draw_boom(hit, t - SHELL_SECONDS)
+
+
+## Das Schild der Stellung unter dem Zeiger: Titel und Stand.
+func _draw_post_plate() -> void:
+	if _hovered_post == "" or not _post_at.has(_hovered_post):
+		return
+	for p in _posts:
+		if p["id"] != _hovered_post:
+			continue
+		var steps: Dictionary = p["steps"]
+		var word := "feuert" if p["done"] else "im Bau"
+		var note := "%s · %d/%d" % [word, steps["done"], steps["total"]] if steps["total"] > 0 else word
+		var at: Vector2 = _post_at[p["id"]] + Vector2(0, -Emplacement.reach(p["kind"]) * POST_SCALE - 30.0)
+		_draw_plate(at, str(p["task"].get("title", "")), note, GOLD if p["done"] else Palette.P2, true)
 
 
 ## Ein Schild mit zwei Zeilen, um `mid` herum.

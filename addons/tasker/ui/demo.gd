@@ -70,6 +70,26 @@ Mehr unter https://example.com/menue"})
 	add.call("r2", "Gegner-KI", {"milestoneId": null, "status": "ready", "deps": ["v3"]})
 	add.call("r2a", "Pfadfindung", {"parentId": "r2"})
 	add.call("r3", "Tutorial-Text", {"milestoneId": null, "status": "ready", "markId": "mk"})
+	# Nebenquests: drei stehen schon als Stellung um die Festung, zwei warten.
+	var side := {"milestoneId": null, "groupId": "sq"}
+	add.call("s1", "Tippfehler im HUD", side.merged({"status": "done", "doneAt": "2026-10-04T10:00:00.000Z", "releasedIn": "rel", "desc": "- [x] Text finden
+- [x] Korrigieren"}))
+	add.call("s2", "Hose fehlt beim Angriff", side.merged({"status": "progress", "releasedIn": "rel", "desc": "- [x] Nachstellen
+- [x] Sprite prüfen
+- [ ] Ebene tauschen
+- [ ] Im Spiel testen
+- [ ] Animation prüfen
+- [ ] Aufräumen"}))
+	add.call("s3", "Waffen ins Inventar", side.merged({"status": "progress", "releasedIn": "rel"}))
+	add.call("s3a", "Slot-Daten", {"parentId": "s3", "status": "done", "doneAt": "2026-10-05T10:00:00.000Z", "releasedIn": "rel", "desc": "- [x] Format
+- [x] Laden"})
+	add.call("s3b", "Kauf ins Inventar", {"parentId": "s3", "status": "progress", "releasedIn": "rel", "desc": "- [x] Händler
+- [ ] Übergabe
+- [ ] Speichern"})
+	add.call("s3c", "Liste im Menü", {"parentId": "s3", "status": "ready"})
+	add.call("s4", "Shader für Wasser", side.merged({"status": "ready", "desc": "- [ ] Wellen
+- [ ] Schaum"}))
+	add.call("s5", "Kamera ruckelt", side.merged({"status": "open"}))
 	for i in 26:
 		add.call("v%d" % i, ["Soundkulisse", "Kamerafahrt", "Zwischensequenz", "Erfolge", "Bestenliste", "Fotomodus", "Wetter"][i % 7] + (" %d" % (i / 7 + 1) if i >= 7 else ""),
 			{"milestoneId": null, "groupId": "gr" if i < 5 else null})
@@ -82,9 +102,13 @@ Mehr unter https://example.com/menue"})
 			{"id": "gr", "version": 1, "projectId": PROJECT, "title": "Stimmung", "order": 0, "archivedAt": null},
 			# Eine leere Gruppe: in der Planung zeigt sie sich nur, während eine Karte gezogen wird.
 			{"id": "gr2", "version": 1, "projectId": PROJECT, "title": "Später", "order": 1, "archivedAt": null},
+			{"id": "sq", "version": 1, "projectId": PROJECT, "title": "Nebenquests", "order": 2, "archivedAt": null, "kind": "sidequest"},
 		],
+		"releases": [{"id": "rel", "version": 1, "projectId": PROJECT, "name": "0.4.0", "title": "Erster Wurf", "desc": "", "order": 0,
+			"archivedAt": null, "archivedMilestones": [], "archivedBonus": 0}],
+		"stages": [{"id": "st", "version": 1, "releaseId": "rel", "name": "itch.io", "order": 0, "doneAt": null}],
 		"milestones": [{
-			"id": "ms", "ref": 1, "version": 1, "projectId": PROJECT, "title": "Erster spielbarer Stand", "desc": "",
+			"id": "ms", "ref": 1, "version": 1, "projectId": PROJECT, "releaseId": "rel", "title": "Erster spielbarer Stand", "desc": "",
 			"planned": true, "status": "progress", "order": 0, "qorder": 0, "startDate": null, "endDate": null,
 			"endAuto": false, "archivedAt": null, "deps": [],
 		}, {
@@ -92,11 +116,11 @@ Mehr unter https://example.com/menue"})
 			"planned": true, "status": "done", "order": 1, "qorder": -1, "startDate": null, "endDate": null,
 			"endAuto": false, "archivedAt": null, "deps": [],
 		}, {
-			"id": "ms2", "ref": 91, "version": 1, "projectId": PROJECT, "title": "Level 3 und der Bossraum", "desc": "",
+			"id": "ms2", "ref": 91, "version": 1, "projectId": PROJECT, "releaseId": "rel", "title": "Level 3 und der Bossraum", "desc": "",
 			"planned": true, "status": "open", "order": 2, "qorder": 1, "startDate": null, "endDate": "2026-10-20",
 			"endAuto": false, "archivedAt": null, "deps": [],
 		}, {
-			"id": "ms3", "ref": 92, "version": 1, "projectId": PROJECT, "title": "Menüs", "desc": "",
+			"id": "ms3", "ref": 92, "version": 1, "projectId": PROJECT, "releaseId": "rel", "title": "Menüs", "desc": "",
 			"planned": true, "status": "open", "order": 3, "qorder": 2, "startDate": null, "endDate": null,
 			"endAuto": false, "archivedAt": null, "deps": [],
 		}],

@@ -619,7 +619,7 @@ Offen: In Tasker gebaut wird gerade; erst nach dem Deploy funktioniert „Anlege
 
 ## Ausbau: Nebenquests
 
-Geplant mit dem Nutzer am 2026-10-24, noch nicht gebaut. Anlass: Aufgaben, die zu keinem Milestone passen, landeten bisher in irgendeinem Milestone; einen allgemeinen Milestone nachträglich ins Release zu ziehen fühlte sich falsch an. Die Tasker-Seite (Datenmodell, Regeln) plant der Nutzer mit der Tasker-Sitzung; was hier steht, ist die Godot-Seite und was sie von Tasker braucht.
+Geplant mit dem Nutzer am 2026-10-24, Schritt 1 am selben Tag gebaut (siehe „Gebaut“). Anlass: Aufgaben, die zu keinem Milestone passen, landeten bisher in irgendeinem Milestone; einen allgemeinen Milestone nachträglich ins Release zu ziehen fühlte sich falsch an. Die Tasker-Seite (Datenmodell, Regeln) plant der Nutzer mit der Tasker-Sitzung; was hier steht, ist die Godot-Seite und was sie von Tasker braucht.
 
 ### Festgelegt
 
@@ -637,16 +637,31 @@ Geplant mit dem Nutzer am 2026-10-24, noch nicht gebaut. Anlass: Aufgaben, die z
 - **Nur Nebenquests** bauen vorerst Geräte; Aufgaben in Milestones behalten Soldaten und Bisse. Mehr Spiel für Milestones ist erwünscht, aber später.
 - **Verworfen:** ein Nebenquest-Milestone ohne Release (Zweckentfremdung); ein eingebauter „Lager“-Milestone je Release; das Kopfgeldbrett; ein Lager mit Quest-NPCs (erst gewählt, dann durch die Stellungen ersetzt); die Liste auf der Weltkarte statt im Planen; Katapulte; ein Lager, das mit dem Gold wächst (verlangt endlos neue Grafiken).
 
-### Was Tasker liefern müsste
+### Was Tasker liefert (endgültige Form, mit der Tasker-Sitzung abgestimmt)
 
-- Im Bootstrap: welche Aufgaben in den Nebenquests liegen (Gruppe oder Kennung), `releasedIn` an jeder Aufgabe.
-- Stempeln beim Wechsel auf „In Arbeit“ oder „Erledigt“, auch wenn der Wechsel aus dem Addon kommt (`PATCH kind/task` mit `status`); Entstempeln beim Zurückziehen und beim Veröffentlichen nach den Regeln oben.
-- „Bereit“, Fortschritt und Changelog des Releases nach den Regeln oben.
-- Ob das Ziehen auf die Festung eine eigene Route braucht oder ein `status`-PATCH genügt, entscheidet Tasker.
+- **Bootstrap:** `group.kind` (`'sidequest'` oder null; je Projekt genau eine Nebenquest-Gruppe, vom Server angelegt, umbenennbar, nicht löschbar), `task.releasedIn` (nur lesen, setzt allein der Server), `release.archivedBonus` (erledigte Bonus-Blätter, die nicht mehr im aktiven Bestand sind).
+- **Stempeln** im normalen Status-PATCH, ohne neue Route und ohne neues Token-Feld: `progress` oder `done` ohne Stempel bekommt das aktive Release, ungestempelte Vorfahren denselben; ohne aktives Release wird vorgemerkt und nachgestempelt. `open` oder `ready` nimmt den Stempel, solange das Release nicht veröffentlicht ist. In Release-Milestones wird nicht gestempelt – dort gilt das Release des Milestones (`taskRelease`). Der Bestand bleibt ungestempelt.
+- **Veröffentlichen** (letzter Kanal abgehakt): Erledigtes behält den Stempel; nicht Erledigtes außerhalb von Release-Milestones verliert ihn, Blätter gehen auf „Bereit“, lose Wurzeln ans Ende der Nebenquest-Gruppe; erledigte Kinder bleiben beim alten Release.
+- **Aktives Release** (`pickActiveRelease`): unter den nicht archivierten, nicht veröffentlichten nach `order`, bei Gleichstand nach ID, das erste mit laufendem Milestone, sonst das erste überhaupt – auch ohne Milestones. Vorher nahm das Addon nur Releases mit Milestones.
+- **Status des Releases:** „bereit“ hängt weiter nur an den Milestones (ohne Milestones nie bereit); „in Arbeit“ auch, sobald etwas gestempelt ist oder `archivedBonus` > 0.
+- **Changelog** (`GET /api/changelog/<id>`): dazu alle Aufgaben mit diesem Stempel außerhalb von Release-Milestones, auch archivierte.
+- **Events:** ändert ein PATCH Stempel anderer Aufgaben, kommt `reload` statt eines Upserts.
+
+### Gebaut (Schritt 1, 2026-10-24)
+
+- `rules/release.gd` folgt Taskers neuer `shared/release.ts`: `active` (wie `pickActiveRelease`), `status` mit Stempel und `archivedBonus`, neu `task_release`, `is_bonus`, `bonus` (nur Blätter), `archived_bonus`, `sidequests` (die Gruppe).
+- `rules/sidequest.gd`: Größe, Gerät (`SMALL` 3, `LARGE` 12), Schritte, Baustand (`built`), die Stellungen des Releases (oberste gestempelte Bonus-Aufgabe; Unteraufgaben als Geräte, früher Erledigtes mit Release), die Reserve, `deploy` (in Arbeit; beim Stapel die erste bereite Unteraufgabe, den Stapel stellt Tasker nach) und `withdraw` (zurück auf „Bereit“, nur ohne Erledigtes).
+- `ui/emplacement.gd`: die Geräte von oben gezeichnet, mit ihren Bauteilen – Mörser 5, Raketenwerfer 8, Jet 6, Wall und Bahn je 4.
+- Feldzugskarte: Stellungen auf einer Bahn zwischen Festung und innerstem Ring, in den Lücken zwischen den Straßen; fertige feuern Granaten, erledigte Jets fliegen Angriffe. Goldener Bonusbogen um den Boss-Ring, „+N Bonus“. Ein Klick oder Hineinzoomen öffnet die Stellung (Nutzer, 2026-10-24 – erst Doppelklick, das war ihm zu umständlich), Rechtsklick öffnet die Aufgabe.
+- `ui/position_view.gd`: der Zoom – eine Baustelle: Erde in der Mitte, Trampelpfade zu den Stationen. Kästchen als Stationen mit Sandsackstapel, ein Arbeiter trägt Säcke zum Gerät; abgehakt ist der Stapel weg und der Arbeiter sitzt (Nutzer, 2026-10-24 – Figuren auf einem gestrichelten Ring sahen aus wie Stecknadeln). Klick hakt ab, per PATCH `desc`, Unteraufgaben als Geräte (Klick tappt, Doppelklick öffnet), Rechtsklick „Erledigen“; zurück mit Mausrad, Escape oder dem Release-Knopf.
+- `ui/sidequest_plan.gd`: Planen auf Release-Ebene – im Lageplan über den Release-Knopf erreichbar. Reserve der Nebenquests mit dem Gerät, das daraus würde; Zeile auf die Festung ziehen, Stellung zurück auf die Reserve.
+- Release-Fenster: Abschnitt „Bonus“.
+- Beispieldaten mit Release und Nebenquests; ohne Verbindung stempelt das Beispiel wie der Server.
+- Geprüft per Bildprobe mit den Beispieldaten (Baustufen, Karte, Zoom, Planen, Ziehen und Zurückziehen ohne Maus) und mit Tests. Nicht geprüft: Ziehen mit der Maus, gegen den echten Server (Tasker ist noch nicht deployt), im Editor selbst.
 
 ### Schritte
 
-1. **Nebenquests nutzbar machen:** Reserve im Planen auf Release-Ebene, Ziehen auf die Festung und zurück, Stellungen auf der Weltkarte mit Ausbau nach Checkliste, Zoom, Bonus an der Festung, Release-Fenster mit Bonus-Abschnitt. Erst, wenn Tasker gebaut und deployt hat.
+1. ~~**Nebenquests nutzbar machen**~~ – gebaut, siehe oben.
 2. **Numbers go up:** Gold je erledigter Aufgabe nach Priorität (z. B. hoch 300, mittel 200, niedrig 100, keine 50), Nebenquests mit Kopfgeld-Aufschlag. Wofür, ist offen; ohne neue Grafiken denkbar sind Beute je Release (im Release-Fenster, „Rekord“) und Rekorde wie bestes Release und beste Woche, wie die Ablage sie fürs Wochenziel kennt. Gold für alle erledigten Aufgaben aller Zeiten bräuchte eine Summe von Tasker, weil das Addon archivierte Aufgaben nicht einzeln sieht.
 
 ### Später, als Idee notiert

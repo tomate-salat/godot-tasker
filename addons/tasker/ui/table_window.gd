@@ -7,6 +7,10 @@ extends "card_window.gd"
 ## (`campaign_view.gd`) – und die Planung (`plan_view.gd`). Die Kopfzeile
 ## zeigt, was gerade zu sehen ist, dazu Wochenziel und Serie.
 ##
+## Auf der Feldzugskarte stehen um die Festung die Stellungen der Nebenquests;
+## ein Klick oder Hineinzoomen öffnet eine (`position_view.gd`). Geplant werden
+## sie im Planen auf der Ebene des Releases (`sidequest_plan.gd`).
+##
 ## Den Spieltisch mit Hand und Nachziehstapel, den es hier früher gab, hat das
 ## Feld abgelöst (Nutzer, 2026-10-12).
 
@@ -29,6 +33,10 @@ const FieldView := preload("field_view.gd")
 const CampaignView := preload("campaign_view.gd")
 const Release := preload("../rules/release.gd")
 const DepGraphView := preload("dep_graph_view.gd")
+const PositionView := preload("position_view.gd")
+const SidequestPlan := preload("sidequest_plan.gd")
+const Checklist := preload("../rules/checklist.gd")
+const Sidequest := preload("../rules/sidequest.gd")
 
 const MARGIN := 28.0
 ## So breit ist der Umschalter „Feld / Planen“ links oben.
@@ -87,6 +95,13 @@ var _mode_plan: Button
 var lage := false: set = set_lage
 var _plan_map: PlanMap
 var _field: FieldView
+## Hineingezoomt in eine Stellung der Nebenquests: die Aufgabe, sonst leer.
+var _zoomed := ""
+var _post_view: PositionView
+var _quest_plan: SidequestPlan
+## Meldungen auf Karte und Stellung – Feld und Lageplan haben ihre eigenen.
+var _toast: Label
+var _toast_tween: Tween
 
 
 func _init() -> void:
@@ -151,11 +166,15 @@ func _build() -> void:
 		chip.content_margin_bottom = 3
 		_release_chip.add_theme_stylebox_override(state, chip)
 	_release_chip.pressed.connect(func() -> void:
+		# Aus einer Stellung geht es zurück auf die Karte.
+		if _zoomed != "":
+			_leave_zoom()
+			return
 		# Auf der Karte führt der Knopf weiter ins Fenster des Releases.
-		if not lage and _on_map() and store != null and store.state == "ready":
+		if _on_map() and store != null and store.state == "ready":
 			task_requested.emit(_release["id"])
 			return
-		lage = false
+		# Im Lageplan führt er auf die Karte als Lageplan – dort werden die Nebenquests geplant.
 		_set_map(true))
 	bar.add_child(_release_chip)
 	# Der Milestone selbst: ein Klick öffnet sein Fenster.
@@ -163,6 +182,10 @@ func _build() -> void:
 	_title.flat = true
 	_title.focus_mode = Control.FOCUS_NONE
 	_title.pressed.connect(func() -> void:
+		if _zoomed != "" and not lage:
+			if store != null and store.state == "ready":
+				task_requested.emit(_zoomed)
+			return
 		var head: Variant = _shown if _shown != null else _milestone
 		if head != null and store != null and store.state == "ready":
 			task_requested.emit(head["id"]))
@@ -246,8 +269,54 @@ func _build() -> void:
 	_campaign.release_requested.connect(func(id: String) -> void:
 		if store != null and store.state == "ready":
 			task_requested.emit(id))
+	_campaign.task_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	_campaign.position_chosen.connect(func(id: String) -> void:
+		_zoomed = id
+		_show_mode()
+		_sync())
 	add_child(_campaign)
 	move_child(_campaign, bar.get_index())
+	# Hineingezoomt in eine Stellung – an derselben Stelle.
+	_post_view = PositionView.new()
+	_post_view.visible = false
+	_post_view.task_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	_post_view.change_requested.connect(_post_change)
+	_post_view.box_toggled.connect(_toggle_box)
+	_post_view.refused.connect(_refuse)
+	_post_view.left.connect(_leave_zoom)
+	add_child(_post_view)
+	move_child(_post_view, bar.get_index())
+	# Planen auf der Ebene des Releases: die Nebenquests.
+	_quest_plan = SidequestPlan.new()
+	_quest_plan.visible = false
+	_quest_plan.task_requested.connect(func(id: String) -> void:
+		if store != null and store.state == "ready":
+			task_requested.emit(id))
+	_quest_plan.changes_requested.connect(_apply_changes)
+	_quest_plan.refused.connect(_refuse)
+	_quest_plan.milestone_chosen.connect(func(id: String) -> void:
+		_chosen = id
+		_map = false
+		_show_mode()
+		_sync())
+	add_child(_quest_plan)
+	move_child(_quest_plan, bar.get_index())
+	_toast = Label.new()
+	_toast.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_toast.offset_top = -78
+	_toast.offset_bottom = -48
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast.add_theme_color_override("font_outline_color", Color.BLACK)
+	_toast.add_theme_constant_override("outline_size", 6)
+	_toast.add_theme_font_size_override("font_size", 16)
+	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast.modulate.a = 0.0
+	_toast.z_index = 600
+	add_child(_toast)
 	# Über dem Feld bleibt oben ein Streifen in voller Breite, an dem man das
 	# Fenster greift – das Feld selbst nimmt sonst jeden Klick für sich.
 	var header := Control.new()
@@ -389,6 +458,7 @@ func _set_map(value: bool) -> void:
 		return
 	_map = value
 	_map_decided = true
+	_zoomed = ""
 	_shelf = false
 	_graph.close()
 	_show_mode()
@@ -400,11 +470,13 @@ func _on_map() -> bool:
 
 
 func _show_mode() -> void:
-	_plan_map.visible = lage
+	_plan_map.visible = lage and not _on_map()
+	_quest_plan.visible = lage and _on_map()
 	# Im Lageplan beginnt die Kopfzeile erst über der Karte, nicht über der Reserve.
 	_bar.offset_left = maxf(MARGIN + MODES_WIDTH, PlanMap.RESERVE_WIDTH + 18.0) if lage else MARGIN + MODES_WIDTH
 	_field.visible = not lage and not _on_map()
-	_campaign.visible = not lage and _on_map()
+	_campaign.visible = not lage and _on_map() and _zoomed == ""
+	_post_view.visible = not lage and _on_map() and _zoomed != ""
 	_mode_field.set_pressed_no_signal(not lage)
 	_mode_plan.set_pressed_no_signal(lage)
 
@@ -453,12 +525,19 @@ func _sync() -> void:
 		var decks := Planning.decks(_ws, _project)
 		if decks.size() > 0:
 			_shown = decks[0]
+	# Eine Stellung, die es nicht mehr gibt – zurückgezogen, oder das Release ist durch –: zurück zur Karte.
+	if _zoomed != "" and not _post_view.show_position(_ws, _release, _zoomed):
+		_zoomed = ""
 	_show_mode()
 	if lage:
-		_plan_map.show_plan(_ws, _project, _shown, images if not demo else null)
+		if _on_map():
+			_quest_plan.show_plan(_ws, _project, _release, images if not demo else null)
+		else:
+			_plan_map.show_plan(_ws, _project, _shown, images if not demo else null)
 	else:
 		if _on_map():
-			_campaign.show_campaign(_ws, _release)
+			if _zoomed == "":
+				_campaign.show_campaign(_ws, _release)
 		else:
 			_field.show_field(_ws, _shown, images if not demo else null)
 
@@ -504,7 +583,7 @@ func _show_head(demo: bool) -> void:
 	# Lageplan steht das Release des Milestones, der gerade geplant wird – zur
 	# Karte führt es nur, wenn es das laufende ist.
 	var named: Variant = _release
-	if lage:
+	if lage and not _on_map():
 		named = _ws.release_of(_shown) if _shown != null else null
 	_release_chip.visible = named != null
 	if named != null:
@@ -512,6 +591,24 @@ func _show_head(demo: bool) -> void:
 		_release_chip.disabled = _release == null or named["id"] != _release["id"]
 		_release_chip.tooltip_text = "Das Release dieses Milestones" if _release_chip.disabled else "Das Release in seinem Fenster zeigen" if not lage and _on_map() else "Die Feldzugskarte: alle Milestones dieses Releases"
 	_start.visible = false
+	if lage and _on_map():
+		_release_chip.disabled = true
+		_release_chip.tooltip_text = "Das laufende Release – Nebenquests hineinziehen"
+		_title.visible = true
+		_title.text = "Nebenquests planen"
+		_progress.visible = false
+		_count.text = ""
+		return
+	if not lage and _zoomed != "":
+		var task = _ws.task(_zoomed)
+		var steps := Sidequest.steps(_ws, task) if task != null else {"total": 0, "done": 0}
+		_release_chip.tooltip_text = "Zurück auf die Feldzugskarte"
+		_title.visible = true
+		_title.text = "›  %s" % (task["title"] if task != null and task.get("title") else "Ohne Titel")
+		_progress.visible = steps["total"] > 0
+		_progress.value = 100.0 * steps["done"] / maxf(steps["total"], 1.0)
+		_count.text = "%d/%d" % [steps["done"], steps["total"]] if steps["total"] > 0 else ""
+		return
 	if not lage and _on_map():
 		_title.visible = false
 		var boss: Dictionary = _campaign._campaign.get("boss", {"total": 0, "done": 0})
@@ -639,6 +736,18 @@ func _change_demo(id: String, changes: Dictionary) -> void:
 	changed.merge(changes, true)
 	if changes.has("status"):
 		changed["doneAt"] = Time.get_datetime_string_from_system(true) + ".000Z" if changes["status"] == "done" else null
+		# Wie am Server: außerhalb von Release-Milestones stempelt „In Arbeit“
+		# oder „Erledigt“ das aktive Release, samt Vorfahren; „Bereit“ nimmt den Stempel.
+		var ms = _ws.milestone_of(changed)
+		if ms == null or _ws.release_of(ms) == null:
+			var active = Release.active(_ws, _project)
+			if (changes["status"] == "progress" or changes["status"] == "done") and active != null and not changed.get("releasedIn"):
+				var up: Variant = changed
+				while up != null and not up.get("releasedIn"):
+					up["releasedIn"] = active["id"]
+					up = by_id.get(up.get("parentId"))
+			elif changes["status"] == "ready" or changes["status"] == "open":
+				changed["releasedIn"] = null
 		# Wie am Server: der Status der Eltern-Aufgaben zieht nach, Stufe um Stufe.
 		var child: Dictionary = changed
 		while child.get("parentId") and by_id.has(child["parentId"]):
@@ -664,10 +773,60 @@ func _refuse(text: String) -> void:
 
 
 func _say(text: String, color := Palette.P2) -> void:
-	if lage:
+	if _on_map():
+		_toast.add_theme_color_override("font_color", color)
+		_toast.text = text
+		if _toast_tween != null and _toast_tween.is_valid():
+			_toast_tween.kill()
+		_toast.modulate.a = 1.0
+		_toast_tween = _toast.create_tween()
+		_toast_tween.tween_interval(2.6)
+		_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.5)
+	elif lage:
 		_plan_map.say(text, color)
 	else:
 		_field.say(text, color)
+
+
+# ----------------------------------------------------------- Nebenquests
+
+## Aus der Stellung zurück auf die Feldzugskarte.
+func _leave_zoom() -> void:
+	_zoomed = ""
+	_campaign.reset_view()
+	_show_mode()
+	_sync()
+
+
+## Ein Zug in einer Stellung: eine Unteraufgabe tappen, zurücknehmen, erledigen.
+func _post_change(id: String, changes: Dictionary) -> void:
+	_sounds.play("play" if changes.get("status") == "progress" else "draw" if changes.get("status") == "ready" else "done")
+	await _change(id, changes)
+	_sync()
+
+
+## Ein Kästchen der Aufgabe abgehakt oder wieder aufgemacht: das Gerät wächst.
+func _toggle_box(id: String, index: int) -> void:
+	var task = _ws.task(id)
+	if task == null:
+		return
+	var before: Array = Sidequest.boxes(task)
+	if index < 0 or index >= before.size():
+		return
+	_sounds.play("draw" if before[index]["done"] else "play")
+	await _change(id, {"desc": Checklist.toggle_item(str(task.get("desc", "")), index)})
+	_sync()
+
+
+## Was das Ziehen im Planen der Nebenquests auslöst: Statusänderungen, eine nach der anderen.
+func _apply_changes(changes: Dictionary, message: String) -> void:
+	_sounds.play("play")
+	var ok := true
+	for id in changes:
+		ok = await _change(id, changes[id]) and ok
+	_sync()
+	if ok:
+		_say(message, Palette.OK)
 
 
 ## Eine Änderung aus dem Lageplan an einer Aufgabe – etwa worauf sie wartet.

@@ -40,9 +40,15 @@ Alle Bilder stammen aus den Beispieldaten des Addons.
   - **Feld:** der laufende Milestone als Stadt. Was eine Aufgabe noch braucht, sitzt als Gegner
     auf ihr; ein Klick nimmt sie in Arbeit und schickt Truppen los, ein Doppelklick öffnet sie. Dazu Wochenziel, Serie
     und eine Ablage, was in welcher Woche erledigt wurde.
-  - **Feldzugskarte:** alle Milestones eines Releases auf einen Blick.
-  - **Planen:** Aufgaben aus Bereitschaft und Backlog auf die Milestones verteilen.
-- **Milestone- und Release-Fenster** mit Fortschritt, Burnup und Prognose.
+  - **Feldzugskarte:** alle Milestones eines Releases auf einen Blick. Um die Festung stehen die
+    Nebenquests als Stellungen – Mörser, Raketenwerfer, Feuerstellung oder Flugplatz, je nach
+    Größe –, die mit der Checkliste aufgebaut werden und feuern, sobald die Aufgabe erledigt ist.
+    Ein Klick (oder Hineinzoomen) öffnet eine; dort werden Kästchen abgehakt und Unteraufgaben in Arbeit genommen.
+  - **Planen:** Aufgaben aus Bereitschaft und Backlog auf die Milestones verteilen. Auf der Ebene
+    des Releases die Nebenquests auf die Festung ziehen – sie zählen als Bonus, nicht dafür, dass
+    das Release bereit ist.
+- **Milestone- und Release-Fenster** mit Fortschritt, Burnup und Prognose; das Release-Fenster
+  zeigt auch den Bonus.
 - **Karten in Szenen:** Aufgaben lassen sich an Nodes hängen und erscheinen im Viewport an ihnen –
   auch an jeder Instanz eines Prefabs, an dem sie hängen.
 - **Schnellanlegen mit Claude** (Strg+Alt+N, „+“ im Dock, Kontextmenü im Szenenbaum): eine

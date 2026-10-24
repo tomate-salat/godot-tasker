@@ -1,8 +1,9 @@
 @tool
 extends "card_window.gd"
 ## Ein Release in einem eigenen Fenster: Stand, Fortschritt, die Kanäle, auf
-## denen es veröffentlicht wird, die Einleitung fürs Changelog und seine
-## Milestones.
+## denen es veröffentlicht wird, die Einleitung fürs Changelog, seine
+## Milestones und der Bonus: Nebenquests und andere lose Aufgaben, die mit ihm
+## rausgehen, aber nicht dafür zählen, dass es bereit ist.
 ##
 ## Alles ist Anzeige – Releases liest das Addon nur (`rules/release.gd`).
 
@@ -37,6 +38,8 @@ var _stages: VBoxContainer
 var _desc: Description
 var _milestones_head: Label
 var _milestones: VBoxContainer
+var _bonus_head: Label
+var _bonus: VBoxContainer
 
 
 func _init() -> void:
@@ -111,6 +114,22 @@ func refresh() -> void:
 		none.add_theme_color_override("font_color", Palette.MUTED)
 		_milestones.add_child(none)
 
+	for c in _bonus.get_children():
+		c.queue_free()
+	var bonus := Release.bonus(ws, r)
+	var gone := Release.archived_bonus(r)
+	var all: int = bonus["done"] + bonus["open"] + gone
+	_bonus_head.text = "Bonus · %d/%d erledigt" % [bonus["done"] + gone, all] if all > 0 else "Bonus · keiner"
+	_bonus_head.tooltip_text = "Gestempelte Aufgaben außerhalb der Milestones des Releases – etwa Nebenquests. Sie gehen mit raus, zählen aber nicht dafür, dass es bereit ist."
+	var shown: Array = bonus["tasks"].filter(func(t: Dictionary) -> bool: return not t.get("parentId") or not bonus["tasks"].any(func(p: Dictionary) -> bool: return p["id"] == t["parentId"]))
+	for t in shown:
+		_bonus.add_child(_bonus_row(t))
+	if gone > 0:
+		var note := Label.new()
+		note.text = "dazu %d erledigte, inzwischen archiviert" % gone
+		note.add_theme_color_override("font_color", Palette.MUTED)
+		_bonus.add_child(note)
+
 
 func _stage_row(s: Dictionary) -> Control:
 	var row := HBoxContainer.new()
@@ -159,6 +178,31 @@ func _milestone_row(m: Dictionary, r: Dictionary) -> Control:
 	count.text = "%d/%d" % [stats["done"], stats["total"]]
 	count.add_theme_color_override("font_color", Palette.MUTED)
 	row.add_child(count)
+	return row
+
+
+## Eine Bonus-Aufgabe: ein Klick öffnet sie.
+func _bonus_row(t: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	var open := Button.new()
+	open.flat = true
+	open.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	open.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	open.clip_text = true
+	open.icon = Palette.status_icon(t.get("status"))
+	open.text = t["title"] if t.get("title") else "Ohne Titel"
+	open.tooltip_text = "Aufgabe öffnen"
+	if Model.is_done(t):
+		open.add_theme_color_override("font_color", Palette.FAINT)
+	open.pressed.connect(func() -> void: task_requested.emit(t["id"]))
+	row.add_child(open)
+	var kids := store.ws.kids(t["id"])
+	if kids.size() > 0:
+		var count := Label.new()
+		count.text = "%d/%d" % [kids.filter(Model.is_done).size(), kids.size()]
+		count.add_theme_color_override("font_color", Palette.MUTED)
+		row.add_child(count)
 	return row
 
 
@@ -275,6 +319,14 @@ func _build() -> void:
 	_milestones = VBoxContainer.new()
 	_milestones.add_theme_constant_override("separation", 0)
 	box.add_child(_milestones)
+
+	box.add_child(HSeparator.new())
+	_bonus_head = _heading("Bonus")
+	_bonus_head.mouse_filter = Control.MOUSE_FILTER_PASS
+	box.add_child(_bonus_head)
+	_bonus = VBoxContainer.new()
+	_bonus.add_theme_constant_override("separation", 0)
+	box.add_child(_bonus)
 
 	box.add_child(HSeparator.new())
 	_stages_head = _heading("Kanäle")
